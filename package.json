@@ -13,7 +13,8 @@
     "e2e": "node tools/e2e.cjs",
     "test:all": "vitest run && node tools/e2e.cjs",
     "e2e:human": "node tools/e2e-human.cjs",
-    "dev:phone": "node tools/lan.mjs"
+    "dev:phone": "node tools/lan.mjs",
+    "e2e:mobile": "node tools/e2e-mobile.cjs"
   },
   "dependencies": {
     "phaser": "3.90.0"

@@ -9,6 +9,7 @@ import { emotionIcon } from '../sim/world';
 import type { SimChar } from '../sim/simchar';
 import { iconCanvas } from '../art/core';
 import { HumanUi, HUMAN_CSS } from './human';
+import { MobileUi } from './mobile';
 import { relationLabelToPlayer } from '../sim/interact';
 
 const CSS = `
@@ -48,7 +49,7 @@ const needCol = (v: number) => (v > 60 ? '#73cc8c' : v > 30 ? '#f2c761' : '#eb61
 const moodCol = (m: number) => (m > 20 ? '#73d18c' : m > -20 ? '#f2cc66' : '#eb6666');
 
 export class Hud {
-  root = document.getElementById('ui')!; el: Record<string, HTMLElement> = {}; human!: HumanUi; modeBtn!: HTMLElement; powerMode = ''; powerFirst = -1; acc = 0; toastT = 0; helpT = 14; selected = -1; feed: { t: number; text: string; kind: string }[] = [];
+  root = document.getElementById('ui')!; el: Record<string, HTMLElement> = {}; human!: HumanUi; mobile!: MobileUi; modeBtn!: HTMLElement; powerMode = ''; powerFirst = -1; acc = 0; toastT = 0; helpT = 14; selected = -1; feed: { t: number; text: string; kind: string }[] = [];
   constructor(public g: GameScene) {
     const st = document.createElement('style'); st.textContent = CSS + HUMAN_CSS; document.head.appendChild(st);
     this.root.innerHTML = `
@@ -74,11 +75,11 @@ export class Hud {
     for (const [id, d] of Object.entries(God.POWERS)) { const b = document.createElement('button'); b.className = 'btn'; b.style.flex = '1'; b.textContent = `${d.key} ${d.label} (${d.cost})`; b.title = d.desc; b.dataset.id = id; b.onclick = () => this.pickPower(id); this.el.pw.appendChild(b); }
     this.el.go.onclick = () => { this.el.help.style.display = 'none'; this.helpT = 1e9; };
     if (g.params.has('nohelp')) this.el.help.style.display = 'none';
-    this.buildPortraits(); this.human = new HumanUi(g, this.root); this.rebind(); this.onSpeed(g.speedIndex);
+    this.buildPortraits(); this.human = new HumanUi(g, this.root); this.mobile = new MobileUi(g, this); if (this.mobile.active) { this.el.help.style.display = 'none'; this.helpT = 1e9; this.toast('Croix : caméra · A : choisir · B : pouvoirs · Menu : le reste'); } this.rebind(); this.onSpeed(g.speedIndex);
     document.addEventListener('pointerdown', (e) => { if (!(e.target as HTMLElement).closest('#menu')) this.el.menu.style.display = 'none'; });
   }
   get w() { return this.g.world; }
-  onMode(m: 'god' | 'human') { this.root.classList.toggle('human', m === 'human'); this.modeBtn.textContent = m === 'human' ? 'Redevenir dieu (G)' : 'Descendre (G)'; this.modeBtn.classList.toggle('on', m === 'human'); }
+  onMode(m: 'god' | 'human') { this.mobile?.updateLabels(); if (m === 'human') this.mobile?.onSelect(-1); this.root.classList.toggle('human', m === 'human'); this.modeBtn.textContent = m === 'human' ? 'Redevenir dieu (G)' : 'Descendre (G)'; this.modeBtn.classList.toggle('on', m === 'human'); }
   openDialogue(n: SimChar) { this.human.openDialogue(n); } closeDialogue() { this.human.close(); } dialogueOpen() { return this.human.dialogueOpen(); } pickDialogue(i: number) { this.human.pickDialogue(i); }
   contextOpen() { return this.human.contextOpen(); } showContext(l: any) { this.human.showContext(l); } hideContext() { this.human.hideContext(); } pickContext(i: number) { this.human.pickContext(i); }
   toggleInventory() { this.human.toggleInventory(); } flash(k: 'descend' | 'ascend') { this.human.flash(k); } cancelPower() { this.powerMode = ''; this.powerFirst = -1; }
@@ -101,7 +102,7 @@ export class Hud {
   toast(msg: string) { this.el.toast.textContent = msg; this.el.toast.style.opacity = '1'; this.toastT = 2.6; }
   onSpeed(i: number) { [...this.el.speeds.children].slice(0, 4).forEach((b, k) => b.classList.toggle('on', k === i)); }
   onSelect(id: number) {
-    this.selected = id; this.el.charp.style.display = id >= 0 ? 'block' : 'none';
+    this.selected = id; this.el.charp.style.display = id >= 0 && !this.mobile?.active ? 'block' : 'none'; this.mobile?.onSelect(id);
     [...this.el.portraits.children].forEach((b, k) => b.classList.toggle('sel', k === id)); this.acc = 1;
   }
   pickPower(id: string) {
@@ -112,7 +113,7 @@ export class Hud {
     this.syncPowers();
   }
   escape() { if (this.powerMode) { this.powerMode = ''; this.powerFirst = -1; this.syncPowers(); } else if (this.el.help.style.display !== 'none') this.el.help.style.display = 'none'; else this.g.selectChar(-1); this.el.menu.style.display = 'none'; }
-  toggleHelp() { this.el.help.style.display = this.el.help.style.display === 'none' ? 'block' : 'none'; this.helpT = 1e9; }
+  toggleHelp() { if (this.mobile?.active) { this.mobile.sheet === 'Aide' ? this.mobile.closeSheet() : this.mobile.openHelp(); return; } this.el.help.style.display = this.el.help.style.display === 'none' ? 'block' : 'none'; this.helpT = 1e9; }
   toggleFps() { this.el.fps.style.display = this.el.fps.style.display === 'block' ? 'none' : 'block'; }
   syncPowers() {
     [...this.el.pw.children].forEach((b) => { const el = b as HTMLButtonElement; const id = el.dataset.id!; el.classList.toggle('on', this.powerMode === id); el.disabled = !God.canAfford(this.w, id) && this.powerMode !== id; });
@@ -136,7 +137,7 @@ export class Hud {
     this.syncPowers();
   }
   update(dt: number) {
-    this.human.update(dt); this.el.pause.style.display = this.g.speedIndex === 0 && !this.human.dialogueOpen() ? 'block' : 'none';
+    this.human.update(dt); this.mobile.update(dt); this.el.pause.style.display = this.g.speedIndex === 0 && !this.human.dialogueOpen() ? 'block' : 'none';
     this.acc += dt;
     if (this.toastT > 0) { this.toastT -= dt; if (this.toastT < 0.5) this.el.toast.style.opacity = String(Math.max(0, this.toastT * 2)); }
     if (this.helpT < 1e8) { this.helpT -= dt; if (this.helpT < 0) { this.el.help.style.display = 'none'; this.helpT = 1e9; } }

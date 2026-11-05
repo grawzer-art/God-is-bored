@@ -96,7 +96,7 @@ export class HumanUi {
     const w = this.w; const av = w.avatar; const cv = this.g.chars[av.id];
     const b = buildingAt(av.cell().x, av.cell().y)?.name ?? ''; if (b !== this.building) { this.building = b; if (b === 'bar') this.g.hud.toast(`Le Cinquième Ciel — ${w.barOpen() ? 'ouvert, il y a de la musique' : 'fermé pour le moment'}`); else if (b === 'house') this.g.hud.toast('La maison des colocataires'); }
     const list = this.open || av.state !== 'idle' ? [] : I.nearby(w, av); const p = this.el.prompt;
-    if (list.length) { const s = this.g.worldToScreen(cv.x, cv.y - 56); p.style.left = s.x + 'px'; p.style.top = s.y + 'px'; p.innerHTML = `<kbd>E</kbd>${esc(list[0].label)}${list.length > 1 ? ` <span class="dim">(+${list.length - 1})</span>` : ''}`; p.style.display = 'block'; } else p.style.display = 'none';
+    if (list.length) { const s = this.g.worldToScreen(cv.x, cv.y - 56); p.style.left = s.x + 'px'; p.style.top = s.y + 'px'; p.innerHTML = `<kbd>${this.g.hud.mobile?.active ? 'A' : 'E'}</kbd>${esc(list[0].label)}${list.length > 1 ? ` <span class="dim">(+${list.length - 1})</span>` : ''}`; p.style.display = 'block'; } else p.style.display = 'none';
     this.hudAcc += dt; if (this.hudAcc < 0.25) return; this.hudAcc = 0;
     const bar = (v: number, col: string) => `<div class="bar"><i style="width:${v}%;background:${col}"></i></div>`; const col = (v: number) => (v > 60 ? '#73cc8c' : v > 30 ? '#f2c761' : '#eb6161');
     const items = Object.entries(av.inventory).filter(([, n]) => n > 0);

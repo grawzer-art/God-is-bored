@@ -28,7 +28,7 @@ export class GameScene extends Phaser.Scene {
   floorSprite!: Phaser.GameObjects.Image; sunSprite!: Phaser.GameObjects.Image;
   mode: 'god' | 'human' = 'god'; wallMode = 1; speedIndex = 1; selectedId = -1; hoverId = -1; follow = false; autosave = 0; fxT = 0;
   tx = 0; ty = 0; tz = 1; cx = 0; cy = 0; cz = 1; minZoom = 0.35; maxZoom = 3.5; bounds = { x: 0, y: 0, w: 0, h: 0 };
-  keys = new Set<string>(); params = new URLSearchParams(location.search);
+  keys = new Set<string>(); runLatch = false; params = new URLSearchParams(location.search);
   private pan = { down: false, moved: false, sx: 0, sy: 0, button: 0, t: 0 }; private pinch = 0; private lastClick = { t: 0, id: -1 };
 
   constructor() { super('game'); }
@@ -178,7 +178,7 @@ export class GameScene extends Phaser.Scene {
   houseRect() { const tl = toScreen(0, 19), tr = toScreen(29, 0), br = toScreen(29, 19); return { x: tl.x - 40, y: -WALL_FULL - 30, w: tr.x - tl.x + 80, h: br.y + WALL_FULL + 70 }; }
   fitCamera() {
     const r = this.houseRect(); const m = this.mapRect(); this.bounds = { x: m.x - 200, y: m.y - 200, w: m.w + 400, h: m.h + 400 };
-    const small = this.scale.height < 520; const z = Math.min(this.scale.width / r.w, (this.scale.height - (small ? 40 : 120)) / r.h); this.tz = this.cz = Math.max(this.minZoom, Math.min(this.maxZoom, z));
+    const small = this.scale.height < 520; const mob = this.hud?.mobile?.active; const z = mob ? Math.min(this.scale.width / r.w, this.scale.height / r.h) * 1.06 : Math.min(this.scale.width / r.w, (this.scale.height - (small ? 40 : 120)) / r.h); this.tz = this.cz = Math.max(this.minZoom, Math.min(this.maxZoom, z));
     this.tx = this.cx = r.x + r.w / 2; this.ty = this.cy = r.y + r.h / 2;
     this.cameras.main.setZoom(this.cz).centerOn(this.cx, this.cy);
   }
@@ -229,6 +229,7 @@ export class GameScene extends Phaser.Scene {
     switch (k) {
       case 'g': this.toggleMode(); break;
       case 'e': if (this.mode === 'human') this.interact(); break;
+      case 'enter': this.actionA(); break; case 'b': this.actionB(); break;
       case 'i': if (this.mode === 'human') this.hud.toggleInventory(); break;
       case ' ': if (!this.hud.dialogueOpen()) this.setSpeed(this.speedIndex === 0 ? 1 : 0); break;
       case '1': if (this.mode === 'god') this.hud.pickPower('bless'); break; case '2': if (this.mode === 'god') this.hud.pickPower('whisper'); break; case '3': if (this.mode === 'god') this.hud.pickPower('fate'); break; case '4': if (this.mode === 'god') this.hud.pickPower('feast'); break;
@@ -240,11 +241,40 @@ export class GameScene extends Phaser.Scene {
       case '[': this.setSpeed(this.speedIndex - 1); break; case ']': this.setSpeed(this.speedIndex + 1); break;
     }
   }
+  /** Touches virtuelles (croix directionnelle tactile) : mêmes effets que le clavier, appuis simultanés cumulés. */
+  setVirtualKey(k: string, down: boolean) { if (down) this.keys.add(k); else this.keys.delete(k); this.syncInput(); }
+  /** Bouton A : action principale. Humain : interagir. Dieu : choisir le personnage visé (puis fiche / pouvoir armé). */
+  actionA() {
+    if (this.hud.dialogueOpen()) return;
+    if (this.mode === 'human') { this.interact(); return; }
+    let id = this.selectedId;
+    if (id < 0 || !this.hud.powerMode) { const near = this.nearestToCenter(); if (near >= 0) { if (near === this.selectedId && !this.hud.powerMode) { this.hud.mobile.openFiche(); return; } id = near; } }
+    if (id < 0) { this.hud.toast('Rien à sélectionner ici'); return; }
+    if (this.hud.powerMode) { this.hud.onWorldClick(id, this.scale.width / 2, this.scale.height / 2); return; }
+    this.selectChar(id);
+  }
+  /** Bouton B : action secondaire. Humain : inventaire. Dieu : menu des pouvoirs (ou annule le pouvoir armé). */
+  actionB() {
+    if (this.hud.dialogueOpen()) { this.hud.closeDialogue(); return; }
+    if (this.mode === 'human') { this.hud.toggleInventory(); return; }
+    if (this.hud.powerMode) { this.hud.escape(); return; }
+    this.hud.mobile.active ? this.hud.mobile.openPowers() : this.hud.toast('Pouvoirs : touches 1 à 4');
+  }
+  actionAHold() {
+    if (this.mode === 'human') { const l = Act.nearby(this.world, this.world.avatar); if (l.length) this.hud.showContext(l); else this.hud.toast('Rien à faire ici'); return; }
+    if (this.selectedId >= 0) this.toggleFollow(); else this.hud.toast('Choisissez d\'abord un habitant (A)');
+  }
+  actionBHold() { if (this.mode === 'human') { this.runLatch = !this.runLatch; this.hud.toast(this.runLatch ? 'Course activée' : 'Course désactivée'); } else if (this.hud.mobile.lastPower) this.hud.pickPower(this.hud.mobile.lastPower); }
+  nearestToCenter(): number {
+    const cam = this.cameras.main; const cx = cam.worldView.centerX, cy = cam.worldView.centerY; let best = -1, bd = 1e9;
+    for (const cv of this.chars) { if (cv.sim.kind !== 'resident') continue; const d = Math.hypot(cv.x - cx, cv.y - 20 - cy) * cam.zoom; if (d < bd && d < 180) { bd = d; best = cv.sim.id; } }
+    return best;
+  }
   /** Entrées du mode humain lues à chaque événement clavier (réactif même si l'affichage ralentit). */
   syncInput() {
     if (this.mode !== 'human') return; const K = this.keys;
     const ix = (K.has('d') || K.has('arrowright') ? 1 : 0) - (K.has('a') || K.has('q') || K.has('arrowleft') ? 1 : 0); const iy = (K.has('s') || K.has('arrowdown') ? 1 : 0) - (K.has('w') || K.has('z') || K.has('arrowup') ? 1 : 0);
-    this.world.input = this.hud.dialogueOpen() ? { dx: 0, dy: 0, run: false } : { dx: ix, dy: iy, run: K.has('shift') };
+    this.world.input = this.hud.dialogueOpen() ? { dx: 0, dy: 0, run: false } : { dx: ix, dy: iy, run: K.has('shift') || this.runLatch };
   }
   charAt(wx: number, wy: number): number {
     let best = -1, bd = 1e9;
@@ -257,7 +287,7 @@ export class GameScene extends Phaser.Scene {
   descend(flash = true) {
     const w = this.world; this.mode = 'human'; w.avatarControlled = true; this.selectChar(-1); this.follow = false; this.hud.cancelPower();
     const av = w.avatar; if (av.away) av.away = false; this.hud.onMode('human'); if (flash) this.hud.flash('descend'); this.tz = Math.max(2.0, Math.min(this.tz, 2.4)); const cv = this.chars[av.id]; if (cv) { this.tx = cv.x; this.ty = cv.y - 20; }
-    this.hud.toast('Vous êtes descendu parmi eux — ZQSD pour marcher, E pour interagir');
+    this.hud.toast(this.hud.mobile?.active ? 'Croix : marcher · A : agir · B : inventaire' : 'Vous êtes descendu parmi eux — ZQSD pour marcher, E pour interagir');
   }
   ascend(flash = true) {
     const w = this.world; this.mode = 'god'; w.avatarControlled = false; w.input = { dx: 0, dy: 0, run: false }; this.hud.closeDialogue(); this.hud.onMode('god'); if (flash) this.hud.flash('ascend');
