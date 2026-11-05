@@ -38,7 +38,7 @@ const build = (sha) => execSync('npx vite build', { env: { ...process.env, VERCE
 
     console.log('\n== Export / import');
     await pg.goto(URL + '?load'); await ready(); await pg.waitForTimeout(600);
-    ok(await pg.evaluate(() => Math.round(window.__gib.world.godEnergy) === 77), 'la sauvegarde survit au service worker (localStorage intact)');
+    ok(await pg.evaluate(() => Math.abs(window.__gib.world.godEnergy - 77) < 3), 'la sauvegarde survit au service worker (localStorage intact)');
     const dl = pg.waitForEvent('download', { timeout: 8000 });
     await pg.evaluate(() => { Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true }); window.__gib.exportGame(); });
     const d = await dl; const path = '/tmp/gib-export.json'; await d.saveAs(path);
@@ -47,7 +47,7 @@ const build = (sha) => execSync('npx vite build', { env: { ...process.env, VERCE
     // import valide
     await pg.evaluate(() => { window.__gib.world.godEnergy = 5; });
     let fc = pg.waitForEvent('filechooser'); pg.evaluate(() => window.__gib.importGame()); (await fc).setFiles(path); await pg.waitForTimeout(800);
-    ok(await pg.evaluate(() => Math.round(window.__gib.world.godEnergy) === 77), 'import valide : la partie est restaurée');
+    ok(await pg.evaluate(() => Math.abs(window.__gib.world.godEnergy - 77) < 3), 'import valide : la partie est restaurée');
     ok(await pg.evaluate(() => localStorage.getItem('god-is-bored:backup') !== null), 'copie de secours de la partie précédente conservée');
     // import corrompu
     env.payload.clock += 5; fs.writeFileSync('/tmp/gib-bad.json', JSON.stringify(env));

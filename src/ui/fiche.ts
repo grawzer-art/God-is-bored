@@ -14,7 +14,7 @@ const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt
 const NEED_FR: Record<string, string> = { hunger: 'Faim', energy: 'Énergie', bladder: 'Vessie', hygiene: 'Hygiène', social: 'Social', fun: 'Loisirs' };
 const col = (v: number) => (v > 66 ? '#7ee0a0' : v > 33 ? '#fccd5c' : '#ff8a8a');
 const CSS = `
-#fiche{position:absolute;z-index:40;pointer-events:auto;display:none;flex-direction:column;overflow:hidden;right:calc(var(--sr,0px) + 8px);top:calc(var(--st,0px) + 8px);bottom:calc(var(--sb,0px) + 8px);width:min(430px,56vw)}
+#fiche{position:absolute;z-index:40;pointer-events:auto;display:none;flex-direction:column;overflow:hidden;right:calc(var(--sr,0px) + 8px);top:calc(var(--st,0px) + 8px);bottom:calc(var(--sb,0px) + 8px);width:min(430px,48vw)}
 #fiche .hd{display:flex;gap:10px;padding:10px 10px 6px;align-items:flex-start} #fiche .hd img.p{width:62px;height:74px;image-rendering:pixelated;object-fit:contain;background:rgba(0,0,0,.25);border-radius:10px}
 #fiche .hd h3{margin:0;font-size:18px;color:#fff} #fiche .x{margin-left:auto}
 #fiche .body{flex:1;overflow:auto;padding:4px 12px 10px;font-size:12.5px;line-height:1.45;-webkit-overflow-scrolling:touch}
@@ -35,8 +35,8 @@ export class FicheUi {
   private pressed = false;
   private watchPress() { this.el.addEventListener('pointerdown', () => (this.pressed = true)); const up = () => setTimeout(() => (this.pressed = false), 120); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up); }
   isOpen() { return this.id >= 0; }
-  open(id: number, tab: Tab = 'profil') { this.id = id; this.tab = tab; this.sub = ''; this.sig = ''; this.render(true); this.el.style.display = 'flex'; this.g.hud.root.classList.add('charp-open'); }
-  close() { this.id = -1; this.el.style.display = 'none'; this.g.hud.root.classList.remove('charp-open'); }
+  open(id: number, tab: Tab = 'profil') { this.id = id; this.tab = tab; this.sub = ''; this.sig = ''; this.render(true); this.el.style.display = 'flex'; this.g.hud.root.classList.add('fiche-open'); }
+  close() { this.id = -1; this.el.style.display = 'none'; this.g.hud.root.classList.remove('fiche-open'); }
   update(dt: number) { if (this.id < 0) return; this.acc += dt; if (this.acc < 0.6) return; this.acc = 0; if (this.pressed) return; this.render(false); }
   private home(c: SimChar) { if (c.kind === 'resident') return 'La maison des colocataires'; const b = c.home ? L.buildingAt(Math.floor(c.home.x), Math.floor(c.home.y)) : undefined; return b?.title ?? (c.kind === 'avatar' ? 'Sans domicile fixe' : '—'); }
   private rels(c: SimChar) {
