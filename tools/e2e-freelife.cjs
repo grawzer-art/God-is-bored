@@ -48,7 +48,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(bad === 0 && arrived, `le bar est contourné, aucun mur traversé, destination atteinte`);
 
   console.log('\n== 4. Du déplacement automatique au joystick');
-  await E(() => { window.__gib.tz = window.__gib.cz = 1.4; }); await place(4.5, 20.5); await settle(); const f = await cellXY(12.5, 21.5); await tapAt(f.x, f.y);
+  await E(() => { window.__gib.tz = window.__gib.cz = 1.4; }); await place(4.5, 20.5); await settle(); const f = await cellXY(8.5, 19.5); await tapAt(f.x, f.y);
   await sleep(500); ok((await pos()).st === 'walk', 'trajet automatique en cours');
   const jr2 = await rect('#dpad'); await touch('touchStart', [{ x: jr2.cx, y: jr2.cy, id: 1 }]); await touch('touchMove', [{ x: jr2.cx - 0.4 * jr2.w, y: jr2.cy, id: 1 }]); await sleep(120);
   const cancelled = await E(() => { const a = window.__gib.world.avatar; return { plan: a.plan.length, path: a.path.length, st: a.state }; }); await touch('touchEnd', []);
@@ -72,7 +72,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await settle();
   await E(() => { const w = window.__gib.world; const f = w.furn.find((x) => x.def === 'nightstand'); window.__ns = f ? f.i : -1; const c = w.nearestFreeCell({ x: f.x + 1, y: f.y + 2 }, 4); w.abortPlan(w.avatar, 't'); w.avatar.pos = { x: c.x + 0.5, y: c.y + 0.5 }; w.avatar.state = 'idle'; }); await settle();
   const ns = await E(() => { const g = window.__gib; const nodes = g.furnNodes.get(window.__ns); if (!nodes) return null; const b = nodes[0].getBounds(); return g.worldToScreen(b.centerX, b.centerY); });
-  if (ns) { await tapAt(ns.x, ns.y); await sleep(300); const t = await E(() => document.getElementById('toast').textContent); ok(/Rien à faire/.test(t), `objet sans action : message honnête « ${t} »`); }
+  if (ns) { await tapAt(ns.x, ns.y); await sleep(300); const t = await E(() => document.getElementById('toast').textContent); ok(/Rien à faire/.test(t) && (await pos()).st !== 'use', `objet sans action : message honnête « ${t} »`); }
 
   console.log('\n== 7. Un mur empêche l\'interaction');
   await E(() => { const w = window.__gib.world; const n = w.chars[3]; w.abortPlan(n, 't'); n.pos = { x: 11.2, y: 16.5 }; n.state = 'idle'; n.away = false; n.decision_cooldown = 1e9; }); await place(9.8, 16.5); await E(() => { window.__gib.tz = window.__gib.cz = 2; }); await settle();

@@ -325,7 +325,7 @@ export class GameScene extends Phaser.Scene {
     if (this.hud.dialogueOpen()) return; this.hud.hideContext();
     const w = this.world, av = w.avatar; const id = this.charAt(wx, wy); let target: Act.TapTarget;
     if (id >= 0 && id !== av.id) target = { npc: id };
-    else { const hit = pickProp(this, wx, wy); if (hit.furn !== undefined) target = { furn: hit.furn }; else { const g = toGrid(wx, wy); target = { cell: { x: Math.floor(g.x), y: Math.floor(g.y) } }; } }
+    else { const hit = pickProp(this, wx, wy); if (hit.furn !== undefined && Act.furnitureOptions(w, hit.furn).length > 0) target = { furn: hit.furn }; else { if (hit.furn !== undefined) this.hud.toast('Rien à faire avec ça.'); const g = toGrid(wx, wy); target = { cell: { x: Math.floor(g.x), y: Math.floor(g.y) } }; } }
     this.runPlan(Act.planTap(w, av, target));
   }
   runPlan(plan: Act.TapPlan) {

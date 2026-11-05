@@ -27,6 +27,7 @@ const CSS = `
 #charp{right:16px;top:112px;bottom:112px;width:340px;overflow:auto;display:none;padding:12px}
 #charp h3{margin:0;font-size:19px;color:#fff} #charp .sec{font-size:10px;letter-spacing:.08em;color:#fccd5c;margin:10px 0 3px;text-transform:uppercase}
 #charp .need{display:flex;gap:8px;align-items:center;margin:3px 0} #charp .need span{width:62px;color:#98a2b8;font-size:12px} #charp .need .bar{flex:1}
+#ui #toast,#ui #pause,#ui #fps{pointer-events:none}
 #toast{left:50%;top:78px;transform:translateX(-50%);background:rgba(12,14,22,.9);padding:8px 14px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none}
 #help{left:50%;top:50%;transform:translate(-50%,-50%);width:600px;max-width:calc(100vw - 32px);padding:18px 20px} #help h1{margin:0 0 6px;color:#fccd5c;font-size:26px}
 #tag{position:absolute;pointer-events:none;color:#fff;font-size:12px;text-shadow:0 0 4px #000,0 0 4px #000;transform:translate(-50%,-100%);display:none}
