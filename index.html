@@ -16,11 +16,16 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
   <title>GOD IS BORED</title>
   <style>
-    html, body { margin: 0; height: 100%; position: fixed; width: 100%; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; background: #0b0c12; overflow: hidden; overscroll-behavior: none; touch-action: none; -webkit-user-select: none; user-select: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    :root { --vh: 100vh; }
+    @supports (height: 100dvh) { :root { --vh: 100dvh; } }
+    * { -webkit-tap-highlight-color: transparent; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    html, body { margin: 0; position: fixed; inset: 0; -webkit-touch-callout: none; background: #0b0c12; overflow: hidden; overscroll-behavior: none; touch-action: none; -webkit-user-select: none; user-select: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    img { -webkit-user-drag: none; -webkit-touch-callout: none; }
     #game { position: fixed; inset: 0; }
     canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
     #ui { position: fixed; inset: 0; pointer-events: none; color: #e6e9f2; font-size: 13px; }
-    #ui .panel { pointer-events: auto; position: absolute; background: rgba(12,14,22,.84); border: 1px solid rgba(255,255,255,.09); border-radius: 12px; padding: 10px 12px; backdrop-filter: blur(6px); }
+    #ui .panel { pointer-events: auto; position: absolute; background: rgba(12,14,22,.84); border: 1px solid rgba(255,255,255,.09); border-radius: 12px; padding: 10px 12px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
     /* Écran de chargement (zones de sécurité iPhone respectées) */
     #boot { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #98a2b8; background: radial-gradient(ellipse at 50% 40%, #1b2040 0%, #0b0c12 70%); text-align: center;
       padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0); transition: opacity .35s ease; }

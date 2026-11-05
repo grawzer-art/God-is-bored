@@ -17,8 +17,8 @@ const CSS = `
 #ui.mobile.charp-open #charp{display:block!important;top:calc(var(--st) + 8px);bottom:calc(var(--sb) + 8px);right:calc(var(--sr) + 8px);width:min(340px,46vw);font-size:12px}
 .mob{position:absolute;pointer-events:auto;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .mob.pill{background:rgba(12,14,22,.78);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:#e6e9f2;font-size:12px}
-.mbtn{font:inherit;color:#e6e9f2;background:rgba(12,14,22,.78);border:1px solid rgba(255,255,255,.16);border-radius:10px;min-width:38px;min-height:34px;padding:0 10px;touch-action:none;-webkit-tap-highlight-color:transparent}
-.mbtn:active,.mbtn.on{background:rgba(250,205,92,.35);border-color:#fccd5c}
+.mbtn{font:inherit;color:#e6e9f2;background:rgba(12,14,22,.78);border:1px solid rgba(255,255,255,.16);border-radius:10px;min-width:44px;min-height:44px;padding:0 12px;touch-action:none;transition:none;-webkit-tap-highlight-color:transparent}
+.mbtn:active,.mbtn.on,.mbtn.pressed,#ui.mobile .btn.pressed{transform:scale(.95);background:rgba(250,205,92,.35);border-color:#fccd5c}
 #mtl{left:calc(var(--sl) + 8px);top:calc(var(--st) + 6px);display:flex;gap:6px;align-items:center;padding:3px 4px 3px 9px}
 #mtl b{font-weight:600;color:#fff;white-space:nowrap}
 #mtr{right:calc(var(--sr) + 8px);top:calc(var(--st) + 6px);display:flex;gap:6px}
@@ -37,23 +37,27 @@ const CSS = `
 #abtn small,#bbtn small{position:absolute;bottom:-15px;font-size:10px;font-weight:600;color:#e6e9f2;text-shadow:0 0 3px #000,0 0 3px #000;white-space:nowrap;letter-spacing:.03em}
 #qcard{left:50%;transform:translateX(-50%);top:calc(var(--st) + 6px);display:none;align-items:center;gap:8px;padding:5px 8px;max-width:min(430px,calc(100vw - 260px))}
 #qcard img.p{width:32px;height:38px;image-rendering:pixelated;object-fit:contain} #qcard .t{display:flex;flex-direction:column;line-height:1.25;min-width:0} #qcard .t b{color:#fff;font-size:13px} #qcard .t span{color:#98a2b8;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#msheet{left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - var(--sl) - var(--sr) - 24px));max-height:calc(100vh - var(--st) - var(--sb) - 20px);overflow:auto;display:none;padding:10px;z-index:12;touch-action:pan-y;-webkit-overflow-scrolling:touch}
+#msheet{left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - var(--sl) - var(--sr) - 24px));max-height:calc(var(--vh,100vh) - var(--st) - var(--sb) - 20px);overflow:auto;display:none;padding:10px;z-index:12;touch-action:pan-y;-webkit-overflow-scrolling:touch}
 #msheet h4{margin:0 0 8px;font-size:13px;color:#fccd5c;letter-spacing:.08em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
-#msheet .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:7px} #msheet .grid .mbtn{min-height:44px;text-align:center} #msheet .pc{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px;min-height:76px;font-size:11px} #msheet .pc img{width:32px;height:38px;image-rendering:pixelated}
+#msheet .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:7px} #msheet .grid .mbtn{min-height:48px;text-align:center} #msheet .pc{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px;min-height:76px;font-size:11px} #msheet .pc img{width:32px;height:38px;image-rendering:pixelated}
 #msheet .feedl{font-size:12px;line-height:1.45}
-#fclose{right:calc(var(--sr) + 14px);top:calc(var(--st) + 12px);display:none;z-index:13;min-width:34px} #ui.charp-open #fclose{display:block}
+#fclose{right:calc(var(--sr) + 14px);top:calc(var(--st) + 12px);display:none;z-index:13;min-width:44px} #ui.charp-open #fclose{display:block}
 #rotate{position:fixed;inset:0;z-index:50;background:#0b0c12;color:#e6e9f2;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px;pointer-events:auto;touch-action:none}
 #ui.mobile.portrait #rotate{display:flex} #rotate .ph{width:54px;height:92px;border:3px solid #fccd5c;border-radius:11px;animation:rot 2.4s ease-in-out infinite}
 @keyframes rot{0%,20%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
 #ui.mobile #toast{top:calc(var(--st) + 52px);font-size:12px;max-width:60vw} #ui.mobile #prompt{font-size:11px}
-#ui.mobile #dlg{bottom:auto;top:calc(var(--st) + 6px);width:min(640px,calc(100vw - var(--sl) - var(--sr) - 24px));max-height:calc(100vh - var(--st) - 12px);overflow:auto;touch-action:pan-y;font-size:12px;padding:8px 10px}
-#ui.mobile #dlg .txt{font-size:13px;min-height:0;margin:2px 0 6px} #ui.mobile #dlg .choices{gap:5px} #ui.mobile #dlg .btn{min-height:38px} #ui.mobile #dlg img.pp{width:44px;height:52px} #ui.mobile #dlg .small.dim:last-child{display:none}
-#ui.mobile #inv,#ui.mobile #ctx{touch-action:pan-y;max-height:calc(100vh - 24px);overflow:auto} #ui.mobile #ctx{top:50%;min-width:min(300px,70vw)} #ui.mobile #ctx .btn{min-height:42px}
-#ui.mobile #help{max-height:calc(100vh - 20px);overflow:auto;font-size:12px;touch-action:pan-y} #ui.mobile #tag{font-size:11px}
+#ui.mobile #dlg{bottom:auto;top:calc(var(--st) + 6px);width:min(640px,calc(100vw - var(--sl) - var(--sr) - 24px));max-height:calc(var(--vh,100vh) - var(--st) - 12px);overflow:auto;touch-action:pan-y;font-size:12px;padding:8px 10px}
+#ui.mobile #dlg .txt{font-size:13px;min-height:0;margin:2px 0 6px} #ui.mobile #dlg .choices{gap:5px} #ui.mobile #dlg .btn{min-height:44px} #ui.mobile #dlg img.pp{width:44px;height:52px} #ui.mobile #dlg .small.dim:last-child{display:none}
+#ui.mobile #inv,#ui.mobile #ctx{touch-action:pan-y;max-height:calc(var(--vh,100vh) - 24px);overflow:auto} #ui.mobile #ctx{top:50%;min-width:min(300px,70vw)} #ui.mobile #ctx .btn{min-height:42px}
+#ui.mobile #help{max-height:calc(var(--vh,100vh) - 20px);overflow:auto;font-size:12px;touch-action:pan-y} #ui.mobile #tag{font-size:11px}
 #ui.mobile #mhud{display:flex}
 #mhud{display:none;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 8px);gap:10px;align-items:center;padding:4px 10px;pointer-events:none}
 #mhud .m{color:#fccd5c;font-weight:700} #mhud .nb{width:46px;font-size:9px;color:#98a2b8} #mhud .nb .bar{height:4px}
 #ui:not(.human) #mhud{display:none!important}
+#abtn::after,#bbtn::after{content:"";position:absolute;inset:-5px;border-radius:50%}
+#ui.mobile .panel,#ui.mobile .mob.pill{backdrop-filter:none;-webkit-backdrop-filter:none}
+#ui.mobile .btn,#ui.mobile .mbtn{touch-action:manipulation}
+#ui.mobile .btn{min-height:44px;transition:none}
 `;
 const esc = (s: string) => s.replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } as Record<string, string>)[ch]);
 const SPEEDS_LABEL = ['II', '1x', '3x', '8x'];
@@ -72,10 +76,31 @@ export class MobileUi {
     const rot = document.createElement('div'); rot.id = 'rotate'; rot.innerHTML = '<div class="ph"></div><b style="font-size:18px;color:#fccd5c">Tournez votre iPhone</b><div class="dim" style="font-size:13px;max-width:280px">GOD IS BORED se joue en paysage. Verrouillez la rotation de l\'écran dans le centre de contrôle si elle ne suit pas.</div>'; root.appendChild(rot);
     this.bindDpad(); this.bindAB(); this.bindTop();
     document.getElementById('fx')!.onclick = () => this.closeFiche();
-    document.addEventListener('touchmove', (e) => { if (this.active && !(e.target as HTMLElement).closest('.scroll')) e.preventDefault(); }, { passive: false });
+    document.addEventListener('touchmove', (e) => { if (this.active && !(e.target as HTMLElement).closest('.scroll,#dlg,#inv,#ctx,#help,#charp')) e.preventDefault(); }, { passive: false });
+    for (const ev of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick']) document.addEventListener(ev, (e) => { if (this.active) e.preventDefault(); }, { passive: false } as any);
+    this.bindFastTap();
     for (const ev of ['contextmenu', 'selectstart']) document.addEventListener(ev, (e) => { if (this.active) e.preventDefault(); });
-    window.addEventListener('resize', () => this.refresh()); window.addEventListener('orientationchange', () => setTimeout(() => this.refresh(), 250)); matchMedia('(orientation: portrait)').addEventListener?.('change', () => this.refresh());
+    // iOS publie des dimensions périmées pendant la rotation : on re-mesure plusieurs fois.
+    const settle = () => { this.refresh(); for (const d of [60, 180, 420, 800]) setTimeout(() => { this.g.scale.refresh(); this.refresh(); }, d); };
+    window.addEventListener('resize', () => this.refresh()); window.addEventListener('orientationchange', settle); window.visualViewport?.addEventListener('resize', () => this.refresh()); matchMedia('(orientation: portrait)').addEventListener?.('change', () => this.refresh());
     this.refresh();
+  }
+  /** Réponse immédiate au toucher : retour visuel dès le doigt posé, action dès le doigt levé (sans attendre le « click » d'iOS), tolérance si le doigt glisse un peu. */
+  private bindFastTap() {
+    let down: { id: number; el: HTMLElement; x: number; y: number } | null = null; let suppress = 0;
+    const clear = () => { document.querySelectorAll('.pressed').forEach((x) => x.classList.remove('pressed')); down = null; };
+    document.addEventListener('pointerdown', (e) => {
+      suppress = 0; if (!this.active || e.pointerType === 'mouse') return;
+      const el = (e.target as HTMLElement).closest<HTMLElement>('.mbtn,.btn'); if (!el || (el as HTMLButtonElement).disabled) return;
+      el.classList.add('pressed'); down = { id: e.pointerId, el, x: e.clientX, y: e.clientY };
+    }, true);
+    document.addEventListener('pointerup', (e) => {
+      const d = down; clear(); if (!d || e.pointerId !== d.id) return;
+      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 24 || d.el.closest('[data-native]') || !d.el.isConnected) return; // data-native : export/import (le sélecteur de fichier exige un vrai « click »)
+      suppress = performance.now() + 700; d.el.click();
+    }, true);
+    document.addEventListener('pointercancel', clear, true);
+    document.addEventListener('click', (e) => { if (this.active && e.isTrusted && performance.now() < suppress) { e.stopPropagation(); e.preventDefault(); } }, true);
   }
   static detect(params: URLSearchParams): boolean {
     if (params.get('mobile') === '0') return false; if (params.has('mobile')) return true;
@@ -124,7 +149,7 @@ export class MobileUi {
   private bindBtns(sel: string, fn: (b: HTMLElement) => void) { this.el.msheet.querySelectorAll<HTMLElement>(sel).forEach((b) => (b.onclick = () => fn(b))); }
   openMenu() {
     const god = this.g.mode === 'god'; const items: [string, string][] = god ? [['res', 'Habitants'], ['pow', 'Pouvoirs'], ['lieux', 'Lieux'], ['journal', 'Journal'], ['murs', 'Murs'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['help', 'Aide']] : [['inv', 'Inventaire'], ['journal', 'Journal'], ['lieux', 'Lieux'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['help', 'Aide']];
-    this.show('Menu', `<div class="grid">${items.map(([k, l]) => `<button class="mbtn" data-k="${k}">${l}</button>`).join('')}</div>`);
+    this.show('Menu', `<div class="grid">${items.map(([k, l]) => `<button class="mbtn" data-k="${k}"${k === 'export' || k === 'import' ? ' data-native' : ''}>${l}</button>`).join('')}</div>`);
     this.bindBtns('[data-k]', (b) => this.menuAction(b.dataset.k!));
   }
   private menuAction(k: string) {

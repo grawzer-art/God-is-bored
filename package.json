@@ -16,7 +16,8 @@
     "dev:phone": "node tools/lan.mjs",
     "e2e:mobile": "node tools/e2e-mobile.cjs",
     "e2e:pwa": "node tools/e2e-pwa.cjs",
-    "icons": "node tools/make-icons.mjs"
+    "icons": "node tools/make-icons.mjs",
+    "e2e:iphone": "node tools/e2e-iphone.cjs"
   },
   "dependencies": {
     "phaser": "3.90.0"
