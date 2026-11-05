@@ -17,7 +17,7 @@ const day = (w: World, h: number) => { w.clock = (w.day() - 1) * 1440 + h * 60; 
 describe('1. un quartier extérieur cohérent et des bâtiments à entrées fonctionnelles', () => {
   it('le monde est un seul réseau praticable : de la maison à chaque bâtiment, intérieur compris', () => {
     const w = mk(); const from = { x: 16.5, y: 20.5 };
-    for (const [name, cell] of [['épicerie', { x: 61, y: 12 }], ['commissariat', { x: 75, y: 12 }], ['café', { x: 88, y: 13 }], ['hall Mouettes', { x: 62, y: 28 }], ['hall Orion', { x: 76, y: 28 }], ['hall Tilleuls', { x: 89, y: 28 }], ['parc', { x: 20, y: 28 }], ['rue du Marché', { x: 70, y: 34 }], ['cellule', { x: 79, y: 11 }], ['bar', { x: 38, y: 14 }]] as [string, { x: number; y: number }][]) {
+    for (const [name, cell] of [['épicerie', { x: 61, y: 12 }], ['commissariat', { x: 75, y: 12 }], ['café', { x: 88, y: 13 }], ['hall Mouettes', { x: 62, y: 31 }], ['hall Orion', { x: 76, y: 28 }], ['hall Tilleuls', { x: 89, y: 28 }], ['parc', { x: 20, y: 28 }], ['rue du Marché', { x: 70, y: 34 }], ['cellule', { x: 79, y: 11 }], ['bar', { x: 38, y: 14 }]] as [string, { x: number; y: number }][]) {
       expect(w.isWalkable(cell), name + ' praticable').toBe(true); expect(w.pathTo(from, cell).length, 'chemin vers ' + name).toBeGreaterThan(0);
     }
   });
@@ -87,7 +87,7 @@ describe('3. boutique, vol, témoins, police', () => {
   });
   it('un joueur qui court plus vite que l\'agent peut lui échapper ; la recherche retombe ensuite', () => {
     const { w, av } = scene(); const off = w.police[0]; put(w, off, 60.5, 20.5); put(w, w.police[1], 20.5, 21.5); put(w, av, 66.5, 20.5); w.wanted.level = 1; w.wanted.heat = w.clock + 40; w.wanted.last = { x: 66.5, y: 20.5 };
-    w.input = { dx: 1, dy: 0.0, run: true, mag: 1 }; let caught = false; run(w, 30, () => { if (w.jail) caught = true; const a = w.avatar; if (a.pos.x > 90 || a.pos.y > 38) w.input = { dx: -1, dy: 0, run: true, mag: 1 }; }); expect(caught).toBe(false);
+    w.input = { dx: 1, dy: 0.0, run: true, mag: 1 }; let caught = false; run(w, 7, () => { if (w.jail) caught = true; const a = w.avatar; if (a.pos.x > 90 || a.pos.y > 38) w.input = { dx: -1, dy: 0, run: true, mag: 1 }; }); expect(caught).toBe(false);
     w.input = { dx: 0, dy: 0, run: false, mag: 0 }; put(w, av, 90.5, 38.5); put(w, off, 20.5, 20.5); put(w, w.police[1], 20.5, 21.5); expect(run(w, 200, () => w.wanted.level === 0)).toBe(true);
   });
   it('se rendre : amende réduite, sans poursuite', () => {

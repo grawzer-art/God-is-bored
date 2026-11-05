@@ -1,11 +1,12 @@
 /** Mobilier et accessoires : boîtes isométriques, UN sprite par cellule (tri en profondeur exact). Assets PROVISOIRES procéduraux. */
 import { c, canvas, crisp, ctx2, hash2, line, mix, poly, shade, type C } from './core';
+import { adCanvas } from './city';
 
 export const PAD: Record<string, number> = {
   bed_y: 28, bed_yw: 28, nightstand: 34, wardrobe: 66, rug: 4, fridge: 58, counter: 38, counter_w: 38, stove: 64, sink_k: 44, table: 34,
   chair_s: 34, chair_n: 34, chair_e: 34, chair_w: 34, sofa_s: 40, armchair_e: 40, tv: 40, coffee_table: 18, bookshelf: 62, plant: 48, floor_lamp: 74,
   toilet: 34, shower: 78, sink_b: 70, bathtub: 26, washer: 40, basket: 24, bench: 22, coat_rack: 76, shoe_rack: 20, console: 50, bin: 22, altar: 40,
-  back_shelf: 70, bar_counter: 44, stool: 30, jukebox: 60, bar_table: 34, streetlamp: 100, street_bench: 30, bar_sign: 104, shelf3: 62, shelf4: 62, shop_counter: 46, desk: 42, park_bench: 30, bush: 40, tree: 120, m_clothes: 12, m_book: 12, m_cup: 14, m_pizza: 12, m_trash: 16, m_dishes: 14, m_feast0: 30, m_feast1: 30, m_feast2: 30,
+  back_shelf: 70, bar_counter: 44, stool: 30, jukebox: 60, bar_table: 34, streetlamp: 100, street_bench: 30, bar_sign: 104, shelf3: 62, shelf4: 62, shop_counter: 46, desk: 42, park_bench: 30, bush: 40, hydrant: 22, mailbox: 36, kiosk: 62, billboard: 100, dumpster: 36, vending: 62, planter: 30, bike_rack: 22, car_p: 38, car_w: 38, phone_booth: 74, tree: 120, m_clothes: 12, m_book: 12, m_cup: 14, m_pizza: 12, m_trash: 16, m_dishes: 14, m_feast0: 30, m_feast1: 30, m_feast2: 30,
 };
 const OVERLAYS = ['shower', 'bathtub'];
 const WOOD = c(0.66, 0.47, 0.3), WOOD_D = c(0.4, 0.27, 0.18), WOOD_L = c(0.82, 0.64, 0.44), WHITE = c(0.93, 0.93, 0.95), STEEL = c(0.7, 0.74, 0.78), STONE = c(0.86, 0.84, 0.8);
@@ -216,6 +217,29 @@ function paint(def: string, style: number, w: number, d: number, overlay: boolea
       break;
     }
     case 'tree': { const g2 = c(0.22, 0.46, 0.27); B(0.4, 0.4, 0, 0.6, 0.6, 44, c(0.4, 0.28, 0.2)); B(0, 0, 34, 1, 1, 62, g2); B(0.1, 0.1, 58, 0.9, 0.9, 86, shade(g2, 0.08)); B(0.2, 0.2, 82, 0.8, 0.8, 108, shade(g2, 0.16)); break; }
+    case 'hydrant': B(0.34, 0.34, 0, 0.66, 0.66, 4, c(0.5, 0.1, 0.1)); B(0.38, 0.38, 4, 0.62, 0.62, 14, c(0.82, 0.16, 0.16)); B(0.3, 0.42, 9, 0.7, 0.58, 12, c(0.82, 0.16, 0.16)); B(0.4, 0.4, 14, 0.6, 0.6, 17, c(0.9, 0.3, 0.3)); break;
+    case 'mailbox': B(0.36, 0.3, 0, 0.64, 0.7, 20, c(0.2, 0.34, 0.62)); B(0.34, 0.28, 20, 0.66, 0.72, 26, c(0.26, 0.42, 0.74)); B(0.4, 0.28, 12, 0.6, 0.3, 15, c(0.1, 0.12, 0.16)); break;
+    case 'kiosk': { // kiosque à journaux : cabine à auvent rayé et presse en façade
+      B(0.04, 0.1, 0, w - 0.04, 0.95, 4, c(0.28, 0.3, 0.34)); B(0.08, 0.14, 4, w - 0.08, 0.92, 38, c(0.3, 0.46, 0.38)); B(0.14, 0.92, 14, w - 0.14, 0.94, 34, c(0.15, 0.2, 0.22));
+      for (let k = 0; k < w * 3; k++) B(0.16 + k * ((w - 0.32) / (w * 3)), 0.94, 16 + (k % 2) * 8, 0.16 + (k + 0.8) * ((w - 0.32) / (w * 3)), 0.96, 22 + (k % 3) * 6, [c(0.9, 0.3, 0.3), c(0.95, 0.85, 0.3), c(0.35, 0.6, 0.9)][k % 3]);
+      for (let k = 0; k < w * 4; k++) B(0 + k * (w / (w * 4)), 0.02, 38, (k + 1) * (w / (w * 4)), 1.0, 44, k % 2 ? c(0.96, 0.94, 0.9) : c(0.82, 0.2, 0.24)); break; }
+    case 'billboard': { // panneau publicitaire satirique sur pied
+      B(0.1, 0.44, 0, 0.2, 0.56, 54, c(0.22, 0.24, 0.28)); B(w - 0.2, 0.44, 0, w - 0.1, 0.56, 54, c(0.22, 0.24, 0.28)); B(0.02, 0.4, 50, w - 0.02, 0.6, 96, c(0.12, 0.12, 0.16));
+      { const lx0 = 0.04 - CI, ly = 0.605, span = w - 0.08; const X = (lx: number) => 32 + (lx - ly) * 32, Y = (lx: number, z: number) => PADV + (lx + ly) * 16 - z;
+        G.save(); G.beginPath(); G.moveTo(X(0), Y(0, 94)); G.lineTo(X(1), Y(1, 94)); G.lineTo(X(1), Y(1, 54)); G.lineTo(X(0), Y(0, 54)); G.closePath(); G.clip();
+        G.transform((span * 32) / 128, (span * 16) / 128, 0, 40 / 40, X(lx0), Y(lx0, 94)); G.imageSmoothingEnabled = false; G.drawImage(adCanvas(style % 6, 128, 40), 0, 0); G.restore(); }
+      break; }
+    case 'dumpster': B(0.06, 0.12, 0, w - 0.06, 0.9, 20, c(0.22, 0.4, 0.3)); B(0.04, 0.1, 20, w - 0.04, 0.92, 24, c(0.16, 0.3, 0.22)); B(0.1, 0.9, 4, 0.5, 0.92, 7, c(0.3, 0.5, 0.4)); B(w - 0.4, 0.3, 24, w - 0.15, 0.7, 28, c(0.9, 0.88, 0.8)); break;
+    case 'vending': B(0.1, 0.12, 0, 0.9, 0.9, 54, c(0.78, 0.18, 0.2)); B(0.16, 0.9, 20, 0.72, 0.92, 48, c(0.7, 0.9, 0.98), 0, true); for (let k = 0; k < 3; k++) B(0.2 + k * 0.17, 0.92, 28 + k * 4, 0.3 + k * 0.17, 0.94, 44, [c(0.95, 0.8, 0.2), c(0.3, 0.7, 0.4), c(0.9, 0.4, 0.2)][k]); B(0.78, 0.9, 22, 0.88, 0.92, 38, c(0.15, 0.15, 0.18)); B(0.1, 0.12, 54, 0.9, 0.9, 58, c(0.55, 0.1, 0.12)); break;
+    case 'planter': B(0.08, 0.08, 0, w - 0.08, 0.92, 12, c(0.55, 0.4, 0.3)); B(0.14, 0.14, 12, w - 0.14, 0.86, 15, c(0.3, 0.2, 0.14)); for (let k = 0; k < 5; k++) B(0.2 + (k * 0.17) % 0.6, 0.2 + ((k * 0.31) % 0.6), 15, 0.3 + (k * 0.17) % 0.6, 0.3 + ((k * 0.31) % 0.6), 22 + (k % 3) * 3, [c(0.95, 0.4, 0.5), c(0.98, 0.85, 0.3), c(0.7, 0.45, 0.9), c(0.35, 0.7, 0.4)][(k + style) % 4]); break;
+    case 'bike_rack': for (let k = 0; k < w * 2; k++) { const lx = 0.1 + k * ((w - 0.2) / (w * 2)); B(lx, 0.45, 0, lx + 0.05, 0.55, 14, c(0.6, 0.62, 0.66)); } B(0.05, 0.45, 12, w - 0.05, 0.55, 14, c(0.6, 0.62, 0.66)); break;
+    case 'phone_booth': B(0.2, 0.2, 0, 0.8, 0.8, 4, c(0.6, 0.1, 0.12)); B(0.22, 0.22, 4, 0.78, 0.78, 62, c(0.8, 0.14, 0.18)); B(0.3, 0.78, 12, 0.7, 0.8, 52, c(0.7, 0.9, 0.98), 0, true); B(0.2, 0.2, 62, 0.8, 0.8, 68, c(0.9, 0.22, 0.26)); break;
+    case 'car_p': case 'car_w': { // voiture (axe x) ; « car_w » roule vers l'ouest (géométrie inversée)
+      const flip = def === 'car_w'; const Bf = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, col: C, em = false) => (flip ? B(w - x1, y0, z0, w - x0, y1, z1, col, 0, em) : B(x0, y0, z0, x1, y1, z1, col, 0, em));
+      const cols = [c(0.8, 0.2, 0.22), c(0.2, 0.42, 0.7), c(0.9, 0.78, 0.2), c(0.25, 0.55, 0.4), c(0.88, 0.88, 0.9), c(0.18, 0.18, 0.22), c(0.9, 0.5, 0.2), c(0.55, 0.3, 0.6)]; const bc = cols[style % cols.length]; const glass = c(0.2, 0.26, 0.34);
+      Bf(0.1, 0.12, 4, w - 0.1, 0.9, 16, bc); Bf(0.7, 0.14, 16, w - 0.55, 0.88, 28, bc); Bf(0.72, 0.9, 17, w - 0.57, 0.92, 27, glass); Bf(0.7, 0.1, 17, w - 0.55, 0.12, 27, glass);
+      Bf(0.1, 0.14, 16, 0.65, 0.88, 18, shade(bc, 0.08)); Bf(w - 0.1, 0.2, 8, w - 0.08, 0.34, 12, c(1, 0.95, 0.7), true); Bf(w - 0.1, 0.66, 8, w - 0.08, 0.8, 12, c(1, 0.95, 0.7), true); Bf(0.08, 0.2, 8, 0.1, 0.34, 11, c(0.8, 0.1, 0.1)); Bf(0.08, 0.66, 8, 0.1, 0.8, 11, c(0.8, 0.1, 0.1));
+      for (const wx of [0.5, w - 0.6]) { Bf(wx, 0.08, 0, wx + 0.34, 0.2, 7, c(0.1, 0.1, 0.12)); Bf(wx, 0.82, 0, wx + 0.34, 0.94, 7, c(0.1, 0.1, 0.12)); } break; }
     case 'm_clothes': B(0.26, 0.28, 0, 0.72, 0.64, 3, [c(0.85, 0.35, 0.35), c(0.35, 0.55, 0.85), c(0.9, 0.85, 0.5)][style % 3]); B(0.4, 0.2, 0, 0.62, 0.46, 3.5, c(0.28, 0.32, 0.45)); B(0.55, 0.55, 0, 0.7, 0.7, 2, c(0.9, 0.9, 0.9)); break;
     case 'm_book': B(0.3, 0.28, 0, 0.64, 0.72, 3, c(0.72, 0.3, 0.32)); B(0.32, 0.3, 3, 0.62, 0.7, 3.6, c(0.95, 0.93, 0.85)); break;
     case 'm_cup': B(0.42, 0.42, 0, 0.58, 0.58, 7, WHITE); B(0.44, 0.44, 7, 0.56, 0.56, 7.5, c(0.35, 0.22, 0.14)); break;

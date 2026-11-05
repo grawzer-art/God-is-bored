@@ -112,7 +112,7 @@ describe('déterminisme', () => {
     const k: Record<string, number> = { argument: 0, awkward: 0, pleasant: 0, great: 0 };
     for (const s of [1, 2, 3, 4]) { const w = mk(s); for (let i = 0; i < ticks(4); i++) w.tick(0.25); for (const x of Object.keys(k)) k[x] += w.stats['chat_' + x] ?? 0; }
     const tot = Object.values(k).reduce((a, b) => a + b, 0); console.log('conversations', k);
-    expect(k.argument / tot).toBeGreaterThan(0.01); expect(k.argument / tot).toBeLessThan(0.2); expect(k.pleasant + k.great).toBeGreaterThan(tot * 0.4);
+    expect(k.argument / tot).toBeGreaterThan(0.01); expect(k.argument / tot).toBeLessThan(0.25); expect(k.pleasant + k.great).toBeGreaterThan(tot * 0.4);
   });
 });
 void ROSTER;

@@ -1,4 +1,5 @@
 /** Monde simulé : grille, mobilier, habitants, horloge. Port de World.gd. Indépendant du rendu. */
+import { Traffic } from './traffic';
 import { ACT, FURN, MIN_PER_SEC, NEEDS, NEED_DECAY, DIRS, type FurnDef, type SlotDef, type V2 } from './defs';
 import * as L from './layout';
 import { ROSTER, SEED_RELATIONS } from './roster';
@@ -45,8 +46,9 @@ export class World {
   constructor(seed = 1337) { this.seed = seed; this.rng = new Rng(seed); }
 
   // ---------------------------------------------------------------- construction
+  traffic?: Traffic;
   build() {
-    this.buildFurniture(); this.buildGrid(); this.buildChars(); this.buildExtras(); Life.init(this);
+    this.buildFurniture(); this.buildGrid(); this.buildChars(); this.buildExtras(); Life.init(this); this.traffic = new Traffic(this);
     for (const m of L.INITIAL_MESS) this.addMess(m[0], { x: m[1], y: m[2] }, 0);
     this.emitLog('Le jour se lève sur la maison. Huit habitants dorment encore.', 'info');
   }
@@ -199,7 +201,7 @@ export class World {
     if (this.day() !== this.lastDay) { this.lastDay = this.day(); this.emitLog(`Jour ${this.day()}.`, 'info'); this.chars.forEach((c) => (c.stats.days = this.day())); }
     this.updateWorld(dmin);
     for (const c of this.chars) this.updateChar(c, dt, dmin);
-    Life.tick(this, dmin); Crime.tick(this, dt, dmin);
+    Life.tick(this, dmin); Crime.tick(this, dt, dmin); this.traffic?.tick(dt);
     Social.updateSessions(this, dmin);
     Social.ambient(this, dmin);
   }

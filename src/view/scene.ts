@@ -4,7 +4,8 @@ import * as L from '../sim/layout';
 import { MIN_PER_SEC } from '../sim/defs';
 import * as Save from '../sim/save';
 import { exportToFile, pickFile } from '../ui/saveio';
-import { FLOOR_STYLES, canvas, ctx2, floorTile, wallTex, type FaceSpec, type C, c, shade } from '../art/core';
+import { FLOOR_STYLES, canvas, ctx2, floorTile, wallTex, hash2, type FaceSpec, type C, c, shade } from '../art/core';
+import { panes, storeys, type ExtSpec } from '../art/facade';
 import { furnSprite, rugCanvas } from '../art/furn';
 import { CharView } from './charview';
 import { Lighting } from './lighting';
@@ -15,7 +16,7 @@ import { pickProp } from './picking';
 import { Doors } from './doors';
 import { setupNoriaDemo, setupTrioDemo } from '../sim/demo';
 import { brief } from '../sim/observe';
-import { roofCanvas, signCanvas } from '../art/city';
+import { roofCanvas, signCanvas, type RoofStyle } from '../art/city';
 import * as Act from '../sim/interact';
 
 /** Vitesses : pause, ×1, ×2, ×3, ×8. La simulation (décisions, routines, trajets, conséquences) avance à ce rythme, pas seulement l'horloge. */
@@ -25,9 +26,10 @@ const BRICK = c(0.55, 0.27, 0.25);
 const BAR_WINDOWS = [33, 35, 40, 43, 46, 48];
 const WINDOWS_N = [2, 5, 9, 12, 16, 19, 23, 26], WINDOWS_W = [4, 12, 16], DOOR_W = 8;
 const PICTURES_SW = ['5,6', '13,6', '20,6', '7,9', '18,9', '26,9', '3,9'];
-const ROOM_COL: Record<string, C> = { a: c(0.58, 0.72, 0.86), b: c(0.66, 0.8, 0.68), c: c(0.88, 0.7, 0.74), d: c(0.9, 0.79, 0.56), h: c(0.86, 0.82, 0.74), k: c(0.92, 0.89, 0.7), l: c(0.8, 0.55, 0.44), w: c(0.6, 0.83, 0.88), u: c(0.72, 0.74, 0.78), B: c(0.36, 0.2, 0.25), R: c(0.5, 0.55, 0.58), M: c(0.93, 0.9, 0.78), Q: c(0.74, 0.78, 0.86), C: c(0.62, 0.64, 0.68), T: c(0.9, 0.78, 0.6), N: c(0.86, 0.82, 0.74), O: c(0.8, 0.84, 0.88), P: c(0.9, 0.84, 0.72) };
-const WALLCOL: Record<string, C> = { brick: c(0.6, 0.31, 0.27), concrete: c(0.62, 0.64, 0.68), beige: c(0.84, 0.76, 0.6), blue: c(0.4, 0.5, 0.68), cream: c(0.9, 0.85, 0.7) };
+const ROOM_COL: Record<string, C> = { j: c(0.93, 0.86, 0.7), m: c(0.82, 0.76, 0.9), v: c(0.62, 0.84, 0.88), a: c(0.58, 0.72, 0.86), b: c(0.66, 0.8, 0.68), c: c(0.88, 0.7, 0.74), d: c(0.9, 0.79, 0.56), h: c(0.86, 0.82, 0.74), k: c(0.92, 0.89, 0.7), l: c(0.8, 0.55, 0.44), w: c(0.6, 0.83, 0.88), u: c(0.72, 0.74, 0.78), B: c(0.36, 0.2, 0.25), R: c(0.5, 0.55, 0.58), M: c(0.93, 0.9, 0.78), Q: c(0.74, 0.78, 0.86), C: c(0.62, 0.64, 0.68), T: c(0.9, 0.78, 0.6), N: c(0.86, 0.82, 0.74), O: c(0.8, 0.84, 0.88), P: c(0.9, 0.84, 0.72) };
+const WALLCOL: Record<string, C> = { brick: c(0.68, 0.32, 0.25), concrete: c(0.66, 0.68, 0.72), beige: c(0.9, 0.78, 0.55), blue: c(0.38, 0.52, 0.76), cream: c(0.95, 0.88, 0.7) };
 const OUTSIDE = c(0.7, 0.66, 0.62);
+const hashStr = (t: string) => { let h = 7; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return Math.abs(h); };
 
 export class GameScene extends Phaser.Scene {
   world!: World; hud!: Hud; lighting!: Lighting; fx!: Phaser.GameObjects.Graphics;
@@ -85,7 +87,7 @@ export class GameScene extends Phaser.Scene {
     this.world.listeners.log = []; this.world.listeners.emote = [];
   }
   destroyView() {
-    this.children.removeAll(true); this.walls = []; this.floorChunks.clear(); this.roofs = []; this.furnNodes.clear(); this.propNodes.clear(); this.feastNodes = []; this.chars = []; this.staticNodes = [];
+    this.children.removeAll(true); this.carNodes = []; this.walls = []; this.floorChunks.clear(); this.roofs = []; this.furnNodes.clear(); this.propNodes.clear(); this.feastNodes = []; this.chars = []; this.staticNodes = [];
   }
   replaceWorld(w: World) { this.destroyView(); this.world = w; this.buildView(); this.selectedId = -1; this.world.onAvatarArrive = (npc) => this.hud.openDialogue(npc); this.hookCrime(); this.hud.rebind(); this.mode = 'god'; if (w.avatarControlled) this.descend(false); else this.hud.onMode('god'); }
 
@@ -167,22 +169,13 @@ export class GameScene extends Phaser.Scene {
     const nx = se ? cx + 1 : cx, ny = se ? cy : cy + 1; const room = L.roomAt(nx, ny); const bld = L.buildingAt(cx, cy); const full = h === WALL_FULL;
     const spec: FaceSpec = { c: bld?.name === 'bar' ? BRICK : OUTSIDE, dec: 'none', tiled: false, art: 0 };
     const outdoor = room === '' || L.OUTDOOR.includes(room);
-    if (bld?.solid) {
-      // façades de la ville : couleur du bâtiment à l'extérieur, couleur de la pièce à l'intérieur ; vitrines et fenêtres rythmées
-      spec.c = WALLCOL[bld.wall ?? 'concrete'];
-      if (room && !outdoor) { spec.c = ROOM_COL[room] ?? spec.c; spec.tiled = room === 'C'; }
-      else if (h >= 40) {
-        const k = bld.kind; const rel = se ? cy - bld.y0 : cx - bld.x0; const onFront = !se && cy === bld.y1; const onSide = se && cx === bld.x1;
-        if (onFront && Math.abs(cx - (bld.door?.[0] ?? -99)) > 1 && rel % 3 === 1 && rel > 0) spec.dec = k === 'store' || k === 'cafe' ? 'shopwin' : 'window';
-        else if (onSide && rel % 3 === 1 && rel > 0 && k !== 'police') spec.dec = 'window';
-        else if (onSide && k === 'police' && rel % 3 === 1 && rel > 0) spec.dec = 'window';
-      }
-      if (se) spec.c = shade(spec.c, -0.15);
-      return spec;
+    // façade extérieure : la case voisine est hors du bâtiment
+    if (bld && L.closable(bld) && bld.h && (nx < bld.x0 || nx > bld.x1 || ny < bld.y0 || ny > bld.y1) && h >= 40) {
+      spec.c = WALLCOL[bld.wall ?? 'concrete']; if (se) spec.c = shade(spec.c, -0.15);
+      spec.ext = this.extSpec(bld, cx, cy, se, h); return spec;
     }
-    if (room && !outdoor) { spec.c = ROOM_COL[room]; spec.tiled = room === 'w'; }
+    if (room && !outdoor) { spec.c = ROOM_COL[room]; spec.tiled = room === 'w' || room === 'C'; }
     if (se) spec.c = shade(spec.c, -0.15);
-    if (!se && bld?.name === 'bar' && cy === bld.y1 && outdoor && BAR_WINDOWS.includes(cx) && h >= 36) spec.dec = 'shopwin';
     if (!se && bld?.name === 'bar' && cy === bld.y0 && room === 'B' && [35, 41].includes(cx) && full) spec.dec = 'neon';
     if (full && room && !outdoor && bld?.name === 'house') {
       if (!se) { if (cy === 0 && WINDOWS_N.includes(cx)) spec.dec = 'window'; else if (PICTURES_SW.includes(`${cx},${cy}`)) { spec.dec = 'picture'; spec.art = cx; } }
@@ -190,13 +183,28 @@ export class GameScene extends Phaser.Scene {
     }
     return spec;
   }
+  /** Description d'une case de façade (matériau, vitrine ou fenêtres, affiches) : déterministe, donc stable entre deux sessions. */
+  extSpec(b: L.Building, cx: number, cy: number, se: boolean, h: number): ExtSpec {
+    const k = (b.kind === 'home' ? 'home' : b.kind) as ExtSpec['k']; const m = ({ brick: 'brick', concrete: 'concrete', beige: 'plaster', cream: 'plaster', blue: 'blue' } as Record<string, ExtSpec['m']>)[b.wall ?? 'concrete'];
+    const front = !se; const rel = se ? cy - b.y0 : cx - b.x0; const len = se ? b.y1 - b.y0 : b.x1 - b.x0; const dh = hashStr(b.name);
+    const dx = b.door ? Math.abs((front ? cx : cy) - (front ? b.door[0] : b.door[1])) : 99; const nearDoor = front && dx <= 1;
+    const v = Math.floor(hash2(cx * 3 + 1, cy * 5 + 2, dh) * 16); let pane: ExtSpec['pane'] = 'none'; let poster = 0;
+    const shopKind = k === 'store' || k === 'cafe' || k === 'bar';
+    if (rel > 0 && rel < len) {
+      if (shopKind) { if (front && !nearDoor && rel % 2 === 1) pane = 'shop'; else if (!front && rel % 3 === 1) pane = 'win'; }
+      else if (rel % 3 === 1 && !nearDoor) pane = 'win';
+    }
+    if (pane === 'none' && !nearDoor) { const q = Math.floor(hash2(cx + 17, cy + 29, dh) * 9); poster = [0, 1, 0, 2, 0, 3, 0, 4, 0][q]; }
+    return { m, k, pane, v, floors: storeys(h, k).floors, poster, cell: cx * 31 + cy * 17, awning: dh };
+  }
   /** Bâtiment dans lequel se trouve le point d'attention (avatar en mode humain, habitant observé en mode Dieu) : ses murs avant s'abaissent, son toit disparaît. */
-  insideBuilding = '';
+  insideBuilding = ''; peek = false;
   private wallHeight(cx: number, cy: number) {
     const b = L.buildingAt(cx, cy);
-    if (b?.solid) {
+    if (b && L.closable(b)) {
       if (this.wallMode === 0) return WALL_LOW;
       if (this.wallMode === 2 || this.insideBuilding !== b.name) return b.h!;
+      if (this.peek) return WALL_LOW;   // plan en coupe : on regarde ce qu'il y a derrière le bâtiment
       return cx === b.x0 || cy === b.y0 ? b.h! : WALL_LOW + 8;
     }
     if (this.wallMode === 2) return WALL_FULL; if (this.wallMode === 0) return WALL_LOW;
@@ -235,29 +243,82 @@ export class GameScene extends Phaser.Scene {
       this.furnNodes.set(f.i, nodes);
     }
   }
-  roofs: { b: L.Building; roof: Phaser.GameObjects.Image; sign: Phaser.GameObjects.Image | null }[] = [];
-  /** Toits et enseignes des bâtiments pleins. Le toit s'efface quand on est dedans (ou en mode « murs bas »). */
+  carNodes: Phaser.GameObjects.Image[][] = [];
+  /** Voitures en circulation : 3 images par voiture (une par case), déplacées à chaque image. */
+  private syncCars() {
+    const tr = this.world.traffic; if (!tr) return;
+    if (this.carNodes.length !== tr.cars.length) {
+      this.carNodes.forEach((n) => n.forEach((i) => i.destroy())); this.carNodes = tr.cars.map((car) => [0, 1, 2].map((i) => { const spr = furnSprite(car.dir > 0 ? 'car_p' : 'car_w', car.style, i, 0, 3, 1); return this.add.image(0, 0, texKey(this, spr.canvas)).setOrigin(0, 0); }));
+    }
+    tr.cars.forEach((car, k) => {
+      const nodes = this.carNodes[k]; const spr0 = furnSprite('car_p', 0, 0, 0, 3, 1);
+      for (let i = 0; i < 3; i++) { const cx = car.x + i, p = toScreen(cx, car.lane); nodes[i].setPosition(p.x - 32, p.y - spr0.pad).setDepth(zOf(cellKey(Math.floor(car.x + 1.5), car.lane)) + 1).setVisible(cx > -1 && cx < L.W + 1); }
+    });
+  }
+  roofs: { b: L.Building; roof: Phaser.GameObjects.Image; sign: Phaser.GameObjects.Image | null; glow: Phaser.GameObjects.Image | null }[] = [];
+  /** Style de toit par bâtiment : coque d'habitation à quatre pans, immeubles plats avec réservoirs, commissariat avec mât, panneaux publicitaires satiriques. */
+  private roofPlan(b: L.Building): { style: RoofStyle; extras: string; ad: number } {
+    const dh = hashStr(b.name);
+    switch (b.kind) {
+      case 'home': return { style: 'hip', extras: '', ad: -1 };
+      case 'bar': return { style: 'flat', extras: 'ac', ad: 4 };
+      case 'store': return { style: 'flat', extras: 'ac', ad: 0 };
+      case 'cafe': return { style: 'flat', extras: 'ac', ad: 3 };
+      case 'police': return { style: 'flat', extras: 'mast', ad: -1 };
+      default: return { style: 'flat', extras: 'tank', ad: dh % 3 === 0 ? 1 + (dh % 5) : -1 };
+    }
+  }
+  /** Toits, enseignes et fenêtres éclairées des bâtiments. Le toit s'efface quand on est dedans (ou en mode « murs bas »). */
   private buildRoofs() {
     this.roofs = []; this.insideBuilding = '';
     for (const b of L.BUILDINGS) {
-      if (!b.solid) continue; const w = b.x1 - b.x0 + 1, d = b.y1 - b.y0 + 1; const r = roofCanvas(w, d, b.roof ?? '#666666', b.x0 * 7 + b.y0);
-      const o = toScreen(b.x0, b.y0); const roof = this.add.image(o.x - d * 32 - 4, o.y - b.h! - 4, texKey(this, r.cv)).setOrigin(0, 0).setDepth(zOf(cellKey(b.x1, b.y1)) + 3);
+      if (!L.closable(b)) continue; const w = b.x1 - b.x0 + 1, d = b.y1 - b.y0 + 1; const rp = this.roofPlan(b); const r = roofCanvas(w, d, b.roof ?? '#666666', b.x0 * 7 + b.y0, rp.style, rp.extras, rp.ad);
+      const o = toScreen(b.x0, b.y0); const roof = this.add.image(o.x - d * 32 - 4, o.y - b.h! - 4 + r.oy, texKey(this, r.cv)).setOrigin(0, 0).setDepth(zOf(cellKey(b.x1, b.y1)) + 3);
       let sign: Phaser.GameObjects.Image | null = null;
       if (b.door && b.title) { const cv = signCanvas(b.h!, '#' + [WALLCOL[b.wall ?? 'concrete']].map((q) => q.map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('')).join(''), b.title); const p = toScreen(b.door[0], b.door[1]); sign = this.add.image(p.x - 32, p.y - b.h!, texKey(this, cv)).setOrigin(0, 0).setDepth(zOf(cellKey(b.door[0], b.door[1])) + 1); }
-      this.roofs.push({ b, roof, sign });
+      this.roofs.push({ b, roof, sign, glow: this.buildGlow(b) });
     }
+  }
+  /** Fenêtres éclairées de nuit : un seul canevas par bâtiment (additif, au-dessus de la lumière ambiante), vitres allumées au hasard. */
+  private buildGlow(b: L.Building): Phaser.GameObjects.Image | null {
+    const h = b.h!; const x0 = toScreen(b.x0, b.y1 + 1).x - 16, x1 = toScreen(b.x1 + 1, b.y0).x + 16, y0 = toScreen(b.x0, b.y0).y - h - 8, y1 = toScreen(b.x1 + 1, b.y1 + 1).y + 8;
+    const cv = canvas(Math.ceil(x1 - x0), Math.ceil(y1 - y0)); const g = ctx2(cv); let n = 0; const T1 = 0.65;
+    const dh = hashStr(b.name);
+    const quad = (pts: { x: number; y: number }[], col: string) => { g.fillStyle = col; g.beginPath(); pts.forEach((q, i) => (i ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y))); g.closePath(); g.fill(); };
+    const cells: [number, number, boolean][] = []; for (let x = b.x0; x <= b.x1; x++) cells.push([x, b.y1, false]); for (let y = b.y0; y <= b.y1; y++) cells.push([b.x1, y, true]);
+    for (const [cx, cy, se] of cells) {
+      const sp = this.extSpec(b, cx, cy, se, h); if (sp.pane === 'none') continue;
+      for (const [i, p] of panes(sp, h).entries()) {
+        if (hash2(cx * 7 + i, cy * 3, dh) > (sp.pane === 'shop' ? 0.97 : b.kind === 'apartment' ? 0.62 : 0.4)) continue; // quelques vitres restent éteintes
+        const at = (u: number, z: number) => { const q = se ? toScreen(cx + T1, cy + u) : toScreen(cx + u, cy + T1); return { x: q.x - x0, y: q.y - z - y0 - 0 }; };
+        const col = sp.pane === 'shop' ? 'rgba(255,214,140,0.9)' : ['rgba(255,226,150,0.85)', 'rgba(255,200,120,0.85)', 'rgba(190,225,255,0.8)', 'rgba(255,170,200,0.75)'][Math.floor(hash2(cx, cy + i, dh + 3) * 4)];
+        quad([at(p.u0 + 0.03, p.zb + 1), at(p.u1 - 0.03, p.zb + 1), at(p.u1 - 0.03, p.zt - 1), at(p.u0 + 0.03, p.zt - 1)], col); n++;
+      }
+    }
+    if (!n) return null;
+    return this.add.image(x0, y0, texKey(this, cv)).setOrigin(0, 0).setDepth(7900).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
   }
   /** À chaque image : bâtiment occupé par le point d'attention → murs avant abaissés ; toits fondus ; blocs de sol chargés. */
   private updateCity(dt: number) {
-    let name = ''; const a = this.world.avatar;
+    let name = ''; let peek = false; const a = this.world.avatar;
     const c = this.mode === 'human' ? a : this.selectedId >= 0 ? this.world.chars[this.selectedId] : null;
-    if (c && !c.away) { const b = L.buildingAt(Math.floor(c.pos.x), Math.floor(c.pos.y)); if (b?.solid) name = b.name; }
-    if (name !== this.insideBuilding) { const only = new Set([this.insideBuilding, name].filter(Boolean)); this.insideBuilding = name; this.applyWalls(only); }
-    const k = 1 - Math.exp(-dt * 8);
+    if (c && !c.away) { const b = L.buildingAt(Math.floor(c.pos.x), Math.floor(c.pos.y)); if (L.closable(b)) name = b!.name; }
+    else if (this.mode === 'god' && this.cz >= 0.72) {
+      // sans personnage observé : le bâtiment qui masque le centre de l'écran s'ouvre comme une maison de poupée (le plus proche de la caméra l'emporte)
+      let best = -1;
+      for (const r of this.roofs) {
+        const b = r.b; const ztop = b.h!; const dep = zOf(cellKey(b.x1, b.y1)); if (dep <= best) continue;
+        const cxm = toScreen((b.x0 + b.x1 + 1) / 2, (b.y0 + b.y1 + 1) / 2); const hw = ((b.x1 - b.x0 + 1) + (b.y1 - b.y0 + 1)) * 16, hh = ((b.x1 - b.x0 + 1) + (b.y1 - b.y0 + 1)) * 8;
+        for (let z = 0; z <= ztop; z += 10) { if (Math.abs(this.cx - cxm.x) / hw + Math.abs(this.cy + z - cxm.y) / hh <= 1) { best = dep; name = b.name; peek = true; break; } }
+      }
+    }
+    if (name !== this.insideBuilding || peek !== this.peek) { const only = new Set([this.insideBuilding, name].filter(Boolean)); this.insideBuilding = name; this.peek = peek; this.applyWalls(only); }
+    const k = 1 - Math.exp(-dt * 8); const dark = this.lighting.darkness;
     for (const r of this.roofs) {
-      const open = r.b.name === this.insideBuilding || this.wallMode === 0; const t = open ? 0 : this.mode === 'god' ? 0.8 : 1;
+      const open = r.b.name === this.insideBuilding || this.wallMode === 0; const t = open ? 0 : 1;
       r.roof.setAlpha(r.roof.alpha + (t - r.roof.alpha) * k).setVisible(r.roof.alpha > 0.02);
-      if (r.sign) r.sign.setVisible(!(r.b.name === this.insideBuilding || this.wallMode === 0));
+      if (r.sign) r.sign.setVisible(!open);
+      if (r.glow) { const ga = open ? 0 : Math.min(1, dark * 1.3) * 0.85; r.glow.setAlpha(r.glow.alpha + (ga - r.glow.alpha) * k).setVisible(r.glow.alpha > 0.02); }
     }
     this.updateFloorChunks(2);
   }
@@ -499,7 +560,7 @@ export class GameScene extends Phaser.Scene {
     { const c = this.camLimits(); this.cx = Math.max(c.x0, Math.min(c.x1, this.cx)); this.cy = Math.max(c.y0, Math.min(c.y1, this.cy)); }
     const cam = this.cameras.main; cam.setZoom(this.cz); cam.centerOn(Math.round(this.cx * this.cz) / this.cz, Math.round(this.cy * this.cz) / this.cz);
     // vue
-    this.syncProps(); this.syncFeast(); this.syncPlants(); this.doors.update(dt); this.updateCity(dt);
+    this.syncProps(); this.syncFeast(); this.syncPlants(); this.doors.update(dt); this.updateCity(dt); this.syncCars();
     for (const cv of this.chars) cv.update(dt, cv.sim.id === this.selectedId || (this.mode === 'human' && cv.sim.kind === 'avatar'), cv.sim.id === this.hoverId, Math.max(1, Math.min(SPEEDS[this.speedIndex], 3)));
     this.lighting.update(dt); this.lighting.render(); this.sunSprite.setAlpha(this.lighting.daylight * 0.9);
     this.drawFx(dt); this.hud.update(dt);

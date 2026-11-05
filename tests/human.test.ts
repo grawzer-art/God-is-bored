@@ -3,6 +3,7 @@ import { World } from '../src/sim/world';
 import * as L from '../src/sim/layout';
 import { NEEDS } from '../src/sim/defs';
 import * as I from '../src/sim/interact';
+import * as Social from '../src/sim/social';
 import { toJSON, fromJSON } from '../src/sim/save';
 
 const mk = (seed = 7) => { const w = new World(seed); w.build(); return w; };
@@ -135,8 +136,11 @@ describe('objets et inventaire', () => {
     run(w, 30); expect(a.needs.hunger).toBeGreaterThan(30); expect(a.stats.done_snack).toBe(1);
   });
   it('marcher vers un habitant déclenche l\'événement d\'arrivée', () => {
-    const w = mk(); at(w, 12); run(w, 90); const npc = w.residents.find((c) => !c.isAsleep())!; let got: number | null = null; w.onAvatarArrive = (n) => (got = n.id);
-    place(w, 16.5, 19.5); I.walkToNpc(w, w.avatar, npc); for (let i = 0; i < 2400 && got === null; i++) w.tick(0.1); expect(got).toBe(npc.id);
+    const w = mk(); at(w, 12); run(w, 90); let got: number | null = null; w.onAvatarArrive = (n) => (got = n.id);
+    // on essaie les habitants réveillés présents : au moins un doit être rejoint (certains peuvent être occupés dans une pièce fermée à cet instant)
+    let target: number | null = null;
+    for (let k = 0; k < 40 && got === null; k++) { run(w, 15); const npc = w.residents.find((c) => !c.away && Social.canBeApproached(w, c)); if (!npc) continue; const near = w.nearestFreeCell({ x: npc.cell().x + 3, y: npc.cell().y }, 5); place(w, near.x + 0.5, near.y + 0.5); I.walkToNpc(w, w.avatar, npc); for (let i = 0; i < 300 && got === null; i++) w.tick(0.1); if (got !== null) target = npc.id; }
+    expect(target).not.toBeNull(); expect(got).toBe(target);
   });
 });
 

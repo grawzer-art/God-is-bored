@@ -24,21 +24,21 @@ const HOUSE: string[] = [
 export const W = 96;
 export const H = 40;
 /** Bâtiments : murs hauts sur les bords nord et ouest (vus de dos), bas ailleurs ; front = hauteur de façade. */
-export interface Building { name: string; x0: number; y0: number; x1: number; y1: number; front: number; kind?: 'home' | 'bar' | 'store' | 'police' | 'cafe' | 'apartment'; solid?: boolean; h?: number; wall?: 'brick' | 'concrete' | 'beige' | 'blue' | 'cream'; roof?: string; title?: string; door?: [number, number] }
+export interface Building { name: string; x0: number; y0: number; x1: number; y1: number; front: number; kind?: 'home' | 'bar' | 'store' | 'police' | 'cafe' | 'apartment'; solid?: boolean; /** coque : bâtiment ancien dont la carte intérieure est fixe mais qui reçoit façade et toit */ shell?: boolean; h?: number; wall?: 'brick' | 'concrete' | 'beige' | 'blue' | 'cream'; roof?: string; title?: string; door?: [number, number] }
 export const BUILDINGS: Building[] = [
-  { name: 'house', x0: 0, y0: 0, x1: 28, y1: 18, front: 24, kind: 'home' },
-  { name: 'bar', x0: 31, y0: 8, x1: 49, y1: 18, front: 44, kind: 'bar' },
+  { name: 'house', x0: 0, y0: 0, x1: 28, y1: 18, front: 24, kind: 'home', shell: true, h: 96, wall: 'cream', roof: '#b4573f', title: 'FOYER BONHEUR™', door: [16, 18] },
+  { name: 'bar', x0: 31, y0: 8, x1: 49, y1: 18, front: 44, kind: 'bar', shell: true, h: 84, wall: 'brick', roof: '#4a2c3a', title: 'LE ZINC', door: [38, 18] },
   // --- Centre-ville (V open world) : façades pleines, toits, murs qui s'abaissent quand on entre
-  { name: 'store', x0: 57, y0: 10, x1: 66, y1: 18, front: 64, kind: 'store', solid: true, h: 70, wall: 'cream', roof: '#c9573f', title: 'ÉPICERIE', door: [61, 18] },
-  { name: 'police', x0: 68, y0: 8, x1: 82, y1: 18, front: 80, kind: 'police', solid: true, h: 84, wall: 'blue', roof: '#3c4d6e', title: 'COMMISSARIAT', door: [75, 18] },
-  { name: 'cafe', x0: 84, y0: 10, x1: 94, y1: 18, front: 66, kind: 'cafe', solid: true, h: 70, wall: 'beige', roof: '#8a5a3a', title: 'CAFÉ LE MOULIN', door: [88, 18] },
-  { name: 'flats1', x0: 57, y0: 24, x1: 68, y1: 32, front: 100, kind: 'apartment', solid: true, h: 100, wall: 'brick', roof: '#6a6f7a', title: 'LES MOUETTES', door: [62, 32] },
-  { name: 'flats2', x0: 70, y0: 24, x1: 82, y1: 32, front: 110, kind: 'apartment', solid: true, h: 112, wall: 'concrete', roof: '#5a606c', title: 'RÉSIDENCE ORION', door: [76, 32] },
-  { name: 'flats3', x0: 84, y0: 24, x1: 94, y1: 32, front: 96, kind: 'apartment', solid: true, h: 96, wall: 'beige', roof: '#7a5a4a', title: 'LES TILLEULS', door: [89, 32] },
+  { name: 'store', x0: 57, y0: 10, x1: 66, y1: 18, front: 64, kind: 'store', solid: true, h: 84, wall: 'cream', roof: '#c9573f', title: 'MINI-MARCHÉ', door: [61, 18] },
+  { name: 'police', x0: 68, y0: 8, x1: 82, y1: 18, front: 80, kind: 'police', solid: true, h: 112, wall: 'blue', roof: '#3c4d6e', title: 'COMMISSARIAT', door: [75, 18] },
+  { name: 'cafe', x0: 84, y0: 10, x1: 94, y1: 18, front: 66, kind: 'cafe', solid: true, h: 84, wall: 'beige', roof: '#8a5a3a', title: 'CAFÉ CULPA', door: [88, 18] },
+  { name: 'flats1', x0: 57, y0: 24, x1: 68, y1: 32, front: 100, kind: 'apartment', solid: true, h: 124, wall: 'brick', roof: '#6a6f7a', title: 'LES MOUETTES™', door: [62, 32] },
+  { name: 'flats2', x0: 70, y0: 24, x1: 82, y1: 32, front: 110, kind: 'apartment', solid: true, h: 136, wall: 'concrete', roof: '#5a606c', title: 'RÉSIDENCE ORION', door: [76, 32] },
+  { name: 'flats3', x0: 84, y0: 24, x1: 94, y1: 32, front: 96, kind: 'apartment', solid: true, h: 112, wall: 'beige', roof: '#7a5a4a', title: 'LES TILLEULS', door: [89, 32] },
 ];
 export const OUTDOOR = 'srg';
 /** Pièces des nouveaux bâtiments : M épicerie, Q commissariat, C cellule, T café, N/O/P halls d'immeubles (une lettre par pièce : l'éclairage se calcule par lettre). */
-export const CITY_ROOMS = 'MQCTNOP';
+export const CITY_ROOMS = 'MQCTNOPjmv';
 function buildMap(): string[] {
   const g: string[][] = Array.from({ length: H }, () => Array(W).fill('g'));
   for (let x = 0; x < W; x++) { g[19][x] = 's'; g[20][x] = 'r'; g[21][x] = 'r'; g[22][x] = 's'; }
@@ -69,6 +69,9 @@ function applyCity(g: string[][]) {
     if (!b.solid) continue; const room = ({ store: 'M', police: 'Q', cafe: 'T' } as Record<string, string>)[b.kind!] ?? ({ flats1: 'N', flats2: 'O', flats3: 'P' } as Record<string, string>)[b.name];
     rect(b.x0, b.y0, b.x1, b.y1, '#'); rect(b.x0 + 1, b.y0 + 1, b.x1 - 1, b.y1 - 1, room); if (b.door) set(b.door[0], b.door[1], 'X');
   }
+  // « Les Mouettes » : le rez-de-chaussée est un appartement habitable (séjour-cuisine j, chambre m, salle de bains v) derrière un couloir d'entrée N
+  rect(58, 30, 67, 30, '#'); set(67, 30, 'X'); rect(62, 25, 62, 29, '#'); set(62, 28, 'X'); rect(58, 27, 61, 27, '#'); set(60, 27, 'X');
+  rect(63, 25, 67, 29, 'j'); rect(58, 28, 61, 29, 'm'); rect(58, 25, 61, 26, 'v');
   // commissariat : cellule de garde à vue (x78-81, y9-13), porte intérieure en (77, 11)
   rect(77, 9, 77, 14, '#'); rect(78, 14, 81, 14, '#'); rect(78, 9, 81, 13, 'C'); set(77, 11, 'X');
 }
@@ -131,7 +134,7 @@ export function furniture(): FurnPlacement[] {
   f.push(P('shop_counter', 85, 12, { id: 'cafe_counter' }), P('stool', 85, 13), P('stool', 86, 13), P('stool', 87, 13), P('bar_table', 86, 16), P('chair_e', 85, 16), P('chair_w', 87, 16), P('bar_table', 90, 15), P('chair_e', 89, 15), P('chair_w', 91, 15),
     P('bar_table', 91, 12), P('chair_e', 90, 12), P('chair_w', 92, 12), P('plant', 93, 17, { style: 0 }), P('plant', 93, 11, { style: 1 }), P('floor_lamp', 85, 17));
   // --- Halls d'immeubles
-  for (const [x0, x1] of [[58, 67], [71, 81], [85, 93]]) { f.push(P('console', x0 + 1, 25), P('plant', x1, 25, { style: 1 }), P('plant', x0, 31, { style: 0 }), P('bench', Math.floor((x0 + x1) / 2), 29, { w: 2, d: 1 })); }
+  for (const [x0, x1] of [[71, 81], [85, 93]]) { f.push(P('console', x0 + 1, 25), P('plant', x1, 25, { style: 1 }), P('plant', x0, 31, { style: 0 }), P('bench', Math.floor((x0 + x1) / 2), 29, { w: 2, d: 1 })); }
   // --- Parc (x2..48, y24..32) et rues
   for (const [x, y] of [[4, 26], [9, 30], [16, 25], [22, 29], [28, 26], [33, 31], [39, 25], [44, 29], [47, 26], [12, 27], [24, 32]]) f.push(P('tree', x, y, { style: x * 5 + y }));
   for (const [x, y] of [[7, 28], [19, 27], [31, 28], [42, 27]]) f.push(P('park_bench', x, y));
@@ -140,6 +143,17 @@ export function furniture(): FurnPlacement[] {
   for (const y of [4, 12, 26, 29]) f.push(P('streetlamp', 52, y));
   f.push(P('street_bench', 60, 22), P('street_bench', 86, 22), P('bin', 70, 22), P('bin', 56, 33), P('bin', 80, 33), P('street_bench', 72, 36), P('bin', 14, 36));
   for (const [x, y] of [[57, 23], [66, 23], [75, 23], [84, 23], [93, 23]]) f.push(P('bush', x, y, { style: x * 3 + y }));
+  // --- mobilier de rue varié (quartier pilote) : bornes, kiosques, cabines, distributeurs, panneaux satiriques, voitures garées
+  // appartement habitable des Mouettes (x58-67, y25-29) : salle de bains, chambre, séjour-cuisine, couloir d'entrée
+  f.push(P('shower', 58, 25), P('sink_b', 59, 25), P('toilet', 61, 25), P('rug', 59, 26, { w: 2, d: 1, style: 6 }));
+  f.push(P('bed_y', 58, 28, { id: 'flat_bed', style: 1 }), P('wardrobe', 60, 29, { style: 2 }));
+  f.push(P('fridge', 63, 25), P('counter', 64, 25), P('stove', 65, 25, { id: 'flat_stove' }), P('sink_k', 66, 25), P('counter', 67, 25));
+  f.push(P('sofa_s', 63, 27, { id: 'flat_sofa' }), P('rug', 63, 28, { w: 3, d: 1, style: 3 }), P('tv', 64, 29, { id: 'flat_tv' }), P('floor_lamp', 67, 26), P('plant', 67, 28, { style: 1 }));
+  f.push(P('coat_rack', 58, 31), P('plant', 59, 31, { style: 0 }));
+  f.push(P('hydrant', 59, 19), P('mailbox', 65, 19), P('vending', 78, 19), P('phone_booth', 71, 19), P('kiosk', 84, 19), P('planter', 91, 19, { style: 1 }), P('bike_rack', 67, 19), P('planter', 57, 19, { style: 3 }));
+  f.push(P('billboard', 71, 23, { style: 0 }), P('billboard', 85, 23, { style: 4 }), P('billboard', 60, 23, { style: 2 }), P('dumpster', 68, 23), P('billboard', 13, 23, { style: 1 }), P('billboard', 46, 23, { style: 5 }));
+  [[62, 35, 0], [70, 35, 1], [86, 35, 2], [66, 34, 3], [90, 34, 5], [74, 34, 6], [58, 34, 4]].forEach(([x, y, st]) => f.push(P('car_p', x, y, { style: st })));
+  f.push(P('hydrant', 64, 33), P('mailbox', 79, 33), P('planter', 85, 33, { style: 0 }), P('vending', 60, 33), P('hydrant', 92, 36));
   return f;
 }
 
@@ -163,4 +177,6 @@ export const isWall = (x: number, y: number) => y < 0 || y >= H || x < 0 || x >=
 function doorRoom(x: number, y: number): string { for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [0, 1]]) { const ch = MAP[y + dy]?.[x + dx]; if (ch && CITY_ROOMS.includes(ch)) return ch; } return 's'; }
 export const isDoor = (x: number, y: number) => y >= 0 && y < H && x >= 0 && x < W && 'DEFGX'.includes(MAP[y][x]);
 export const isOutdoor = (x: number, y: number) => OUTDOOR.includes(roomAt(x, y)) && roomAt(x, y) !== '';
+/** Bâtiment qui reçoit façade, toit et ouverture à l'approche (pleins et coques). */
+export const closable = (b: Building | undefined) => !!b && (!!b.solid || !!b.shell);
 export function buildingAt(x: number, y: number) { return BUILDINGS.find((b) => x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1); }

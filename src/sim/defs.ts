@@ -97,9 +97,12 @@ export const FURN: Record<string, FurnDef> = {
   streetlamp: F(1, 1, true, [], { light: { h: 84, r: 2.0 } }),
   street_bench: F(2, 1, true), bar_sign: F(1, 1, false, [], { light: { h: 70, r: 1.7 } }),
   tree: F(1, 1, true), bush: F(1, 1, true),
+  // --- mobilier de rue varié
+  hydrant: F(1, 1, true), mailbox: F(1, 1, true), kiosk: F(2, 1, true), billboard: F(3, 1, true), dumpster: F(2, 1, true), vending: F(1, 1, true, [], { light: { h: 40, r: 1.0 } }),
+  planter: F(2, 1, true), bike_rack: F(2, 1, true), car_p: F(3, 1, true), phone_booth: F(1, 1, true),
 };
 export const EMOTIONS: Record<string, string> = {
   joy: 'Joyeux', content: 'Content', neutral: 'Calme', tired: 'Fatigué', hungry: 'Affamé', lonely: 'Seul', bored: "S'ennuie",
   irritated: 'Irrité', angry: 'En colère', sad: 'Triste', anxious: 'Anxieux', dirty: 'Mal à l\'aise', love: 'Attendri', awe: 'Émerveillé',
 };
-export const ROOM_NAMES: Record<string, string> = { M: 'Épicerie', Q: 'Commissariat', C: 'Cellule de garde à vue', T: 'Café « Le Moulin »', N: "Hall des Mouettes", O: 'Hall de la Résidence Orion', P: 'Hall des Tilleuls', B: 'Bar « Le Cinquième Ciel »', R: 'Toilettes du bar', s: 'Trottoir', r: 'Rue', g: 'Jardin', a: 'Chambre 1', b: 'Chambre 2', c: 'Chambre 3', d: 'Chambre 4', h: 'Couloir', k: 'Cuisine', l: 'Salon', w: 'Salle de bains', u: 'Buanderie' };
+export const ROOM_NAMES: Record<string, string> = { M: 'Épicerie', Q: 'Commissariat', C: 'Cellule de garde à vue', T: 'Café « Le Moulin »', N: "Couloir des Mouettes", j: 'Séjour-cuisine', m: 'Chambre', v: 'Salle de bains', O: 'Hall de la Résidence Orion', P: 'Hall des Tilleuls', B: 'Bar « Le Cinquième Ciel »', R: 'Toilettes du bar', s: 'Trottoir', r: 'Rue', g: 'Jardin', a: 'Chambre 1', b: 'Chambre 2', c: 'Chambre 3', d: 'Chambre 4', h: 'Couloir', k: 'Cuisine', l: 'Salon', w: 'Salle de bains', u: 'Buanderie' };

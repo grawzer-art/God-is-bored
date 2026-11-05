@@ -1,3 +1,4 @@
+import { drawExterior, type ExtSpec } from './facade';
 /** Outils de dessin pixel-art sur Canvas 2D + génération des sols, murs fins et icônes (assets PROVISOIRES, procéduraux). */
 export type C = [number, number, number];
 export const c = (r: number, g: number, b: number): C => [r, g, b];
@@ -109,13 +110,13 @@ export function floorTile(kind: string, variant: number): HTMLCanvasElement {
   }
   g.putImageData(im, 0, 0); floorCache.set(key, cv); return cv;
 }
-export const FLOOR_STYLES: Record<string, string> = { a: 'wood_a', b: 'wood_b', c: 'wood_c', d: 'wood_d', h: 'wood_hall', k: 'tile_kitchen', l: 'parquet', w: 'tile_bath', u: 'concrete', door: 'threshold', B: 'bar_floor', R: 'tile_dark', s: 'sidewalk', r: 'road', g: 'grass', M: 'tile_kitchen', Q: 'concrete', C: 'tile_dark', T: 'parquet', N: 'wood_hall', O: 'wood_hall', P: 'wood_hall' };
+export const FLOOR_STYLES: Record<string, string> = { a: 'wood_a', b: 'wood_b', c: 'wood_c', d: 'wood_d', h: 'wood_hall', k: 'tile_kitchen', l: 'parquet', j: 'parquet', m: 'wood_c', v: 'tile_bath', w: 'tile_bath', u: 'concrete', door: 'threshold', B: 'bar_floor', R: 'tile_dark', s: 'sidewalk', r: 'road', g: 'grass', M: 'tile_kitchen', Q: 'concrete', C: 'tile_dark', T: 'parquet', N: 'wood_hall', O: 'wood_hall', P: 'wood_hall' };
 
 // ------------------------------------------------------------------ murs fins
-export interface FaceSpec { c: C; dec: 'none' | 'window' | 'picture' | 'door' | 'neon' | 'shopwin'; tiled: boolean; art: number }
+export interface FaceSpec { c: C; dec: 'none' | 'window' | 'picture' | 'door' | 'neon' | 'shopwin'; tiled: boolean; art: number; ext?: ExtSpec }
 const wallCache = new Map<string, HTMLCanvasElement>();
 const T0 = 0.35, T1 = 0.65;
-const specKey = (s: FaceSpec) => `${css(s.c)}${s.dec}${s.tiled}${s.art}`;
+const specKey = (s: FaceSpec) => `${css(s.c)}${s.dec}${s.tiled}${s.art}${s.ext ? JSON.stringify(s.ext) : ''}`;
 export function wallTex(h: number, mask: number, left: FaceSpec, right: FaceSpec, cap: C): HTMLCanvasElement {
   const key = `${h}|${mask}|${specKey(left)}|${specKey(right)}|${css(cap)}`; const hit = wallCache.get(key); if (hit) return hit;
   const cv = canvas(64, 32 + h); const g = ctx2(cv);
@@ -138,6 +139,7 @@ function face(g: CanvasRenderingContext2D, h: number, kind: 'sw' | 'se', plane: 
   const fp = (a: number, b: number, zb: number, zt: number, col: C, al = 1) => {
     const lo = Math.max(a, u0), hi = Math.min(b, u1); if (hi - lo <= 0.001) return; poly(g, [at(lo, zb), at(hi, zb), at(hi, zt), at(lo, zt)], col, al);
   };
+  if (spec.ext && h >= 40) { drawExterior(fp, h, spec.c, spec.ext); return; }
   const tall = h >= 60; const mid = h >= 36; const base = spec.c;
   fp(0, 1, 0, h, base);
   for (let i = 0; i < 10; i += 2) fp(i / 10, (i + 1) / 10, 0, h, shade(base, 0.025));

@@ -59,6 +59,8 @@ function figure(look: Look, front: boolean, pose: string, fd: FrameDef): HTMLCan
   }
   hair(g, look.hair, hairC, front, hy2, skin);
   if (look.acc === 'cap') { const cc = c(0.12, 0.17, 0.3); rect(g, 8, hy2 - 1, 12, 4, cc); rect(g, 8, hy2 - 1, 12, 1, shade(cc, 0.2)); if (front) { rect(g, 9, hy2 + 3, 10, 1, shade(cc, -0.3)); rect(g, 13, hy2, 2, 2, c(0.95, 0.8, 0.3)); } }
+  if (look.acc === 'beanie') { const bc = c(0.7, 0.18, 0.2); rect(g, 8, hy2 - 3, 12, 5, bc); rect(g, 8, hy2 + 1, 12, 2, shade(bc, -0.2)); rect(g, 12, hy2 - 5, 4, 2, bc); for (let k = 8; k < 20; k += 2) px(g, k, hy2 - 1, shade(bc, 0.2)); }
+  if (look.acc === 'shades' && front) { const sg = c(0.06, 0.06, 0.1); rect(g, 9, hy2 + 4, 10, 3, sg); px(g, 10, hy2 + 4, c(0.5, 0.6, 0.9)); px(g, 15, hy2 + 4, c(0.5, 0.6, 0.9)); }
   crisp(cv); outline(cv); return cv;
 }
 function legs(g: CanvasRenderingContext2D, look: Look, sitting: boolean, fd: FrameDef, yoff: number, botC: C, botStyle: string, skin: C, shoeC: C) {
@@ -93,6 +95,14 @@ function topDetails(g: CanvasRenderingContext2D, style: string, col: C, front: b
     case 'flannel':
       for (let yy = ty; yy < ty + 12; yy += 3) rect(g, tx0, yy, tw, 1, shade(col, -0.22)); for (let xx = tx0; xx < tx0 + tw; xx += 3) rect(g, xx, ty, 1, 12, shade(col, 0.1));
       if (front) { rect(g, 13, ty, 2, 12, shade(col, -0.2)); rect(g, 12, ty, 4, 1, shade(skin, -0.1)); } break;
+    case 'blazer':
+      rect(g, tx0, ty, tw, 12, shade(col, -0.04)); if (front) { rect(g, 12, ty, 4, 12, c(0.95, 0.95, 0.97)); rect(g, 13, ty + 1, 2, 7, c(0.7, 0.14, 0.2)); rect(g, 11, ty, 1, 8, shade(col, -0.3)); rect(g, 16, ty, 1, 8, shade(col, -0.3)); px(g, 12, ty + 9, c(0.9, 0.8, 0.4)); px(g, tx0 + 1, ty + 4, shade(col, 0.2)); }
+      else { rect(g, tx0, ty + 9, tw, 3, shade(col, -0.14)); rect(g, 13, ty + 2, 1, 9, shade(col, -0.25)); } break;
+    case 'jacket':
+      rect(g, 11, ty - 1, 6, 2, shade(col, 0.1)); rect(g, tx0, ty + 10, tw, 2, shade(col, -0.25)); if (front) { rect(g, 13, ty, 2, 12, c(0.78, 0.78, 0.82)); rect(g, tx0 + 1, ty + 2, 2, 3, shade(col, 0.18)); rect(g, tx0 + tw - 3, ty + 6, 2, 3, shade(col, -0.2)); rect(g, 11, ty, 2, 2, shade(col, 0.1)); rect(g, 15, ty, 2, 2, shade(col, 0.1)); } else rect(g, tx0 + 1, ty + 3, tw - 2, 1, shade(col, -0.2)); break;
+    case 'uniform':
+      if (front) { rect(g, 12, ty, 4, 12, c(0.9, 0.92, 0.96)); rect(g, 13, ty, 2, 9, c(0.1, 0.1, 0.16)); rect(g, 11, ty, 1, 4, shade(col, -0.3)); rect(g, 16, ty, 1, 4, shade(col, -0.3)); rect(g, tx0 + tw - 4, ty + 3, 3, 3, c(0.95, 0.8, 0.25)); px(g, tx0 + 1, ty + 3, c(0.95, 0.95, 0.5)); rect(g, tx0, ty + 9, tw, 2, c(0.12, 0.12, 0.14)); px(g, 13, ty + 9, c(0.85, 0.75, 0.3)); px(g, 14, ty + 9, c(0.85, 0.75, 0.3)); }
+      else { rect(g, tx0, ty + 9, tw, 2, c(0.12, 0.12, 0.14)); rect(g, tx0 + 1, ty + 1, tw - 2, 2, c(0.95, 0.9, 0.3), 0.9); } break;
     case 'tank': rect(g, tx0, ty, 2, 4, skin); rect(g, tx0 + tw - 2, ty, 2, 4, skin); if (front) rect(g, tx0 + 2, ty, tw - 4, 2, skin); rect(g, tx0, ty + 11, tw, 1, shade(col, -0.14)); break;
     case 'tee': if (front) { rect(g, 12, ty, 4, 1, shade(skin, -0.1)); rect(g, 12, ty + 1, 4, 1, shade(col, -0.1)); } else rect(g, 12, ty, 4, 1, shade(col, -0.1)); break;
   }
@@ -132,6 +142,9 @@ function hair(g: CanvasRenderingContext2D, style: string, hc: C, front: boolean,
     if (style === 'short' || style === 'messy') { rect(g, 9, hy + 2, 1, 3, hc); rect(g, 18, hy + 2, 1, 3, hc); px(g, 11, hy + 2, hc); px(g, 15, hy + 2, hc); px(g, 16, hy + 2, hc); }
     if (style === 'messy') { for (const p of spikes) px(g, p[0], hy + p[1], hc); rect(g, 10, hy + 2, 3, 2, hc); rect(g, 15, hy + 2, 3, 1, hc); }
     if (style === 'bun') { rect(g, 12, hy - 6, 4, 3, hc); rect(g, 13, hy - 6, 2, 1, hl); px(g, 12, hy - 4, hd); }
+    if (style === 'afro') { rect(g, 6, hy - 6, 16, 10, hc); rect(g, 7, hy - 7, 14, 1, hc); rect(g, 8, hy - 8, 12, 1, hc); rect(g, 7, hy + 4, 2, 5, hc); rect(g, 19, hy + 4, 2, 5, hc); for (const q of [[9, -6], [13, -7], [17, -5], [11, -3], [16, -2]]) px(g, q[0], hy + q[1], hl); for (const q of [[7, 0], [20, 1], [10, -4]]) px(g, q[0], hy + q[1], hd); }
+    if (style === 'mohawk') { rect(g, 9, hy + 1, 10, 2, shade(hc, -0.3)); rect(g, 12, hy - 7, 4, 8, hc); rect(g, 13, hy - 8, 2, 1, hc); rect(g, 13, hy - 7, 1, 6, hl); }
+    if (style === 'ponytail') { rect(g, 9, hy + 2, 1, 3, hc); rect(g, 18, hy + 2, 1, 3, hc); px(g, 11, hy + 2, hc); px(g, 16, hy + 2, hc); px(g, 12, hy + 2, hc); px(g, 20, hy + 2, hc); rect(g, 19, hy + 1, 2, 3, hd); rect(g, 20, hy + 4, 2, 8, hc); px(g, 20, hy + 3, c(0.9, 0.3, 0.3)); }
     if (lens[style]) {
       const n = lens[style]; rect(g, 8, hy, 2, n, hc); rect(g, 18, hy, 2, n, hc); rect(g, 8, hy, 1, n, hd); rect(g, 19, hy, 1, n, hd); px(g, 13, hy - 2, hd); px(g, 14, hy - 1, hd); rect(g, 10, hy + 1, 3, 2, hc); rect(g, 16, hy + 1, 2, 2, hc);
       if (style === 'braids') { for (let k = 0; k < n; k += 3) { px(g, 8, hy + k, c(0.9, 0.3, 0.3)); px(g, 19, hy + k, c(0.9, 0.3, 0.3)); } px(g, 8, hy + n - 1, c(0.9, 0.3, 0.3)); px(g, 19, hy + n - 1, c(0.9, 0.3, 0.3)); }
@@ -142,6 +155,9 @@ function hair(g: CanvasRenderingContext2D, style: string, hc: C, front: boolean,
     if (['short', 'messy', 'bun'].includes(style)) rect(g, 11, hy + 9, 6, 2, skin);
     if (style === 'messy') for (const p of spikes) px(g, p[0], hy + p[1], hc);
     if (style === 'bun') { rect(g, 12, hy - 6, 4, 3, hc); rect(g, 13, hy - 6, 2, 1, hl); }
+    if (style === 'afro') { rect(g, 6, hy - 6, 16, 14, hc); rect(g, 7, hy - 7, 14, 1, hc); rect(g, 8, hy - 8, 12, 1, hc); rect(g, 10, hy + 8, 8, 1, hc); rect(g, 20, hy, 1, 8, hd); rect(g, 10, hy - 5, 4, 1, hl); }
+    if (style === 'mohawk') { rect(g, 12, hy - 7, 4, 10, hc); rect(g, 13, hy - 8, 2, 1, hc); rect(g, 9, hy + 1, 10, 2, shade(hc, -0.3)); }
+    if (style === 'ponytail') { rect(g, 12, hy + 3, 5, 5, hc); rect(g, 13, hy + 8, 3, 8, hc); rect(g, 13, hy + 8, 1, 8, hd); px(g, 14, hy + 3, c(0.9, 0.3, 0.3)); }
     if (lens2[style]) {
       const n = lens2[style]; rect(g, 8, hy - 1, 12, n, hc); rect(g, 8, hy - 1, 1, n, hd); rect(g, 19, hy - 1, 1, n, hd); rect(g, 13, hy + 2, 1, n - 3, hd);
       if (style === 'braids') for (let k = 9; k < 19; k += 3) rect(g, k, hy + 2, 1, n - 3, hd);
