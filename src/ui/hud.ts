@@ -11,6 +11,7 @@ import { iconCanvas } from '../art/core';
 import { HumanUi, HUMAN_CSS } from './human';
 import { MobileUi } from './mobile';
 import { DemoGuide } from './demoguide';
+import { CityHud } from './citylife';
 import { relationLabelToPlayer } from '../sim/interact';
 import * as Life from '../sim/life';
 import { brief } from '../sim/observe';
@@ -53,7 +54,7 @@ const needCol = (v: number) => (v > 60 ? '#73cc8c' : v > 30 ? '#f2c761' : '#eb61
 const moodCol = (m: number) => (m > 20 ? '#73d18c' : m > -20 ? '#f2cc66' : '#eb6666');
 
 export class Hud {
-  root = document.getElementById('ui')!; el: Record<string, HTMLElement> = {}; demoGuide!: DemoGuide; human!: HumanUi; mobile!: MobileUi; modeBtn!: HTMLElement; powerMode = ''; powerFirst = -1; acc = 0; toastT = 0; helpT = 14; selected = -1; feed: { t: number; text: string; kind: string }[] = [];
+  root = document.getElementById('ui')!; el: Record<string, HTMLElement> = {}; demoGuide!: DemoGuide; cityHud!: CityHud; human!: HumanUi; mobile!: MobileUi; modeBtn!: HTMLElement; powerMode = ''; powerFirst = -1; acc = 0; toastT = 0; helpT = 14; selected = -1; feed: { t: number; text: string; kind: string }[] = [];
   constructor(public g: GameScene) {
     const st = document.createElement('style'); st.textContent = CSS + HUMAN_CSS; document.head.appendChild(st);
     this.root.innerHTML = `
@@ -74,12 +75,12 @@ export class Hud {
     ['II', '1x', '2x', '3x', '8x'].forEach((l, i) => { const b = document.createElement('button'); b.className = 'btn'; b.textContent = l; b.onclick = () => g.setSpeed(i); this.el.speeds.appendChild(b); });
     const mk = (label: string, fn: () => void, tip = '') => { const b = document.createElement('button'); b.className = 'btn'; b.textContent = label; b.title = tip; b.onclick = fn; this.el.speeds.appendChild(b); };
     mk('Descendre (G)', () => g.toggleMode(), 'Incarner un humain / redevenir dieu'); this.modeBtn = this.el.speeds.lastElementChild as HTMLElement;
-    mk('Maison', () => g.focusZone('house')); mk('Bar', () => g.focusZone('bar')); mk('Rue', () => g.focusZone('street'));
+    mk('Maison', () => g.focusZone('house')); mk('Bar', () => g.focusZone('bar')); mk('Rue', () => g.focusZone('street')); mk('Descendre ici', () => g.descendHere(), 'Apparaître au centre de la vue'); mk('Centre-ville', () => g.focusZone('downtown'));
     mk('Murs', () => { const m = g.cycleWalls(); this.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); }, 'V'); mk('Sauver', () => g.saveGame(), 'F5'); mk('Charger', () => g.loadGame(), 'F9'); mk('Démo vivante', () => g.startTrio(), 'Trois habitants : routine, besoin urgent, interaction spontanée'); mk('Démo vol', () => g.startDemo(), 'Situation de départ : vol, témoin, rumeur, confrontation'); mk('Exporter', () => g.exportGame(), 'Fichier JSON'); mk('Importer', () => g.importGame(), 'Fichier JSON');
     for (const [id, d] of Object.entries(God.POWERS)) { const b = document.createElement('button'); b.className = 'btn'; b.style.flex = '1'; b.textContent = `${d.key} ${d.label} (${d.cost})`; b.title = d.desc; b.dataset.id = id; b.onclick = () => this.pickPower(id); this.el.pw.appendChild(b); }
     this.el.go.onclick = () => { this.el.help.style.display = 'none'; this.helpT = 1e9; };
     if (g.params.has('nohelp')) this.el.help.style.display = 'none';
-    this.buildPortraits(); this.demoGuide = new DemoGuide(g, this.root); this.human = new HumanUi(g, this.root); this.mobile = new MobileUi(g, this); if (this.mobile.active) { this.el.help.style.display = 'none'; this.helpT = 1e9; this.toast('Croix : caméra · A : choisir · B : pouvoirs · Menu : le reste'); } this.rebind(); this.onSpeed(g.speedIndex);
+    this.buildPortraits(); this.demoGuide = new DemoGuide(g, this.root); this.cityHud = new CityHud(g, this.root); this.human = new HumanUi(g, this.root); this.mobile = new MobileUi(g, this); if (this.mobile.active) { this.el.help.style.display = 'none'; this.helpT = 1e9; this.toast('Croix : caméra · A : choisir · B : pouvoirs · Menu : le reste'); } this.rebind(); this.onSpeed(g.speedIndex);
     document.addEventListener('pointerdown', (e) => { if (!(e.target as HTMLElement).closest('#menu')) this.el.menu.style.display = 'none'; });
   }
   get w() { return this.g.world; }
@@ -143,7 +144,7 @@ export class Hud {
     this.syncPowers();
   }
   update(dt: number) {
-    this.human.update(dt); this.mobile.update(dt); this.demoGuide.update(dt); this.el.pause.style.display = this.g.speedIndex === 0 && !this.human.dialogueOpen() ? 'block' : 'none';
+    this.human.update(dt); this.mobile.update(dt); this.demoGuide.update(dt); this.cityHud.update(dt); this.el.pause.style.display = this.g.speedIndex === 0 && !this.human.dialogueOpen() ? 'block' : 'none';
     this.acc += dt;
     if (this.toastT > 0) { this.toastT -= dt; if (this.toastT < 0.5) this.el.toast.style.opacity = String(Math.max(0, this.toastT * 2)); }
     if (this.helpT < 1e8) { this.helpT -= dt; if (this.helpT < 0) { this.el.help.style.display = 'none'; this.helpT = 1e9; } }

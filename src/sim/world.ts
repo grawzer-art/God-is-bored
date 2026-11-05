@@ -8,6 +8,8 @@ import { AStar } from './astar';
 import * as Brain from './brain';
 import * as Social from './social';
 import * as Life from './life';
+import * as City from './city';
+import * as Crime from './crime';
 import { lineClear, screenDirToGrid, smoothPath, stepBody } from './movement';
 
 export interface Furn { i: number; def: string; x: number; y: number; w: number; d: number; opts: L.FurnPlacement['opts']; id: string; users: number[]; on: boolean; water: number; slots: SlotDef[]; blocks: boolean; flat: boolean }
@@ -26,6 +28,9 @@ export class World {
   astar!: AStar;
   mess: Mess[] = []; nextMessId = 1;
   /** Vie autonome : journal d'événements, minuteur, dernier vol, point d'attention du joueur (simulation détaillée près de lui). */
+  /** Criminalité : niveau de recherche du joueur, casier, appels en attente, interventions, PNJ recherchés, garde à vue. */
+  wanted: Crime.Wanted = Crime.blankWanted(); record_: Crime.Record_ = Crime.blankRecord(); dispatches: Crime.Dispatch[] = []; reports: Crime.Report[] = []; nextDispatch = 1; wantedNpcs: Record<number, number> = {}; jail: { until: number } | null = null;
+  onArrest: ((o: SimChar, fine: number, minutes: number) => void) | null = null; onJailEnd: (() => void) | null = null;
   events: WorldEvent[] = []; nextEvent = 1; lifeAcc = 0; lastTheft = -99999; focus: V2 | null = null;
   rel = new Map<number, Rel>();
   sessions = new Map<number, Session>(); nextSession = 1;
@@ -86,6 +91,9 @@ export class World {
   get residents(): SimChar[] { return this.chars.filter((c) => c.kind === 'resident'); }
   get avatar(): SimChar { return this.chars.find((c) => c.kind === 'avatar')!; }
   get barman(): SimChar | undefined { return this.chars.find((c) => c.kind === 'staff'); }
+  get clerk(): SimChar | undefined { return this.chars.find((c) => c.kind === 'clerk'); }
+  get police(): SimChar[] { return this.chars.filter((c) => c.kind === 'police'); }
+  get citizens(): SimChar[] { return this.chars.filter((c) => c.kind === 'citizen'); }
 
   /** Crée l'avatar du dieu (à la rue, devant la maison) et le barman (absent hors horaires). */
   private buildExtras() {
@@ -103,6 +111,7 @@ export class World {
       'M', 'Barman', "Tient « Le Cinquième Ciel » depuis dix ans. Voit tout, ne dit presque rien.", 'Il sert parfois des verres gratuits à ceux qui ont l\'air de ne plus rien avoir.', 300);
     gb.traits = { extraversion: 0.7, agreeableness: 0.65, neuroticism: 0.3, orderliness: 0.7, openness: 0.5 }; gb.away = true; gb.pos = { x: 38.5, y: 19.5 }; gb.use_stand = { x: 38, y: 19 };
     for (const o of this.chars) if (o.kind === 'resident') for (const x of [av, gb]) { const r = this.getRel(o.id, x.id); r.aff = 0; r.fam = x === gb ? 12 : 2; const r2 = this.getRel(x.id, o.id); r2.aff = 0; r2.fam = x === gb ? 12 : 2; }
+    City.populate(this);
   }
 
   // ---------------------------------------------------------------- utilitaires
@@ -190,7 +199,7 @@ export class World {
     if (this.day() !== this.lastDay) { this.lastDay = this.day(); this.emitLog(`Jour ${this.day()}.`, 'info'); this.chars.forEach((c) => (c.stats.days = this.day())); }
     this.updateWorld(dmin);
     for (const c of this.chars) this.updateChar(c, dt, dmin);
-    Life.tick(this, dmin);
+    Life.tick(this, dmin); Crime.tick(this, dt, dmin);
     Social.updateSessions(this, dmin);
     Social.ambient(this, dmin);
   }
@@ -213,17 +222,23 @@ export class World {
   updateChar(c: SimChar, dt: number, dmin: number) {
     if (c.kind === 'staff') { this.updateStaff(c, dt, dmin); return; }
     if (c.kind === 'avatar') { this.updateAvatar(c, dt, dmin); return; }
+    if (c.kind === 'clerk') { City.updateClerk(this, c, dt, dmin); this.runStates(c, dt, dmin); return; }
+    if (c.kind === 'police') { Crime.policeThink(this, c, dt); this.runStates(c, dt, dmin); return; }
     this.updateNeeds(c, dmin); this.updateMood(c, dt, dmin);
     if (c.away) { Life.updateAway(this, c); return; } // hors de la carte (travail, recherche d'emploi) : simulation abstraite
     if (c.emote_t > 0) c.emote_t -= dt;
     c.decision_cooldown = Math.max(0, c.decision_cooldown - dt);
     switch (c.state) {
-      case 'idle': c.pose = 'stand'; c.action_text = 'Réfléchit'; if (c.decision_cooldown <= 0) Brain.decide(this, c); break;
+      case 'idle': c.pose = 'stand'; c.action_text = 'Réfléchit'; if (c.decision_cooldown <= 0) { if (c.kind === 'citizen') City.decide(this, c); else Brain.decide(this, c); } break;
       case 'walk': this.doWalk(c, dt); break;
       case 'enter': case 'exit': this.doTween(c, dt); break;
       case 'use': this.doUse(c, dmin); break;
       case 'chat': c.pose = 'stand'; c.action_text = c.talk_with >= 0 ? `Discute avec ${this.chars[c.talk_with].first}` : 'Discute'; break;
     }
+  }
+  /** Déplacements et activités en cours (commun à tous les personnages non joueurs). */
+  private runStates(c: SimChar, dt: number, dmin: number) {
+    if (c.state === 'walk') this.doWalk(c, dt); else if (c.state === 'use') this.doUse(c, dmin); else if (c.state === 'enter' || c.state === 'exit') this.doTween(c, dt);
   }
   private updateNeeds(c: SimChar, dmin: number) {
     const h = dmin / 60;
@@ -279,6 +294,7 @@ export class World {
     for (const n of NEEDS) { const d = c.needs[n] - saveNeeds[n]; if (d < 0 && c.state !== 'use') c.needs[n] = saveNeeds[n] + d * 0.5; }
     c.drunk = Math.max(0, c.drunk - 1.2 * dmin / 60 * 10);
     if (c.emote_t > 0) c.emote_t -= dt;
+    if (this.jail) { c.pose = 'stand'; c.state = 'idle'; c.plan = []; c.action_text = 'En garde à vue'; return; }
     if (!this.avatarControlled) { if (c.state === 'idle') c.pose = 'stand'; this.runAvatarState(c, dt, dmin); return; }
     const { dx, dy } = this.input; const moving = dx !== 0 || dy !== 0;
     if (moving && (c.state === 'use' || c.state === 'walk')) { if (c.state === 'use') this.endUse(c, false); else this.abortPlan(c, 'player'); }
@@ -367,7 +383,7 @@ export class World {
       st.recheck = (st.recheck ?? 0) - dt;
       const t = this.chars[st.target!];
       if (!Social.canBeApproached(this, t) || this.clock - (st.t0 ?? 0) > 90) { this.abortPlan(c, 'target gone'); c.last_chat = this.clock - 30; return; }
-      if (dist(c.pos, t.pos) <= (t.kind === 'staff' ? 2.6 : 1.45) && (c.kind !== 'avatar' || lineClear(c.pos, t.pos))) { if (c.kind === 'avatar') { this.abortPlan(c, 'arrived'); c.facing = this.dirFrom({ x: t.pos.x - c.pos.x, y: t.pos.y - c.pos.y }, c.facing); this.onAvatarArrive?.(t); } else if (!Life.onArrive(this, c, t)) Social.beginChat(this, c, t); return; }
+      if (dist(c.pos, t.pos) <= ((t.kind === 'staff' || t.kind === 'clerk') ? 2.6 : 1.45) && (c.kind !== 'avatar' || lineClear(c.pos, t.pos))) { if (c.kind === 'avatar') { this.abortPlan(c, 'arrived'); c.facing = this.dirFrom({ x: t.pos.x - c.pos.x, y: t.pos.y - c.pos.y }, c.facing); this.onAvatarArrive?.(t); } else if (!Life.onArrive(this, c, t)) Social.beginChat(this, c, t); return; }
       if (st.recheck! <= 0) {
         st.recheck = 0.7; const cell = Social.approachCell(this, c, t);
         if (cell.x >= 0 && (cell.x !== c.path_goal.x || cell.y !== c.path_goal.y)) {
@@ -405,7 +421,7 @@ export class World {
   private finishWalk(c: SimChar) {
     if (c.step && c.step.type === 'approach') {
       const t = this.chars[c.step.target!];
-      if (dist(c.pos, t.pos) <= (t.kind === 'staff' ? 2.6 : 1.9) && (c.kind !== 'avatar' || lineClear(c.pos, t.pos))) { if (c.kind === 'avatar') { this.abortPlan(c, 'arrived'); this.onAvatarArrive?.(t); } else if (!Life.onArrive(this, c, t)) Social.beginChat(this, c, t); } else this.abortPlan(c, 'approach failed');
+      if (dist(c.pos, t.pos) <= ((t.kind === 'staff' || t.kind === 'clerk') ? 2.6 : 1.9) && (c.kind !== 'avatar' || lineClear(c.pos, t.pos))) { if (c.kind === 'avatar') { this.abortPlan(c, 'arrived'); this.onAvatarArrive?.(t); } else if (!Life.onArrive(this, c, t)) Social.beginChat(this, c, t); } else this.abortPlan(c, 'approach failed');
       return;
     }
     this.startNextStep(c);

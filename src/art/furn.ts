@@ -5,7 +5,7 @@ export const PAD: Record<string, number> = {
   bed_y: 28, bed_yw: 28, nightstand: 34, wardrobe: 66, rug: 4, fridge: 58, counter: 38, counter_w: 38, stove: 64, sink_k: 44, table: 34,
   chair_s: 34, chair_n: 34, chair_e: 34, chair_w: 34, sofa_s: 40, armchair_e: 40, tv: 40, coffee_table: 18, bookshelf: 62, plant: 48, floor_lamp: 74,
   toilet: 34, shower: 78, sink_b: 70, bathtub: 26, washer: 40, basket: 24, bench: 22, coat_rack: 76, shoe_rack: 20, console: 50, bin: 22, altar: 40,
-  back_shelf: 70, bar_counter: 44, stool: 30, jukebox: 60, bar_table: 34, streetlamp: 100, street_bench: 30, bar_sign: 104, bush: 40, tree: 120, m_clothes: 12, m_book: 12, m_cup: 14, m_pizza: 12, m_trash: 16, m_dishes: 14, m_feast0: 30, m_feast1: 30, m_feast2: 30,
+  back_shelf: 70, bar_counter: 44, stool: 30, jukebox: 60, bar_table: 34, streetlamp: 100, street_bench: 30, bar_sign: 104, shelf3: 62, shelf4: 62, shop_counter: 46, desk: 42, park_bench: 30, bush: 40, tree: 120, m_clothes: 12, m_book: 12, m_cup: 14, m_pizza: 12, m_trash: 16, m_dishes: 14, m_feast0: 30, m_feast1: 30, m_feast2: 30,
 };
 const OVERLAYS = ['shower', 'bathtub'];
 const WOOD = c(0.66, 0.47, 0.3), WOOD_D = c(0.4, 0.27, 0.18), WOOD_L = c(0.82, 0.64, 0.44), WHITE = c(0.93, 0.93, 0.95), STEEL = c(0.7, 0.74, 0.78), STONE = c(0.86, 0.84, 0.8);
@@ -173,6 +173,20 @@ function paint(def: string, style: number, w: number, d: number, overlay: boolea
       for (const zs of [34, 48]) { B(0.04, 0.16, zs - 1.5, w - 0.04, 0.55, zs, WOOD); for (let k = 0; k < w * 5; k++) { const x = 0.1 + k * 0.2; if (x > w - 0.2) break; B(x, 0.3, zs, x + 0.09, 0.39, zs + 6 + hash2(k, zs) * 8, hsv(hash2(k, zs, 5), 0.55, 0.55 + hash2(k, zs, 9) * 0.4)); } }
       B(0.04, 0.16, 24, w - 0.04, 0.6, 27, WOOD_D); break;
     }
+    case 'shelf3': case 'shelf4': {
+      B(0.04, 0.1, 0, w - 0.04, 0.9, 6, c(0.36, 0.3, 0.26)); B(0.02, 0.06, 6, w - 0.02, 0.18, 56, c(0.42, 0.33, 0.27));
+      const cols = [c(0.9, 0.35, 0.3), c(0.95, 0.8, 0.3), c(0.35, 0.65, 0.85), c(0.45, 0.78, 0.45), c(0.85, 0.55, 0.25)];
+      for (const zs of [20, 34, 48]) { B(0.02, 0.1, zs - 1.5, w - 0.02, 0.9, zs, c(0.5, 0.4, 0.3)); for (let k = 0; k < w * 4; k++) { const x = 0.06 + k * 0.25; if (x > w - 0.2) break; B(x, 0.45, zs, x + 0.17, 0.78, zs + 7 + hash2(k, zs) * 5, cols[(k + zs) % cols.length]); } }
+      B(0.0, 0.06, 56, w, 0.95, 60, c(0.5, 0.2, 0.18)); break;
+    }
+    case 'shop_counter':
+      B(0, 0.1, 0, w, 0.95, 30, c(0.55, 0.45, 0.34)); B(0, 0.95, 4, w, 0.975, 28, c(0.8, 0.75, 0.6)); B(0, 0.04, 30, w, 1, 34, c(0.86, 0.84, 0.8));
+      B(0.4, 0.35, 34, 1.0, 0.7, 40, c(0.25, 0.28, 0.32)); B(0.5, 0.4, 40, 0.9, 0.6, 46, c(0.2, 0.6, 0.45), 0, true); if (w > 2) { B(2.2, 0.4, 34, 2.6, 0.7, 40, c(0.9, 0.4, 0.3)); B(2.9, 0.4, 34, 3.3, 0.7, 38, c(0.95, 0.8, 0.3)); } break;
+    case 'desk':
+      B(0.04, 0.12, 0, w - 0.04, 0.9, 28, c(0.4, 0.42, 0.5)); B(0, 0.08, 28, w, 0.95, 31, c(0.62, 0.64, 0.7)); B(0.2, 0.3, 31, 0.8, 0.6, 33, c(0.12, 0.14, 0.18)); B(0.28, 0.34, 33, 0.72, 0.56, 38, c(0.2, 0.55, 0.8), 0, true); break;
+    case 'park_bench':
+      for (const lx of [0.1, w - 0.22]) { B(lx, 0.32, 0, lx + 0.12, 0.4, 10, c(0.2, 0.2, 0.22)); B(lx, 0.6, 0, lx + 0.12, 0.68, 10, c(0.2, 0.2, 0.22)); }
+      B(0.04, 0.3, 10, w - 0.04, 0.7, 13, c(0.5, 0.34, 0.22)); B(0.04, 0.28, 13, w - 0.04, 0.36, 28, c(0.5, 0.34, 0.22)); break;
     case 'bar_counter':
       B(0, 0.1, 0, w, 0.95, 28, c(0.36, 0.2, 0.14)); B(0, 0.95, 5, w, 0.975, 7, c(0.85, 0.7, 0.35)); B(0, 0.96, 2, w, 0.99, 4.5, c(0.8, 0.65, 0.3));
       for (let k = 0; k < w; k++) B(k + 0.12, 0.95, 10, k + 0.88, 0.965, 24, c(0.3, 0.17, 0.12));

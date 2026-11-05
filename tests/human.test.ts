@@ -154,10 +154,10 @@ describe('persistance : mêmes données dans les deux modes', () => {
   });
   it('le monde continue d\'évoluer, avatar contrôlé ou non (3 jours, aucun mur traversé)', () => {
     for (const ctrl of [false, true]) {
-      const w = mk(11); w.avatarControlled = ctrl; let inWall = 0, jump = 0; const prev = w.chars.map((c) => ({ ...c.pos }));
+      const w = mk(11); w.avatarControlled = ctrl; let inWall = 0, jump = 0; const gone: Record<number, boolean> = {}; const prev = w.chars.map((c) => ({ ...c.pos }));
       for (let i = 0; i < 17280; i++) {
         if (ctrl) w.input = { dx: Math.sin(i / 70), dy: Math.cos(i / 90), run: false };
-        w.tick(0.25); for (const c of w.chars) { if (c.away) { prev[c.id] = { ...c.pos }; continue; } jump = Math.max(jump, Math.hypot(c.pos.x - prev[c.id].x, c.pos.y - prev[c.id].y)); prev[c.id] = { ...c.pos }; if (['walk', 'idle', 'chat'].includes(c.state) && !w.isWalkable(c.cell())) inWall++; }
+        w.tick(0.25); for (const c of w.chars) { if (c.away) { prev[c.id] = { ...c.pos }; gone[c.id] = true; continue; } if (gone[c.id]) { gone[c.id] = false; prev[c.id] = { ...c.pos }; continue; } /* réapparition (travail, garde à vue) : pas un saut */ jump = Math.max(jump, Math.hypot(c.pos.x - prev[c.id].x, c.pos.y - prev[c.id].y)); prev[c.id] = { ...c.pos }; if (['walk', 'idle', 'chat'].includes(c.state) && !w.isWalkable(c.cell())) inWall++; }
       }
       expect(inWall).toBe(0); expect(jump).toBeLessThan(1.4); // 1.4 : apparition du barman à la porte (pas de saut des habitants)
       expect(w.residents.every((c) => (c.stats.done_eat ?? 0) + (c.stats.done_snack ?? 0) >= 3)).toBe(true); for (const c of w.chars) for (const n of NEEDS) expect(c.needs[n]).toBeGreaterThanOrEqual(0);

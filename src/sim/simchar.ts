@@ -8,6 +8,8 @@ export interface Memory { t: number; kind: string; text: string; v: number; w: n
 export interface Know { src: Source; conf: number; from: number; culprit: number; t: number }
 /** Intention en cours (aider, confronter, raconter, s'excuser, voler) : prioritaire sur l'emploi du temps ordinaire. */
 export interface Intent { kind: 'help' | 'confront' | 'tell' | 'apologize' | 'steal'; target: number; ev: number; until: number }
+/** Mission d'un policier : patrouille, intervention sur un lieu, poursuite d'une personne, fouille de la zone, retour au poste. */
+export interface PoliceTask { kind: 'patrol' | 'respond' | 'pursue' | 'search' | 'return'; target: number; pos: V2; until: number; since: number; repath: number }
 export interface Shift { from: number; to: number; pay: number; place: string }
 export interface Goal { id: string; progress: number; done: boolean }
 export interface Step { type: 'goto' | 'approach' | 'use' | 'wait' | 'depart'; cell?: V2; target?: number; furn?: number; slot?: number; act?: string; stand?: V2; dur?: number; mess?: number; t0?: number; recheck?: number }
@@ -29,13 +31,15 @@ export class SimChar {
   whisper_act = ''; whisper_until = 0;
   talk_session = -1; talk_with = -1; talking = false;
   avoid: Record<number, number> = {}; pref: Record<string, number> = {};
+  /** Ville (NORIA open world) : santé, articles non payés, domicile, emploi du temps, mission de police. */
+  hp = 100; unpaid: Record<string, number> = {}; home: V2 | null = null; place = ''; agendaAt = 0; task: PoliceTask | null = null; dutyPost: V2 | null = null;
   /** Vie autonome : savoirs par événement, intention, emploi (horaires, paie), sortie en cours. */
   known: Record<number, Know> = {}; intent: Intent | null = null; shift: Shift | null = null;
-  lifeAct = ''; lifeWhy = ''; jobPhase: '' | 'working' | 'searching' | 'out' = ''; jobUntil = 0; jobStart = 0; outing: '' | 'bar' = ''; outUntil = 0; lifeT = 0;
+  lifeAct = ''; lifeWhy = ''; jobPhase: '' | 'working' | 'searching' | 'out' | 'jail' = ''; jobUntil = 0; jobStart = 0; outing: '' | 'bar' = ''; outUntil = 0; lifeT = 0;
   memories: Memory[] = []; goal: Goal = { id: 'social', progress: 0, done: false }; goal_index = 0;
   emote = ''; emote_t = 0; action_text = ''; stats: Record<string, number> = {};
   /** resident = habitant autonome ; avatar = le dieu incarné (joueur) ; staff = employé (barman). */
-  kind: 'resident' | 'avatar' | 'staff' = 'resident'; away = false;
+  kind: 'resident' | 'avatar' | 'staff' | 'citizen' | 'police' | 'clerk' = 'resident'; away = false;
   money = 40; inventory: Record<string, number> = {}; drunk = 0;
   /** Dernière décision et ses justifications (mode diagnostic). */
   diag: { t: number; chosen: string; why: string; cands: { act: string; score: number; why: string }[] } | null = null;

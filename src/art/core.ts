@@ -109,7 +109,7 @@ export function floorTile(kind: string, variant: number): HTMLCanvasElement {
   }
   g.putImageData(im, 0, 0); floorCache.set(key, cv); return cv;
 }
-export const FLOOR_STYLES: Record<string, string> = { a: 'wood_a', b: 'wood_b', c: 'wood_c', d: 'wood_d', h: 'wood_hall', k: 'tile_kitchen', l: 'parquet', w: 'tile_bath', u: 'concrete', door: 'threshold', B: 'bar_floor', R: 'tile_dark', s: 'sidewalk', r: 'road', g: 'grass' };
+export const FLOOR_STYLES: Record<string, string> = { a: 'wood_a', b: 'wood_b', c: 'wood_c', d: 'wood_d', h: 'wood_hall', k: 'tile_kitchen', l: 'parquet', w: 'tile_bath', u: 'concrete', door: 'threshold', B: 'bar_floor', R: 'tile_dark', s: 'sidewalk', r: 'road', g: 'grass', M: 'tile_kitchen', Q: 'concrete', C: 'tile_dark', T: 'parquet', N: 'wood_hall', O: 'wood_hall', P: 'wood_hall' };
 
 // ------------------------------------------------------------------ murs fins
 export interface FaceSpec { c: C; dec: 'none' | 'window' | 'picture' | 'door' | 'neon' | 'shopwin'; tiled: boolean; art: number }

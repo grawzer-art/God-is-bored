@@ -22,7 +22,8 @@
     "e2e:living": "node tools/e2e-living.cjs",
     "e2e:observe": "node tools/e2e-observe.cjs",
     "e2e:trio": "node tools/e2e-trio.cjs",
-    "shot:trio": "node tools/shot-trio.cjs"
+    "shot:trio": "node tools/shot-trio.cjs",
+    "e2e:city": "node tools/e2e-city.cjs"
   },
   "dependencies": {
     "phaser": "3.90.0"

@@ -157,7 +157,7 @@ export class MobileUi {
   }
   private bindBtns(sel: string, fn: (b: HTMLElement) => void) { this.el.msheet.querySelectorAll<HTMLElement>(sel).forEach((b) => (b.onclick = () => fn(b))); }
   openMenu() {
-    const god = this.g.mode === 'god'; const items: [string, string][] = god ? [['res', 'Habitants'], ['pow', 'Pouvoirs'], ['lieux', 'Lieux'], ['journal', 'Journal'], ['murs', 'Murs'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['trio', 'Démo vivante'], ['demo', 'Démo vol'], ['help', 'Aide']] : [['inv', 'Inventaire'], ['journal', 'Journal'], ['lieux', 'Lieux'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['trio', 'Démo vivante'], ['demo', 'Démo vol'], ['help', 'Aide']];
+    const god = this.g.mode === 'god'; const items: [string, string][] = god ? [['res', 'Habitants'], ['pow', 'Pouvoirs'], ['lieux', 'Lieux'], ['here', 'Descendre ici'], ['journal', 'Journal'], ['murs', 'Murs'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['trio', 'Démo vivante'], ['demo', 'Démo vol'], ['help', 'Aide']] : [['inv', 'Inventaire'], ['journal', 'Journal'], ['lieux', 'Lieux'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['trio', 'Démo vivante'], ['demo', 'Démo vol'], ['help', 'Aide']];
     this.show('Menu', `<div class="grid">${items.map(([k, l]) => `<button class="mbtn" data-k="${k}"${k === 'export' || k === 'import' ? ' data-native' : ''}>${l}</button>`).join('')}</div>`);
     this.bindBtns('[data-k]', (b) => this.menuAction(b.dataset.k!));
   }
@@ -166,7 +166,7 @@ export class MobileUi {
     switch (k) {
       case 'res': this.openResidents(); break; case 'pow': this.openPowers(); break; case 'lieux': this.openPlaces(); break; case 'journal': this.openJournal(); break;
       case 'murs': { const m = g.cycleWalls(); this.hud.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); this.closeSheet(); break; }
-      case 'save': g.saveGame(); this.closeSheet(); break; case 'load': this.closeSheet(); g.loadGame(); break; case 'export': this.closeSheet(); g.exportGame(); break; case 'import': this.closeSheet(); g.importGame(); break; case 'fps': this.hud.toggleFps(); this.closeSheet(); break; case 'demo': this.closeSheet(); g.startDemo(); break; case 'trio': this.closeSheet(); g.startTrio(); break; case 'help': this.openHelp(); break;
+      case 'save': g.saveGame(); this.closeSheet(); break; case 'load': this.closeSheet(); g.loadGame(); break; case 'export': this.closeSheet(); g.exportGame(); break; case 'import': this.closeSheet(); g.importGame(); break; case 'here': this.closeSheet(); g.descendHere(); break; case 'fps': this.hud.toggleFps(); this.closeSheet(); break; case 'demo': this.closeSheet(); g.startDemo(); break; case 'trio': this.closeSheet(); g.startTrio(); break; case 'help': this.openHelp(); break;
       case 'inv': this.closeSheet(); this.hud.toggleInventory(); break;
     }
   }
@@ -178,7 +178,7 @@ export class MobileUi {
     const w = this.g.world; this.show('Pouvoirs divins', `<div class="small dim" style="margin-bottom:6px">Énergie divine : <b class="gold">${Math.floor(w.godEnergy)} / 100</b> · choisissez, puis touchez un habitant (ou A sur le personnage au centre).</div><div class="grid">${Object.entries(God.POWERS).map(([id, d]) => `<button class="mbtn" data-p="${id}" ${God.canAfford(w, id) ? '' : 'disabled'} style="min-height:56px"><b>${d.label}</b><br><span class="dim small">${d.cost} · ${d.desc.slice(0, 44)}…</span></button>`).join('')}</div>`);
     this.bindBtns('[data-p]', (b) => { this.lastPower = b.dataset.p!; this.closeSheet(); this.hud.pickPower(b.dataset.p!); });
   }
-  openPlaces() { this.show('Lieux', `<div class="grid">${['house|Maison', 'bar|Bar', 'street|Rue'].map((s) => `<button class="mbtn" data-z="${s.split('|')[0]}">${s.split('|')[1]}</button>`).join('')}</div>`); this.bindBtns('[data-z]', (b) => { this.closeSheet(); this.g.focusZone(b.dataset.z as any); }); }
+  openPlaces() { this.show('Lieux', `<div class="grid">${['house|Maison', 'bar|Bar', 'street|Rue', 'downtown|Centre-ville', 'park|Parc'].map((s) => `<button class="mbtn" data-z="${s.split('|')[0]}">${s.split('|')[1]}</button>`).join('')}</div>`); this.bindBtns('[data-z]', (b) => { this.closeSheet(); this.g.focusZone(b.dataset.z as any); }); }
   openHelp() {
     this.show('Aide', `<div style="font-size:12px;line-height:1.55"><b class="gold">CROIX</b> : déplacer la caméra (DIEU) ou marcher (HUMAIN). Deux directions = diagonale.<br><b class="gold">A</b> : choisir un habitant (DIEU) · agir, parler, utiliser (HUMAIN). <span class="dim">Appui long : suivre / liste des cibles.</span><br><b class="gold">B</b> : pouvoirs (DIEU) · inventaire (HUMAIN). <span class="dim">Appui long : relancer le dernier pouvoir / courir.</span><br><b class="gold">Sur la scène</b> : un doigt glisse la caméra, deux doigts zooment, toucher un habitant ouvre sa carte rapide.<br><b class="gold">DIEU / HUMAIN</b> : changer de mode. <b class="gold">Menu</b> : habitants, lieux, journal, sauvegarde.</div>`);
   }

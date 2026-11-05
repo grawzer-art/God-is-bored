@@ -58,6 +58,7 @@ function figure(look: Look, front: boolean, pose: string, fd: FrameDef): HTMLCan
     else if (look.acc === 'earrings') { px(g, 8, hy2 + 7, c(0.95, 0.8, 0.3)); px(g, 19, hy2 + 7, c(0.95, 0.8, 0.3)); }
   }
   hair(g, look.hair, hairC, front, hy2, skin);
+  if (look.acc === 'cap') { const cc = c(0.12, 0.17, 0.3); rect(g, 8, hy2 - 1, 12, 4, cc); rect(g, 8, hy2 - 1, 12, 1, shade(cc, 0.2)); if (front) { rect(g, 9, hy2 + 3, 10, 1, shade(cc, -0.3)); rect(g, 13, hy2, 2, 2, c(0.95, 0.8, 0.3)); } }
   crisp(cv); outline(cv); return cv;
 }
 function legs(g: CanvasRenderingContext2D, look: Look, sitting: boolean, fd: FrameDef, yoff: number, botC: C, botStyle: string, skin: C, shoeC: C) {

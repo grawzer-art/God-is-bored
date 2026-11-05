@@ -8,7 +8,7 @@ import { dist } from './world';
 import * as Life from './life';
 import { buildingAt } from './layout';
 
-const CHATTABLE = ['bartend', 'idle', 'tv', 'read', 'eat', 'feast', 'browse', 'tidy', 'water', 'dishes', 'cook', 'laundry', 'pray'];
+const CHATTABLE = ['clerk', 'patrol', 'look', 'rest', 'drink', 'shop', 'bartend', 'idle', 'tv', 'read', 'eat', 'feast', 'browse', 'tidy', 'water', 'dishes', 'cook', 'laundry', 'pray'];
 export const LINES_GREAT = [
   ['Franchement, cette maison sans toi serait d\'un ennui mortel.', 'Ha ! Tu dis ça à tout le monde.'],
   ["Tu as une minute ? J'ai une histoire incroyable à te raconter.", 'Toujours. Raconte, raconte.'],
@@ -134,6 +134,8 @@ function quality(w: World, x: SimChar, y: SimChar): number {
   if (x.trait('extraversion') < 0.4 && x.needs.social > 80) q -= 0.1;
   q -= Math.max(0, 0.55 - Math.min(x.trait('agreeableness'), y.trait('agreeableness'))) * 0.35;
   if (w.mess.length >= 4) q -= 0.05 * x.trait('orderliness');
+  if (w.getRel(x.id, y.id).fam < 20) q += 0.12; // entre inconnus, on reste poli
+  q += 0.05; // équilibrage : la ville réduit les occasions de conversations agréables (travail, sorties), on garde des disputes plausibles
   q -= Life.grudge(w, x, y); q -= Math.max(0, w.getRel(x.id, y.id).fear - 30) * 0.003; // rancune après une dispute, peur
   return q + w.rng.range(-0.2, 0.2);
 }

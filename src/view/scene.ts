@@ -15,6 +15,7 @@ import { pickProp } from './picking';
 import { Doors } from './doors';
 import { setupNoriaDemo, setupTrioDemo } from '../sim/demo';
 import { brief } from '../sim/observe';
+import { roofCanvas, signCanvas } from '../art/city';
 import * as Act from '../sim/interact';
 
 /** Vitesses : pause, ×1, ×2, ×3, ×8. La simulation (décisions, routines, trajets, conséquences) avance à ce rythme, pas seulement l'horloge. */
@@ -24,16 +25,17 @@ const BRICK = c(0.55, 0.27, 0.25);
 const BAR_WINDOWS = [33, 35, 40, 43, 46, 48];
 const WINDOWS_N = [2, 5, 9, 12, 16, 19, 23, 26], WINDOWS_W = [4, 12, 16], DOOR_W = 8;
 const PICTURES_SW = ['5,6', '13,6', '20,6', '7,9', '18,9', '26,9', '3,9'];
-const ROOM_COL: Record<string, C> = { a: c(0.58, 0.72, 0.86), b: c(0.66, 0.8, 0.68), c: c(0.88, 0.7, 0.74), d: c(0.9, 0.79, 0.56), h: c(0.86, 0.82, 0.74), k: c(0.92, 0.89, 0.7), l: c(0.8, 0.55, 0.44), w: c(0.6, 0.83, 0.88), u: c(0.72, 0.74, 0.78), B: c(0.36, 0.2, 0.25), R: c(0.5, 0.55, 0.58) };
+const ROOM_COL: Record<string, C> = { a: c(0.58, 0.72, 0.86), b: c(0.66, 0.8, 0.68), c: c(0.88, 0.7, 0.74), d: c(0.9, 0.79, 0.56), h: c(0.86, 0.82, 0.74), k: c(0.92, 0.89, 0.7), l: c(0.8, 0.55, 0.44), w: c(0.6, 0.83, 0.88), u: c(0.72, 0.74, 0.78), B: c(0.36, 0.2, 0.25), R: c(0.5, 0.55, 0.58), M: c(0.93, 0.9, 0.78), Q: c(0.74, 0.78, 0.86), C: c(0.62, 0.64, 0.68), T: c(0.9, 0.78, 0.6), N: c(0.86, 0.82, 0.74), O: c(0.8, 0.84, 0.88), P: c(0.9, 0.84, 0.72) };
+const WALLCOL: Record<string, C> = { brick: c(0.6, 0.31, 0.27), concrete: c(0.62, 0.64, 0.68), beige: c(0.84, 0.76, 0.6), blue: c(0.4, 0.5, 0.68), cream: c(0.9, 0.85, 0.7) };
 const OUTSIDE = c(0.7, 0.66, 0.62);
 
 export class GameScene extends Phaser.Scene {
   world!: World; hud!: Hud; lighting!: Lighting; fx!: Phaser.GameObjects.Graphics;
   walls: { s: Phaser.GameObjects.Image; x: number; y: number }[] = []; furnNodes = new Map<number, Phaser.GameObjects.Image[]>();
   propNodes = new Map<number, Phaser.GameObjects.Image>(); feastNodes: Phaser.GameObjects.Image[] = []; chars: CharView[] = []; staticNodes: Phaser.GameObjects.GameObject[] = [];
-  floorSprite!: Phaser.GameObjects.Image; sunSprite!: Phaser.GameObjects.Image;
+  floorSprite?: Phaser.GameObjects.Image;
   mode: 'god' | 'human' = 'god'; wallMode = 1; speedIndex = 1; selectedId = -1; hoverId = -1; follow = false; autosave = 0; fxT = 0;
-  tx = 0; ty = 0; tz = 1; cx = 0; cy = 0; cz = 1; minZoom = 0.35; maxZoom = 3.5; bounds = { x: 0, y: 0, w: 0, h: 0 };
+  tx = 0; ty = 0; tz = 1; cx = 0; cy = 0; cz = 1; minZoom = 0.2; maxZoom = 3.5; bounds = { x: 0, y: 0, w: 0, h: 0 };
   doors!: Doors; demo = false; demoKind: '' | 'theft' | 'trio' = ''; analog = { x: 0, y: 0, mag: 0 }; dest: { x: number; y: number; t0: number; fade: number } | null = null;
   trailDots = 0; keys = new Set<string>(); runLatch = false; params = new URLSearchParams(location.search);
   private pan = { down: false, moved: false, sx: 0, sy: 0, button: 0, t: 0 }; private pinch = 0; private lastClick = { t: 0, id: -1 };
@@ -57,7 +59,7 @@ export class GameScene extends Phaser.Scene {
     if (this.params.has('feast')) { this.world.godEnergy = 100; import('../sim/god').then((G) => { G.feast(this.world); for (let i = 0; i < Number(this.params.get('feast')) * 10; i++) this.world.tick(0.1); }); }
     this.buildView();
     this.hud = new Hud(this);
-    this.world.onAvatarArrive = (npc) => this.hud.openDialogue(npc);
+    this.world.onAvatarArrive = (npc) => this.hud.openDialogue(npc); this.hookCrime();
     this.fitCamera();
     this.setupInput();
     if (hot) { this.tx = this.cx = hot.cam.x; this.ty = this.cy = hot.cam.y; this.tz = this.cz = hot.cam.z; this.wallMode = hot.walls; this.applyWalls(); this.setSpeed(hot.speed); if (hot.sel >= 0) this.selectChar(hot.sel); if (hot.mode === 'human') this.descend(false); }
@@ -76,65 +78,108 @@ export class GameScene extends Phaser.Scene {
 
   // ------------------------------------------------------------------ construction de la vue
   buildView() {
-    this.bakeFloor(); this.buildWalls(); this.buildFurniture(); this.doors = new Doors(this, this.world, (x, y) => this.wallHeight(x, y)); this.buildDecor();
+    this.bakeFloor(); this.buildWalls(); this.buildFurniture(); this.doors = new Doors(this, this.world, (x, y) => this.wallHeight(x, y)); this.buildRoofs(); this.buildDecor();
     this.chars = this.world.chars.map((c) => new CharView(this, c, this.world));
     this.fx = this.add.graphics().setDepth(3800);
     this.lighting = new Lighting(this, this.world);
     this.world.listeners.log = []; this.world.listeners.emote = [];
   }
   destroyView() {
-    this.children.removeAll(true); this.walls = []; this.furnNodes.clear(); this.propNodes.clear(); this.feastNodes = []; this.chars = []; this.staticNodes = [];
+    this.children.removeAll(true); this.walls = []; this.floorChunks.clear(); this.roofs = []; this.furnNodes.clear(); this.propNodes.clear(); this.feastNodes = []; this.chars = []; this.staticNodes = [];
   }
-  replaceWorld(w: World) { this.destroyView(); this.world = w; this.buildView(); this.selectedId = -1; this.world.onAvatarArrive = (npc) => this.hud.openDialogue(npc); this.hud.rebind(); this.mode = 'god'; if (w.avatarControlled) this.descend(false); else this.hud.onMode('god'); }
+  replaceWorld(w: World) { this.destroyView(); this.world = w; this.buildView(); this.selectedId = -1; this.world.onAvatarArrive = (npc) => this.hud.openDialogue(npc); this.hookCrime(); this.hud.rebind(); this.mode = 'god'; if (w.avatarControlled) this.descend(false); else this.hud.onMode('god'); }
 
-  private bakeFloor() {
-    const W = L.W, H = L.H, M = 8; const ox = (H + M) * 32 + 64, oy = M * 16 + 40;
-    const wpx = (W + H + 2 * M) * 32 + 128, hpx = (W + H + 2 * M) * 16 + 120;
-    const cv = canvas(wpx, hpx); const g = ctx2(cv); g.translate(ox, oy);
-    for (let cy = -M; cy < H + M; cy++) for (let cx = -M; cx < W + M; cx++) {
+  // ------------------------------------------------------------------ sol : blocs de 16 x 16 cases dessinés à la demande
+  // (la ville est trop grande pour un seul canevas : iOS limite à ~16 millions de pixels ; on ne garde en mémoire que les blocs proches de la caméra)
+  floorChunks = new Map<string, Phaser.GameObjects.Image>(); sunSprite!: Phaser.GameObjects.Image;
+  private static CH = 16; private static FM = 8;
+  private bakeFloor() { this.floorChunks.clear(); this.updateFloorChunks(99); this.bakeSun(); }
+  /** Charge les blocs visibles (+1 bloc de marge), en décharge les lointains. `limit` : nombre maximal de blocs dessinés par image. */
+  updateFloorChunks(limit = 2) {
+    const CH = GameScene.CH, M = GameScene.FM; const cam = this.cameras.main; const wv = cam.worldView; const pad = 600; const cxw = wv.centerX, cyw = wv.centerY;
+    const nI = Math.ceil((L.W + 2 * M) / CH), nJ = Math.ceil((L.H + 2 * M) / CH); const want = new Set<string>(); const todo: { k: string; r: { a0: number; b0: number; a1: number; b1: number }; d: number; vis: boolean }[] = [];
+    for (let j = 0; j < nJ; j++) for (let i = 0; i < nI; i++) {
+      const r = { a0: -M + i * CH, b0: -M + j * CH, a1: -M + (i + 1) * CH, b1: -M + (j + 1) * CH };
+      const x0 = toScreen(r.a0, r.b1).x - 64, x1 = toScreen(r.a1, r.b0).x + 64, y0 = toScreen(r.a0, r.b0).y - 8, y1 = toScreen(r.a1, r.b1).y + 40;
+      if (x1 < wv.x - pad || x0 > wv.right + pad || y1 < wv.y - pad || y0 > wv.bottom + pad) continue;
+      const k = `${i},${j}`; want.add(k); if (this.floorChunks.has(k)) continue;
+      const vis = !(x1 < wv.x || x0 > wv.right || y1 < wv.y || y0 > wv.bottom); todo.push({ k, r, d: Math.hypot((x0 + x1) / 2 - cxw, (y0 + y1) / 2 - cyw), vis });
+    }
+    // les blocs les plus proches du centre d'abord ; si l'écran montre des blocs manquants (téléportation), on en dessine davantage d'un coup
+    todo.sort((a, b) => a.d - b.d); const n = todo.some((t) => t.vis) ? Math.max(limit, 4) : limit;
+    for (const t of todo.slice(0, n)) this.floorChunks.set(t.k, this.bakeChunk(t.r));
+    for (const [k, img] of this.floorChunks) if (!want.has(k)) { const key = img.texture.key; img.destroy(); this.textures.remove(key); this.floorChunks.delete(k); }
+  }
+  private bakeChunk(r: { a0: number; b0: number; a1: number; b1: number }) {
+    const W = L.W, H = L.H; const ox = toScreen(r.a0, r.b1).x - 64, oy = toScreen(r.a0, r.b0).y - 8;
+    const wpx = toScreen(r.a1, r.b0).x + 64 - ox, hpx = toScreen(r.a1, r.b1).y + 40 - oy;
+    const cv = canvas(Math.ceil(wpx), Math.ceil(hpx)); const g = ctx2(cv); g.translate(-ox, -oy);
+    for (let cy = r.b0; cy < r.b1; cy++) for (let cx = r.a0; cx < r.a1; cx++) {
       const p = toScreen(cx, cy); const inside = cx >= 0 && cx < W && cy >= 0 && cy < H;
       if (inside) {
         let room = L.roomAt(cx, cy);
         if (room === '') {
           // sous un mur : le sol de la pièce voisine continue (on préfère l'intérieur à la rue)
           const cands: string[] = []; for (const [dx, dy] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) { const r2 = L.roomAt(cx + dx, cy + dy); if (r2) cands.push(r2); }
-          room = cands.find((r) => !L.OUTDOOR.includes(r)) ?? cands[0] ?? '';
+          room = cands.find((q) => !L.OUTDOOR.includes(q)) ?? cands[0] ?? '';
           if (room === '') { g.globalAlpha = 0.9; g.drawImage(floorTile('concrete', 0), p.x - 32, p.y); g.globalAlpha = 1; continue; }
         }
         g.drawImage(floorTile(L.isDoor(cx, cy) ? FLOOR_STYLES.door : FLOOR_STYLES[room], (cx * 7 + cy * 13) % 3), p.x - 32, p.y);
       } else {
         const dx = Math.max(-cx, cx - (W - 1), 0), dy = Math.max(-cy, cy - (H - 1), 0); const dist = Math.hypot(dx, dy);
         let a = Math.max(0, Math.min(1, 1 - (dist - 1) / 6.5)); a *= a;
-        if (a > 0.02) { g.globalAlpha = a; g.drawImage(floorTile(cy >= 19 && cy <= 22 && cx >= 0 && cx < W ? 'sidewalk' : 'grass', (cx * 5 + cy * 11) % 4), p.x - 32, p.y); g.globalAlpha = 1; }
+        if (a > 0.02) { g.globalAlpha = a; g.drawImage(floorTile((cy >= 19 && cy <= 22) || (cy >= 33 && cy <= 36) ? 'sidewalk' : 'grass', (cx * 5 + cy * 11) % 4), p.x - 32, p.y); g.globalAlpha = 1; }
       }
     }
-    // marquages : bordures, ligne médiane pointillée, passage piéton
+    // marquages : bordures, lignes médianes, passages piétons (avenue, rue du Marché, rue Centrale)
     const gp = (x: number, y: number) => toScreen(x, y); const quad = (pts: number[][], col: string) => { g.fillStyle = col; g.beginPath(); pts.forEach((q, i) => { const p = gp(q[0], q[1]); i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y); }); g.closePath(); g.fill(); };
-    quad([[0, 19.92], [W, 19.92], [W, 20.0], [0, 20.0]], 'rgba(200,198,190,0.9)'); quad([[0, 22.0], [W, 22.0], [W, 22.08], [0, 22.08]], 'rgba(200,198,190,0.9)');
-    for (let x = 0; x < W; x += 2) quad([[x + 0.3, 20.96], [x + 1.4, 20.96], [x + 1.4, 21.04], [x + 0.3, 21.04]], 'rgba(235,205,110,0.95)');
-    for (let i = 0; i < 6; i++) quad([[14.1 + i * 0.7, 20.05], [14.5 + i * 0.7, 20.05], [14.5 + i * 0.7, 21.95], [14.1 + i * 0.7, 21.95]], 'rgba(235,235,230,0.9)');
+    const CURB = 'rgba(200,198,190,0.9)', DASH = 'rgba(235,205,110,0.95)', ZEB = 'rgba(235,235,230,0.9)';
+    for (const [yc, yd, ye] of [[19.92, 20.96, 22.0], [33.92, 34.96, 36.0]]) { quad([[0, yc], [W, yc], [W, yc + 0.08], [0, yc + 0.08]], CURB); quad([[0, ye], [W, ye], [W, ye + 0.08], [0, ye + 0.08]], CURB); for (let x = 0; x < W; x += 2) quad([[x + 0.3, yd], [x + 1.4, yd], [x + 1.4, yd + 0.08], [x + 0.3, yd + 0.08]], DASH); }
+    quad([[52.92, 0], [53.0, 0], [53.0, H], [52.92, H]], CURB); quad([[55.0, 0], [55.08, 0], [55.08, H], [55.0, H]], CURB);
+    for (let y = 0; y < H; y += 2) if (!(y >= 18 && y <= 23) && !(y >= 32 && y <= 37)) quad([[53.96, y + 0.3], [54.04, y + 0.3], [54.04, y + 1.4], [53.96, y + 1.4]], DASH);
+    for (const [x0, y0, y1] of [[14.1, 20.05, 21.95], [49.1, 20.05, 21.95], [56.0, 20.05, 21.95], [30.1, 34.05, 35.95], [49.1, 34.05, 35.95], [56.0, 34.05, 35.95], [78.1, 20.05, 21.95], [78.1, 34.05, 35.95]])
+      for (let i = 0; i < 6; i++) quad([[x0 + i * 0.7, y0], [x0 + i * 0.7 + 0.4, y0], [x0 + i * 0.7 + 0.4, y1], [x0 + i * 0.7, y1]], ZEB);
+    for (const [y0, x0, x1] of [[17.1, 53.05, 54.95], [23.0, 53.05, 54.95], [31.1, 53.05, 54.95], [37.0, 53.05, 54.95]])
+      for (let i = 0; i < 5; i++) quad([[x0, y0 + i * 0.7], [x1, y0 + i * 0.7], [x1, y0 + i * 0.7 + 0.4], [x0, y0 + i * 0.7 + 0.4]], ZEB);
     for (const f of this.world.furn) if (f.flat) { const p = toScreen(f.x, f.y); g.drawImage(rugCanvas(f.w, f.d, f.opts.style ?? 0), p.x - f.d * 32, p.y); }
     const P = (o: { x: number; y: number }, dx: number, dy: number) => ({ x: o.x + dx, y: o.y + dy });
     const fill = (pts: { x: number; y: number }[], a: number) => { g.fillStyle = `rgba(0,0,0,${a})`; g.beginPath(); pts.forEach((q, i) => (i ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y))); g.closePath(); g.fill(); };
-    for (let cy = 0; cy < H; cy++) for (let cx = 0; cx < W; cx++) {
+    for (let cy = Math.max(0, r.b0); cy < Math.min(H, r.b1); cy++) for (let cx = Math.max(0, r.a0); cx < Math.min(W, r.a1); cx++) {
       if (L.roomAt(cx, cy) === '') continue; const o = toScreen(cx, cy);
       if (L.isWall(cx, cy - 1)) { fill([o, P(o, 32, 16), P(o, 23, 20.5), P(o, -9, 4.5)], 0.16); fill([o, P(o, 32, 16), P(o, 12, 26), P(o, -20, 10)], 0.1); }
       if (L.isWall(cx - 1, cy)) { fill([o, P(o, -32, 16), P(o, -23, 20.5), P(o, 9, 4.5)], 0.16); fill([o, P(o, -32, 16), P(o, -12, 26), P(o, 20, 10)], 0.1); }
     }
-    const TALL = ['wardrobe', 'fridge', 'bookshelf', 'coat_rack', 'stove', 'shower', 'floor_lamp', 'plant', 'sink_b', 'back_shelf', 'jukebox', 'streetlamp', 'tree', 'bar_sign'];
+    const TALL = ['wardrobe', 'fridge', 'bookshelf', 'coat_rack', 'stove', 'shower', 'floor_lamp', 'plant', 'sink_b', 'back_shelf', 'jukebox', 'streetlamp', 'tree', 'bar_sign', 'shelf3', 'shelf4'];
     for (const f of this.world.furn) {
-      if (!f.blocks) continue; const k = TALL.includes(f.def) ? 1.8 : 1; const sh = { x: 7 * k, y: 3.5 * k };
+      if (!f.blocks || f.x > r.a1 + 1 || f.x + f.w < r.a0 || f.y > r.b1 + 1 || f.y + f.d < r.b0) continue; const k = TALL.includes(f.def) ? 1.8 : 1; const sh = { x: 7 * k, y: 3.5 * k };
       for (let i = 0; i < f.w; i++) for (let j = 0; j < f.d; j++) { const o = toScreen(f.x + i, f.y + j); fill([P(o, sh.x, sh.y), P(o, 32 + sh.x, 16 + sh.y), P(o, sh.x, 32 + sh.y), P(o, -32 + sh.x, 16 + sh.y)], 0.17); }
     }
-    this.floorSprite = this.add.image(-ox, -oy, texKey(this, cv)).setOrigin(0, 0).setDepth(-3000);
-    const sc = canvas(wpx, hpx); const sg = ctx2(sc); sg.translate(ox, oy); sg.fillStyle = 'rgba(255,245,184,0.2)';
+    return this.add.image(ox, oy, texKey(this, cv)).setOrigin(0, 0).setDepth(-3000);
+  }
+  /** Taches de soleil des fenêtres de la maison (petit canevas : la maison seule, pas toute la ville). */
+  private bakeSun() {
+    const o = { x: toScreen(0, 8).x - 64, y: toScreen(0, 0).y - 8 }; const wpx = toScreen(31, 0).x + 64 - o.x, hpx = toScreen(31, 8).y + 40 - o.y;
+    const sc = canvas(Math.ceil(wpx), Math.ceil(hpx)); const sg = ctx2(sc); sg.translate(-o.x, -o.y); sg.fillStyle = 'rgba(255,245,184,0.2)';
     for (const wx of WINDOWS_N) { const q = [toScreen(wx + 0.15, 1), toScreen(wx + 0.85, 1), toScreen(wx + 2.3, 3.4), toScreen(wx + 1.5, 3.4)]; sg.beginPath(); q.forEach((pt, i) => (i ? sg.lineTo(pt.x, pt.y) : sg.moveTo(pt.x, pt.y))); sg.closePath(); sg.fill(); }
-    this.sunSprite = this.add.image(-ox, -oy, texKey(this, sc)).setOrigin(0, 0).setDepth(-2999).setAlpha(0);
+    this.sunSprite = this.add.image(o.x, o.y, texKey(this, sc)).setOrigin(0, 0).setDepth(-2999).setAlpha(0);
   }
   private faceSpec(cx: number, cy: number, se: boolean, h: number): FaceSpec {
     const nx = se ? cx + 1 : cx, ny = se ? cy : cy + 1; const room = L.roomAt(nx, ny); const bld = L.buildingAt(cx, cy); const full = h === WALL_FULL;
     const spec: FaceSpec = { c: bld?.name === 'bar' ? BRICK : OUTSIDE, dec: 'none', tiled: false, art: 0 };
     const outdoor = room === '' || L.OUTDOOR.includes(room);
+    if (bld?.solid) {
+      // façades de la ville : couleur du bâtiment à l'extérieur, couleur de la pièce à l'intérieur ; vitrines et fenêtres rythmées
+      spec.c = WALLCOL[bld.wall ?? 'concrete'];
+      if (room && !outdoor) { spec.c = ROOM_COL[room] ?? spec.c; spec.tiled = room === 'C'; }
+      else if (h >= 40) {
+        const k = bld.kind; const rel = se ? cy - bld.y0 : cx - bld.x0; const onFront = !se && cy === bld.y1; const onSide = se && cx === bld.x1;
+        if (onFront && Math.abs(cx - (bld.door?.[0] ?? -99)) > 1 && rel % 3 === 1 && rel > 0) spec.dec = k === 'store' || k === 'cafe' ? 'shopwin' : 'window';
+        else if (onSide && rel % 3 === 1 && rel > 0 && k !== 'police') spec.dec = 'window';
+        else if (onSide && k === 'police' && rel % 3 === 1 && rel > 0) spec.dec = 'window';
+      }
+      if (se) spec.c = shade(spec.c, -0.15);
+      return spec;
+    }
     if (room && !outdoor) { spec.c = ROOM_COL[room]; spec.tiled = room === 'w'; }
     if (se) spec.c = shade(spec.c, -0.15);
     if (!se && bld?.name === 'bar' && cy === bld.y1 && outdoor && BAR_WINDOWS.includes(cx) && h >= 36) spec.dec = 'shopwin';
@@ -145,9 +190,17 @@ export class GameScene extends Phaser.Scene {
     }
     return spec;
   }
+  /** Bâtiment dans lequel se trouve le point d'attention (avatar en mode humain, habitant observé en mode Dieu) : ses murs avant s'abaissent, son toit disparaît. */
+  insideBuilding = '';
   private wallHeight(cx: number, cy: number) {
+    const b = L.buildingAt(cx, cy);
+    if (b?.solid) {
+      if (this.wallMode === 0) return WALL_LOW;
+      if (this.wallMode === 2 || this.insideBuilding !== b.name) return b.h!;
+      return cx === b.x0 || cy === b.y0 ? b.h! : WALL_LOW + 8;
+    }
     if (this.wallMode === 2) return WALL_FULL; if (this.wallMode === 0) return WALL_LOW;
-    const b = L.buildingAt(cx, cy); if (!b) return WALL_LOW;
+    if (!b) return WALL_LOW;
     if (cx === b.x0 || cy === b.y0) return WALL_FULL;
     return cx === b.x1 || cy === b.y1 ? b.front : WALL_LOW;
   }
@@ -158,9 +211,10 @@ export class GameScene extends Phaser.Scene {
     }
     this.applyWalls();
   }
-  applyWalls() {
+  applyWalls(only?: Set<string>) {
     this.doors?.invalidate();
     for (const wd of this.walls) {
+      if (only) { const bb = L.buildingAt(wd.x, wd.y); if (!bb || !only.has(bb.name)) continue; }
       const h = this.wallHeight(wd.x, wd.y); let mask = 0;
       if (wd.x > 0 && L.isWall(wd.x - 1, wd.y)) mask |= 1; if (wd.y > 0 && L.isWall(wd.x, wd.y - 1)) mask |= 2;
       if (wd.x < L.W - 1 && L.isWall(wd.x + 1, wd.y)) mask |= 4; if (wd.y < L.H - 1 && L.isWall(wd.x, wd.y + 1)) mask |= 8;
@@ -181,9 +235,35 @@ export class GameScene extends Phaser.Scene {
       this.furnNodes.set(f.i, nodes);
     }
   }
+  roofs: { b: L.Building; roof: Phaser.GameObjects.Image; sign: Phaser.GameObjects.Image | null }[] = [];
+  /** Toits et enseignes des bâtiments pleins. Le toit s'efface quand on est dedans (ou en mode « murs bas »). */
+  private buildRoofs() {
+    this.roofs = []; this.insideBuilding = '';
+    for (const b of L.BUILDINGS) {
+      if (!b.solid) continue; const w = b.x1 - b.x0 + 1, d = b.y1 - b.y0 + 1; const r = roofCanvas(w, d, b.roof ?? '#666666', b.x0 * 7 + b.y0);
+      const o = toScreen(b.x0, b.y0); const roof = this.add.image(o.x - d * 32 - 4, o.y - b.h! - 4, texKey(this, r.cv)).setOrigin(0, 0).setDepth(zOf(cellKey(b.x1, b.y1)) + 3);
+      let sign: Phaser.GameObjects.Image | null = null;
+      if (b.door && b.title) { const cv = signCanvas(b.h!, '#' + [WALLCOL[b.wall ?? 'concrete']].map((q) => q.map((v) => Math.round(v * 255).toString(16).padStart(2, '0')).join('')).join(''), b.title); const p = toScreen(b.door[0], b.door[1]); sign = this.add.image(p.x - 32, p.y - b.h!, texKey(this, cv)).setOrigin(0, 0).setDepth(zOf(cellKey(b.door[0], b.door[1])) + 1); }
+      this.roofs.push({ b, roof, sign });
+    }
+  }
+  /** À chaque image : bâtiment occupé par le point d'attention → murs avant abaissés ; toits fondus ; blocs de sol chargés. */
+  private updateCity(dt: number) {
+    let name = ''; const a = this.world.avatar;
+    const c = this.mode === 'human' ? a : this.selectedId >= 0 ? this.world.chars[this.selectedId] : null;
+    if (c && !c.away) { const b = L.buildingAt(Math.floor(c.pos.x), Math.floor(c.pos.y)); if (b?.solid) name = b.name; }
+    if (name !== this.insideBuilding) { const only = new Set([this.insideBuilding, name].filter(Boolean)); this.insideBuilding = name; this.applyWalls(only); }
+    const k = 1 - Math.exp(-dt * 8);
+    for (const r of this.roofs) {
+      const open = r.b.name === this.insideBuilding || this.wallMode === 0; const t = open ? 0 : this.mode === 'god' ? 0.8 : 1;
+      r.roof.setAlpha(r.roof.alpha + (t - r.roof.alpha) * k).setVisible(r.roof.alpha > 0.02);
+      if (r.sign) r.sign.setVisible(!(r.b.name === this.insideBuilding || this.wallMode === 0));
+    }
+    this.updateFloorChunks(2);
+  }
   private buildDecor() {
     // arbres et buissons au-delà de la carte (les arbres du quartier sont de vrais meubles bloquants)
-    const trees = [[-3, 3], [-3, 14], [-3, 9], [10, -3], [20, -3], [34, -3], [45, -3], [54, 5], [54, 14], [5, 26], [20, 26], [40, 26], [-2, 21], [54, 21]];
+    const trees: number[][] = [[-3, 3], [-3, 14], [-3, 9], [10, -3], [20, -3], [34, -3], [45, -3], [-2, 21], [-3, 28], [-3, 36], [8, 43], [24, 43], [40, 43], [56, 43], [72, 43], [88, 43], [99, 4], [99, 14], [99, 28], [99, 36], [62, -3], [74, -3], [88, -3]];
     trees.forEach((t, i) => { const spr = furnSprite('tree', i, 0, 0, 1, 1); const p = toScreen(t[0], t[1]); this.add.image(p.x - 32, p.y - spr.pad, texKey(this, spr.canvas)).setOrigin(0, 0).setDepth(zOf(cellKey(t[0], t[1])) + 0); });
   }
 
@@ -291,9 +371,14 @@ export class GameScene extends Phaser.Scene {
     if (this.selectedId >= 0) this.toggleFollow(); else this.hud.toast('Choisissez d\'abord un habitant (A)');
   }
   actionBHold() { if (this.mode === 'human') { this.runLatch = !this.runLatch; this.hud.toast(this.runLatch ? 'Course activée' : 'Course désactivée'); } else if (this.hud.mobile.lastPower) this.hud.pickPower(this.hud.mobile.lastPower); }
+  /** Branche les événements de la criminalité sur l'interface (bandeau d'arrestation, libération). */
+  private hookCrime() {
+    this.world.onArrest = (o, fine, min) => { this.hud.cityHud.show(`ARRESTATION<br><span style="font-size:13px;font-weight:400">${o.first} vous arrête — amende ${fine} €, ${min} min en garde à vue</span>`, 4); this.hud.closeDialogue(); };
+    this.world.onJailEnd = () => this.hud.toast('Vous êtes libéré(e). Faites attention à vos fréquentations…');
+  }
   nearestToCenter(): number {
     const cam = this.cameras.main; const cx = cam.worldView.centerX, cy = cam.worldView.centerY; let best = -1, bd = 1e9;
-    for (const cv of this.chars) { if (cv.sim.kind !== 'resident') continue; const d = Math.hypot(cv.x - cx, cv.y - 20 - cy) * cam.zoom; if (d < bd && d < 180) { bd = d; best = cv.sim.id; } }
+    for (const cv of this.chars) { if (!['resident', 'citizen', 'police', 'clerk'].includes(cv.sim.kind) || cv.sim.away) continue; const d = Math.hypot(cv.x - cx, cv.y - 20 - cy) * cam.zoom; if (d < bd && d < 180) { bd = d; best = cv.sim.id; } }
     return best;
   }
   /** Entrées du mode humain lues à chaque événement clavier (réactif même si l'affichage ralentit). */
@@ -310,6 +395,11 @@ export class GameScene extends Phaser.Scene {
   }
   selectChar(id: number, focus = false) { this.selectedId = id; this.hud.onSelect(id); if (id >= 0 && focus) { this.follow = false; this.focusChar(id); } }
   // ------------------------------------------------------------------ modes DIEU / HUMAIN
+  /** Mode Dieu → Descendre à l'endroit regardé : l'avatar apparaît sur la case libre la plus proche du centre de la vue. */
+  descendHere() {
+    const g = toGrid(this.cx, this.cy); const cell = this.world.nearestFreeCell({ x: Math.floor(g.x), y: Math.floor(g.y) }, 6); if (cell.x < 0) { this.hud.toast('Aucun endroit libre ici'); return; }
+    const av = this.world.avatar; if (av.state === 'use') this.world.endUse(av, false); this.world.abortPlan(av, 'descend'); av.pos = { x: cell.x + 0.5, y: cell.y + 0.5 }; av.away = false; av.state = 'idle'; this.mode === 'god' ? this.descend(true) : (this.tx = this.cx = this.chars[av.id].x);
+  }
   toggleMode() { if (this.mode === 'god') this.descend(true); else this.ascend(true); }
   descend(flash = true) {
     const w = this.world; this.mode = 'human'; w.avatarControlled = true; this.selectChar(-1); this.follow = false; this.hud.cancelPower();
@@ -321,7 +411,7 @@ export class GameScene extends Phaser.Scene {
     const r = this.houseRect(); this.tz = Math.max(this.minZoom, Math.min(this.maxZoom, Math.min(this.scale.width / r.w, (this.scale.height - 120) / r.h) * 1.1)); const cv = this.chars[w.avatar.id]; this.tx = cv ? cv.x : this.tx; this.ty = cv ? cv.y - 60 : this.ty;
     this.hud.toast('Vous reprenez votre place de dieu. L\'avatar reste là où vous l\'avez laissé.');
   }
-  focusZone(z: 'house' | 'bar' | 'street') { this.follow = false; const t = z === 'house' ? { x: 14, y: 9, z: 0.95 } : z === 'bar' ? { x: 40, y: 13, z: 1.35 } : { x: 26, y: 20.5, z: 0.8 }; const p = toScreen(t.x, t.y); this.tx = p.x; this.ty = p.y; this.tz = t.z; }
+  focusZone(z: 'house' | 'bar' | 'street' | 'downtown' | 'park') { this.follow = false; const t = z === 'downtown' ? { x: 75, y: 21, z: 0.8 } : z === 'park' ? { x: 24, y: 29, z: 0.8 } : z === 'house' ? { x: 14, y: 9, z: 0.95 } : z === 'bar' ? { x: 40, y: 13, z: 1.35 } : { x: 26, y: 20.5, z: 0.8 }; const p = toScreen(t.x, t.y); this.tx = p.x; this.ty = p.y; this.tz = t.z; }
   /** Le joueur peut-il parler à ce personnage depuis sa position (à portée et sans mur entre eux) ? */
   canTalkTo(id: number) { return Act.nearby(this.world, this.world.avatar).some((i) => i.npc?.id === id); }
   interact() {
@@ -409,7 +499,7 @@ export class GameScene extends Phaser.Scene {
     { const c = this.camLimits(); this.cx = Math.max(c.x0, Math.min(c.x1, this.cx)); this.cy = Math.max(c.y0, Math.min(c.y1, this.cy)); }
     const cam = this.cameras.main; cam.setZoom(this.cz); cam.centerOn(Math.round(this.cx * this.cz) / this.cz, Math.round(this.cy * this.cz) / this.cz);
     // vue
-    this.syncProps(); this.syncFeast(); this.syncPlants(); this.doors.update(dt);
+    this.syncProps(); this.syncFeast(); this.syncPlants(); this.doors.update(dt); this.updateCity(dt);
     for (const cv of this.chars) cv.update(dt, cv.sim.id === this.selectedId || (this.mode === 'human' && cv.sim.kind === 'avatar'), cv.sim.id === this.hoverId, Math.max(1, Math.min(SPEEDS[this.speedIndex], 3)));
     this.lighting.update(dt); this.lighting.render(); this.sunSprite.setAlpha(this.lighting.daylight * 0.9);
     this.drawFx(dt); this.hud.update(dt);

@@ -13,11 +13,13 @@ export function toJSON(w: World) {
     feastUntil: w.feastUntil, musicUntil: w.musicUntil, knownSecrets: w.knownSecrets, avatarControlled: w.avatarControlled, nextMessId: w.nextMessId, rng: w.rng.state, stats: w.stats,
     rel: [...w.rel.entries()], furn: w.furn.map((f) => ({ water: f.water })), mess: w.mess.map((m) => ({ ...m })),
     events: w.events, nextEvent: w.nextEvent, lastTheft: w.lastTheft, lifeAcc: w.lifeAcc,
+    crime: { wanted: w.wanted, record: w.record_, dispatches: w.dispatches, reports: w.reports, nextDispatch: w.nextDispatch, wantedNpcs: w.wantedNpcs, jail: w.jail },
     journal: w.journal.slice(-60),
     chars: w.chars.map((c) => ({
       id: c.id, pos: c.pos, facing: c.facing, needs: c.needs, joy: c.joy, stress: c.stress, anger: c.anger, faith: c.faith, wake_target: c.wake_target,
       slept_min: c.slept_min, last_shower: c.last_shower, last_chat: c.last_chat, last_meal: c.last_meal, carry: c.carry, carry_cook: c.carry_cook,
       avoid: c.avoid, pref: c.pref, memories: c.memories, goal: c.goal, goal_index: c.goal_index, stats: c.stats,
+      hp: c.hp, unpaid: c.unpaid, task: c.task, place: c.place, home: c.home, dutyPost: c.dutyPost, lifeAct: c.lifeAct,
       known: c.known, intent: c.intent, shift: c.shift, jobPhase: c.jobPhase, jobUntil: c.jobUntil, jobStart: c.jobStart, outing: c.outing, outUntil: c.outUntil,
       state: c.state, away: c.away, money: c.money, inventory: c.inventory, drunk: c.drunk, use_furn: c.use_furn, use_slot: c.use_slot, use_act: c.use_act, use_left: c.use_left,
     })),
@@ -31,10 +33,12 @@ export function fromJSON(d: any): World | null {
   w.rel = new Map(d.rel);
   d.furn.forEach((f: any, i: number) => { if (w.furn[i]) w.furn[i].water = f.water; });
   w.mess = d.mess.map((m: any) => ({ ...m }));
+  if (d.crime) { w.wanted = { ...w.wanted, ...d.crime.wanted }; w.record_ = { ...w.record_, ...d.crime.record }; w.dispatches = d.crime.dispatches ?? []; w.reports = d.crime.reports ?? []; w.nextDispatch = d.crime.nextDispatch ?? 1; w.wantedNpcs = d.crime.wantedNpcs ?? {}; w.jail = d.crime.jail ?? null; }
   w.events = (d.events ?? []).map((e: any) => ({ ...e })); w.nextEvent = d.nextEvent ?? (w.events.reduce((m: number, e: any) => Math.max(m, e.id), 0) + 1); w.lastTheft = d.lastTheft ?? -99999; w.lifeAcc = d.lifeAcc ?? 0;
   for (const f of w.furn) f.users = f.users.map(() => -1);
   for (const cd of d.chars) {
     const c = w.chars[cd.id]; if (!c) continue;
+    if (cd.hp !== undefined) c.hp = cd.hp; if (cd.unpaid) c.unpaid = { ...cd.unpaid }; c.task = cd.task ? JSON.parse(JSON.stringify(cd.task)) : null; if (c.id >= 10) { if (cd.place) c.place = cd.place; if (cd.home) c.home = { ...cd.home }; if (cd.dutyPost) c.dutyPost = { ...cd.dutyPost }; }
     c.known = cd.known ? JSON.parse(JSON.stringify(cd.known)) : {}; c.intent = cd.intent ? { ...cd.intent } : null; if (cd.shift !== undefined) c.shift = cd.shift ? { ...cd.shift } : null;
     c.jobPhase = cd.jobPhase ?? ''; c.jobUntil = cd.jobUntil ?? 0; c.jobStart = cd.jobStart ?? 0; c.outing = cd.outing ?? ''; c.outUntil = cd.outUntil ?? 0;
     c.away = cd.away ?? c.away; c.money = cd.money ?? c.money; c.inventory = cd.inventory ? { ...cd.inventory } : c.inventory; c.drunk = cd.drunk ?? 0;

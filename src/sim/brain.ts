@@ -5,6 +5,7 @@ import type { SimChar, Step } from './simchar';
 import type { World } from './world';
 import * as Social from './social';
 import * as Life from './life';
+import * as Shop from './shop';
 
 export function isNight(c: SimChar, tod: number): boolean {
   let bt = 23 * 60 + c.chrono * 150;
@@ -234,6 +235,8 @@ export function onActStart(w: World, c: SimChar) {
 export function onActEnd(w: World, c: SimChar, completed: boolean) {
   const act = c.use_act; c.statAdd((completed ? 'done_' : 'cut_') + act);
   if (act === 'search') Life.onSearchEnd(w, c, completed);
+  if (completed && act === 'shop') { const t = c.use_furn >= 0 ? { furn: c.use_furn, slot: c.use_slot } : Shop.decode(c.use_target); const it = Shop.take(w, c, t.furn, t.slot); if (it && c.kind === 'avatar') w.emitLog(`Vous prenez : ${Shop.itemLabel(it)} (${Shop.PRICE[it]} €, à payer).`, 'info', c.id); }
+  if (completed && act === 'pay') { const n = Shop.pay(w, c); if (n > 0 && c.kind === 'avatar') w.emitLog(`Vous payez ${n} €.`, 'info', c.id); }
   switch (act) {
     case 'sleep':
       if (completed) {

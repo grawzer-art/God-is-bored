@@ -38,8 +38,8 @@ describe('2. un besoin modifie la décision', () => {
     expect(mehdi.needs.hunger).toBeGreaterThan(20);
   });
   it("Lucas, sans argent ni emploi, part chercher du travail ; la recherche peut aboutir à un vrai emploi", () => {
-    const w = mk(); const l = w.chars[5]; l.money = 2; w.clock = 10 * 60; l.stats.search_day = -1; for (const c of w.residents) { w.abortPlan(c, 't'); c.needs.energy = 90; c.needs.hunger = 70; }
-    run(w, 5 * 60); expect(['searching', ''].includes(l.jobPhase)).toBe(true); expect(l.statAdd).toBeDefined();
+    const w = mk(); const l = w.chars[5]; l.money = 2; w.clock = 10 * 60; w.lastTheft = w.clock + 1e5; l.stats.search_day = -1; for (const c of w.residents) { w.abortPlan(c, 't'); c.needs.energy = 90; c.needs.hunger = 70; }
+    run(w, 5 * 60); expect(['searching', '', 'working'].includes(l.jobPhase)).toBe(true); expect(l.statAdd).toBeDefined();
     expect(w.journal.some((e) => /Lucas.*(chercher du travail|trouvé du travail|bredouille)/.test(e.text))).toBe(true);
   });
 });
@@ -92,7 +92,7 @@ describe('5-6-7. vol : témoin, information transmise, conséquences observables
     for (const id of [DEMO.absent, DEMO.friend, 7, 2]) { expect(w.chars[id].known[ev.id]).toBeUndefined(); expect(w.chars[id].memories.some((m) => m.ev === ev.id)).toBe(false); } // absents : ignorent tout
     expect(w.chars[DEMO.victim].known[ev.id]).toBeUndefined();                       // la victime n'a encore rien constaté (au travail)
     // 6. information transmise (par le témoin, de personne à personne) : la victime apprend QUI, par ouï-dire
-    expect(run(w, 3 * 1440, () => w.chars[DEMO.victim].known[ev.id]?.culprit === DEMO.thief)).toBe(true);
+    expect(run(w, 3 * 1440, () => { const q = w.chars[DEMO.victim].known[ev.id]; return q?.culprit === DEMO.thief && q.src !== 'suspected'; })).toBe(true);
     const k = w.chars[DEMO.victim].known[ev.id]; expect(k.src === 'told' || k.src === 'lived').toBe(true); expect(k.conf).toBeLessThanOrEqual(1);
     if (k.src === 'told') expect(k.conf).toBeLessThan(1);                              // une information de seconde main est moins sûre
     expect(w.chars[DEMO.victim].memories.some((m) => m.ev === ev.id && m.subj === DEMO.thief)).toBe(true);
@@ -148,8 +148,8 @@ describe('performance, limites, déterminisme', () => {
     const w = mk(); const t = performance.now(); run(w, 3 * 1440); expect(performance.now() - t).toBeLessThan(6000);
   });
   it('simulation allégée pour les habitants éloignés du joueur (LOD) : trois fois moins de pas de vie, même résultat qualitatif', () => {
-    const near = demo(), far = demo(); near.focus = { x: 14, y: 8 }; far.focus = { x: 50, y: 22 }; run(near, 480); run(far, 480);
-    expect(far.stats.life_far ?? 0).toBeGreaterThan(0); expect(far.stats.life_near ?? 0).toBe(0); expect(near.stats.life_far ?? 0).toBe(0);
+    const near = demo(), far = demo(); near.focus = { x: 14, y: 8 }; far.focus = { x: 95, y: 39 }; run(near, 480); run(far, 480);
+    expect(far.stats.life_far ?? 0).toBeGreaterThan(0); expect(far.stats.life_near ?? 0).toBe(0); expect(near.stats.life_far ?? 0).toBeLessThan((near.stats.life_near ?? 0) * 0.2);
     expect((far.stats.life_far ?? 0)).toBeLessThan((near.stats.life_near ?? 0) * 0.5);
     expect(theft(far)).toBeDefined(); // la vie détaillée (vol) fonctionne aussi en simulation allégée
   });

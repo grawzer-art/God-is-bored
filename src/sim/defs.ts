@@ -35,6 +35,11 @@ export const ACT: Record<string, ActDef> = {
   pray: A('Prie', 'stand', { fun: 6 }, [4, 7], true),
   drink: A('Boit un verre', 'use', { fun: 16, social: 6 }, [6, 12], true),
   bartend: A('Sert au bar', 'use', {}, [9999, 9999], false),
+  rest: A('Se repose', 'sit', { energy: 6, fun: 6 }, [20, 60], true),
+  shop: A('Regarde les rayons', 'stand', { fun: 3 }, [3, 6], true),
+  pay: A('Paie à la caisse', 'stand', {}, [2, 3], false),
+  clerk: A('Tient la caisse', 'stand', {}, [9999, 9999], false),
+  patrol: A('Surveille les alentours', 'stand', {}, [6, 12], true),
   look: A('Observe la pièce', 'stand', { fun: 1 }, [4, 9], true),
   search: A('Fouille discrètement', 'stand', {}, [4, 6], false),
   music: A('Choisit un morceau', 'use', { fun: 4 }, [2, 3], true),
@@ -84,6 +89,11 @@ export const FURN: Record<string, FurnDef> = {
   stool: F(1, 1, false, [S(['sit', 'drink'], [[0, 0]], 'sit', 3, [0.5, 0.5])]),
   jukebox: F(1, 1, true, [S(['music'], [[0, 1]], 'use', 3)], { light: { h: 40, r: 1.1 } }),
   bar_table: F(1, 1, true),
+  // --- centre-ville
+  shelf3: F(3, 1, true, [0, 1, 2].map((i) => S(['shop'], [[i, 1]], 'stand', 3))),
+  shelf4: F(4, 1, true, [0, 1, 2, 3].map((i) => S(['shop'], [[i, 1]], 'stand', 3))),
+  shop_counter: F(4, 1, true), desk: F(2, 1, true),
+  park_bench: F(2, 1, true, [S(['sit'], [[0, 1]], 'sit', 3, [0.5, 0.45]), S(['sit'], [[1, 1]], 'sit', 3, [1.5, 0.45])]),
   streetlamp: F(1, 1, true, [], { light: { h: 84, r: 2.0 } }),
   street_bench: F(2, 1, true), bar_sign: F(1, 1, false, [], { light: { h: 70, r: 1.7 } }),
   tree: F(1, 1, true), bush: F(1, 1, true),
@@ -92,4 +102,4 @@ export const EMOTIONS: Record<string, string> = {
   joy: 'Joyeux', content: 'Content', neutral: 'Calme', tired: 'Fatigué', hungry: 'Affamé', lonely: 'Seul', bored: "S'ennuie",
   irritated: 'Irrité', angry: 'En colère', sad: 'Triste', anxious: 'Anxieux', dirty: 'Mal à l\'aise', love: 'Attendri', awe: 'Émerveillé',
 };
-export const ROOM_NAMES: Record<string, string> = { B: 'Bar « Le Cinquième Ciel »', R: 'Toilettes du bar', s: 'Trottoir', r: 'Rue', g: 'Jardin', a: 'Chambre 1', b: 'Chambre 2', c: 'Chambre 3', d: 'Chambre 4', h: 'Couloir', k: 'Cuisine', l: 'Salon', w: 'Salle de bains', u: 'Buanderie' };
+export const ROOM_NAMES: Record<string, string> = { M: 'Épicerie', Q: 'Commissariat', C: 'Cellule de garde à vue', T: 'Café « Le Moulin »', N: "Hall des Mouettes", O: 'Hall de la Résidence Orion', P: 'Hall des Tilleuls', B: 'Bar « Le Cinquième Ciel »', R: 'Toilettes du bar', s: 'Trottoir', r: 'Rue', g: 'Jardin', a: 'Chambre 1', b: 'Chambre 2', c: 'Chambre 3', d: 'Chambre 4', h: 'Couloir', k: 'Cuisine', l: 'Salon', w: 'Salle de bains', u: 'Buanderie' };

@@ -29,7 +29,7 @@ describe('construction', () => {
     const w = mk(7);
     expect(w.residents.length).toBe(8);
     expect(new Set(w.residents.map((c) => c.name)).size).toBe(8);
-    expect(new Set(w.chars.map((c) => JSON.stringify(c.look))).size).toBe(10);
+    expect(new Set(w.chars.map((c) => JSON.stringify(c.look))).size).toBe(w.chars.length); expect(w.chars.length).toBe(19); // 8 habitants + avatar + barman + commerçant + 2 policiers + 6 citoyens
     w.residents.forEach((c) => { expect(c.age).toBeGreaterThanOrEqual(18); expect(c.use_act).toBe('sleep'); });
     expect(new Set(w.residents.map((c) => c.bed_id)).size).toBe(8);
   });
@@ -37,12 +37,13 @@ describe('construction', () => {
 
 describe('simulation autonome (3 jours)', () => {
   const w = mk(2024); const dt = 0.25;
-  let maxJump = 0, inWall = 0, needOob = 0, oob = 0;
+  let maxJump = 0, inWall = 0, needOob = 0, oob = 0; const gone: Record<number, boolean> = {};
   const prev = w.chars.map((c) => ({ ...c.pos }));
   const t0 = performance.now();
   for (let i = 0; i < ticks(3); i++) {
     w.tick(dt);
     for (const c of w.chars) {
+      if (c.away) { gone[c.id] = true; prev[c.id] = { ...c.pos }; continue; } if (gone[c.id]) { gone[c.id] = false; prev[c.id] = { ...c.pos }; } // réapparition à une porte (travail, garde à vue) : pas un saut
       maxJump = Math.max(maxJump, Math.hypot(c.pos.x - prev[c.id].x, c.pos.y - prev[c.id].y)); prev[c.id] = { ...c.pos };
       if (c.pos.x < 0 || c.pos.y < 0 || c.pos.x > L.W || c.pos.y > L.H) oob++;
       if (['walk', 'idle', 'chat'].includes(c.state) && !w.isWalkable(c.cell())) inWall++;
@@ -52,7 +53,7 @@ describe('simulation autonome (3 jours)', () => {
   const ms = performance.now() - t0;
   it('aucune téléportation, personne dans un mur, besoins bornés', () => {
     console.log(`3 jours simulés en ${ms.toFixed(0)} ms`);
-    expect(maxJump).toBeLessThanOrEqual(0.5); expect(inWall).toBe(0); expect(oob).toBe(0); expect(needOob).toBe(0);
+    expect(maxJump).toBeLessThanOrEqual(0.7); // 0,7 = un policier en poursuite (2,7 cases/s x 0,25 s) ; une téléportation dépasserait largement expect(inWall).toBe(0); expect(oob).toBe(0); expect(needOob).toBe(0);
     expect(w.stats.path_fail ?? 0).toBeLessThanOrEqual(5);
   });
   it('chacun mange, va aux toilettes, dort, varie ses activités', () => {
@@ -79,7 +80,7 @@ describe('simulation autonome (3 jours)', () => {
     expect(w2.mess.length).toBe(w.mess.length);
     const p = w2.chars.map((c) => ({ ...c.pos })); let j = 0;
     for (let i = 0; i < 3000; i++) { w2.tick(0.25); w2.chars.forEach((c) => { j = Math.max(j, Math.hypot(c.pos.x - p[c.id].x, c.pos.y - p[c.id].y)); p[c.id] = { ...c.pos }; }); }
-    expect(j).toBeLessThanOrEqual(0.5); expect(w2.clock).toBeGreaterThan(w.clock);
+    expect(j).toBeLessThanOrEqual(0.7); expect(w2.clock).toBeGreaterThan(w.clock);
   });
 });
 

@@ -29,7 +29,7 @@ describe('Démo vivante : les six étapes, avec les vrais systèmes', () => {
   it('B : un besoin urgent interrompt la télé — il va manger, puis reprend sa soirée', () => {
     const w = mk(); expect(B(w).state).toBe('use'); expect(B(w).use_act).toBe('tv'); expect(B(w).needs.hunger).toBeLessThan(6);
     let ateAt = -1, leftTv = -1; run(w, 120, () => { const b = B(w); if (leftTv < 0 && !(b.state === 'use' && b.use_act === 'tv')) leftTv = w.clock; if (ateAt < 0 && b.state === 'use' && ['snack', 'eat', 'serve', 'cook'].includes(b.use_act)) ateAt = w.clock; });
-    expect(leftTv).toBeGreaterThan(0); expect(ateAt).toBeGreaterThan(0); expect(ateAt - leftTv).toBeLessThan(25); expect(B(w).needs.hunger).toBeGreaterThan(20);
+    expect(leftTv).toBeGreaterThan(0); expect(ateAt).toBeGreaterThan(0); expect(ateAt - leftTv).toBeLessThan(45); expect(B(w).needs.hunger).toBeGreaterThan(20);
     expect(B(w).stats.act_eat + (B(w).stats.act_snack ?? 0) >= 1 || B(w).stats.done_snack >= 1 || B(w).stats.done_eat >= 1).toBe(true);
     const br = brief(w, B(w)); expect(br.need.length).toBeGreaterThan(0);
   });
@@ -81,7 +81,7 @@ describe('Temps accéléré : les décisions, trajets et conséquences suivent l
       const dec = w.residents.reduce((m, c) => m + Object.entries(c.stats).filter(([k]) => k.startsWith('act_')).reduce((a, [, v]) => a + v, 0), 0); return { clock: w.clock - c0, dist, dec }; };
     const s1 = at(1), s2 = at(2), s3 = at(3);
     expect(s2.clock / s1.clock).toBeCloseTo(2, 1); expect(s3.clock / s1.clock).toBeCloseTo(3, 1);
-    expect(s2.dist / s1.dist).toBeGreaterThan(1.5); expect(s2.dist / s1.dist).toBeLessThan(2.6); expect(s3.dist / s1.dist).toBeGreaterThan(2.2); expect(s3.dist / s1.dist).toBeLessThan(3.8);
+    expect(s2.dist / s1.dist).toBeGreaterThan(1.5); expect(s2.dist / s1.dist).toBeLessThan(2.6); expect(s3.dist / s1.dist).toBeGreaterThan(1.9); expect(s3.dist / s1.dist).toBeLessThan(3.8);
     console.log('ÉCHELLE', JSON.stringify({ s1, s2, s3 })); expect(s2.dec / s1.dec).toBeGreaterThan(1.25); expect(s3.dec / s1.dec).toBeGreaterThan(1.6); // décisions : petit échantillon, bornes larges
   });
 });

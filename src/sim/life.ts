@@ -9,6 +9,7 @@ import * as L from './layout';
 import { lineClear } from './movement';
 import type { Know, Shift, SimChar, Source } from './simchar';
 import { dist, type Rel, type World, type WorldEvent } from './world';
+import * as Crime from './crime';
 
 // ------------------------------------------------------------------ paramètres
 /** Emplois réels (hors carte) : horaires distincts pour que tout le monde ne suive pas le même emploi du temps. Clé = identifiant d'habitant. */
@@ -61,6 +62,8 @@ export function describe(w: World, ev: WorldEvent, c: SimChar, k: Know): string 
     case 'help': return k.src === 'lived' ? (t === c ? `${nm(a)} m'a aidé quand j'en avais besoin.` : a === c ? `J'ai aidé ${nm(t)}.` : `J'ai vu ${nm(a)} aider ${nm(t)}.`) : `${from} m'a dit que ${nm(a)} a aidé ${nm(t)}.`;
     case 'job': return k.src === 'lived' && a === c ? `J'ai trouvé du travail à ${NEW_JOB.place}.` : `${from ? from + ' m\'a dit que ' : ''}${nm(a)} a trouvé du travail.`;
     case 'reconcile': return `${nm(a)} et ${nm(t)} se sont réconciliés.`;
+    case 'shoplift': return k.src === 'lived' ? `J'ai vu ${who} partir de l'épicerie sans payer.` : `${from} m'a dit que ${who} a volé à l'épicerie.`;
+    case 'arrest': return `${a.first} a arrêté ${nm(t)}.`;
   }
   return '…';
 }
@@ -72,6 +75,8 @@ function gist(w: World, ev: WorldEvent, k: Know, listener: number): string {
     case 'dispute': return `la dispute entre ${nm(a)} et ${nm(t)}`;
     case 'help': return `que ${nm(a)} a aidé ${nm(t)}`;
     case 'job': return `que ${nm(a)} a trouvé du travail`;
+    case 'shoplift': return `que ${nm(a)} a volé à l'épicerie`;
+    case 'arrest': return `que ${nm(t)} s'est fait arrêter`;
     default: return `que ${nm(a)} et ${nm(t)} se sont réconciliés`;
   }
 }
@@ -153,6 +158,10 @@ export function completeTheft(w: World, thief: SimChar, victim: SimChar, caughtB
   if (caughtByVictim && awake(victim)) wit.add(victim.id);
   w.emitLog(`${nm(thief)} s'empare de ${amount} € appartenant à ${nm(victim)}${wit.size ? ' — sous les yeux de ' + [...wit].map((i) => w.chars[i].first).join(', ') : ' — personne ne semble avoir vu'}.`, 'drama', thief.id);
   for (const id of wit) { const o = w.chars[id]; if (learn(w, o, ev, 'lived', 1, -1, thief.id)) react(w, o, ev, o.known[ev.id]); }
+  // la police : un témoin peut l'appeler ; un agent présent intervient tout de suite
+  if (thief.kind === 'avatar') w.record_.crimes++;
+  for (const id of wit) { const o = w.chars[id]; if (o.kind !== 'police') Crime.maybeReport(w, o, thief.id, thief.pos, 1, 0.12 + 0.55 * moral(o) * (o.id === victim.id ? 1.4 : 1)); }
+  for (const o of Crime.viewers(w, thief.pos, [thief.id], 9)) if (o.kind === 'police') Crime.alertOfficer(w, o, thief);
   return ev;
 }
 /** Vol par le joueur (dialogue). Renvoie le résultat pour l'interface. */
@@ -376,6 +385,8 @@ export function homeCell(w: World): V2 { const c = w.nearestFreeCell(HOME_IN, 4)
 export function decide(w: World, c: SimChar): boolean {
   if (c.kind !== 'resident' || c.away) return false;
   const h = w.hour(); const day = w.day();
+  // parti pour le travail / la recherche d'emploi mais le trajet a été interrompu (conversation, intention) : il reprend sa route vers la sortie
+  if ((c.jobPhase === 'working' || c.jobPhase === 'searching') && !c.away && c.plan.length === 0) { c.lifeAct = 'Reprendre le chemin'; c.lifeWhy = 'son trajet vers le travail avait été interrompu'; depart(w, c); return true; }
   // intention prioritaire
   const it = c.intent;
   if (it) {
@@ -428,12 +439,21 @@ function planDrink(w: World, c: SimChar): boolean {
 }
 /** Un habitant paie sa consommation au barman. */
 export function onDrink(w: World, c: SimChar) {
+  if (c.kind === 'citizen' && inBuilding(c, 'cafe')) { if (c.money >= 3) { c.money -= 3; const wt = w.chars.find((x) => x.name.startsWith('Noémie')); if (wt) wt.money += 3; } return; }
   if (c.kind !== 'resident' || !inBuilding(c, 'bar')) return; if (c.money >= 4) { c.money -= 4; if (w.barman) w.barman.money += 4; }
   c.drunk = Math.min(100, c.drunk + 8); c.statAdd('bar_drinks'); w.stats.resident_drinks = (w.stats.resident_drinks ?? 0) + 1;
 }
 /** Habitant hors de la carte : rentre à l'heure prévue, avec la paie ou le résultat de sa recherche d'emploi. */
 export function updateAway(w: World, c: SimChar) {
   if (w.clock < c.jobUntil) return;
+  if (c.kind === 'citizen') { // retour d'un citoyen : devant la porte de son immeuble (ou au bout de la rue s'il revient du bureau)
+    const back = c.jobPhase === 'working' && c.shift && c.home ? { x: 53, y: 1 } : c.home!; const st = w.nearestFreeCell(back, 3);
+    if (c.jobPhase === 'working' && c.shift) { c.money += c.shift.pay; c.statAdd('shifts'); c.needs.hunger = Math.max(15, c.needs.hunger - 20); }
+    c.away = false; c.pos = { x: st.x + 0.5, y: st.y + 0.5 }; c.state = 'idle'; c.plan = []; c.step = null; c.pose = 'stand'; c.jobPhase = ''; c.decision_cooldown = 0.2; return;
+  }
+  if (c.jobPhase === 'jail') { // sortie de garde à vue : devant le commissariat
+    c.away = false; c.pos = { x: 75.5, y: 19.5 }; c.state = 'idle'; c.plan = []; c.step = null; c.pose = 'stand'; c.jobPhase = ''; c.decision_cooldown = 0.3; w.emitLog(`${c.first} sort du commissariat.`, 'info', c.id); goHome(w, c); return;
+  }
   c.away = false; const st = w.nearestFreeCell(STREET_IN, 3); c.pos = { x: (st.x >= 0 ? st.x : STREET_IN.x) + 0.5, y: (st.y >= 0 ? st.y : STREET_IN.y) + 0.5 };
   c.state = 'idle'; c.plan = []; c.step = null; c.pose = 'stand'; c.decision_cooldown = 0.3;
   if (c.jobPhase === 'out') { c.addMemory(w.clock, 'work', 'Journée dehors.', 0, 0.1, -1); }
