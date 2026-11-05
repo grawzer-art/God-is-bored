@@ -80,6 +80,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const wl = await E(() => ({ dlg: window.__gib.hud.dialogueOpen(), st: window.__gib.world.avatar.state })); ok(!wl.dlg && wl.st === 'walk', 'PNJ derrière le mur : aucun dialogue immédiat, le personnage contourne par la porte');
   await E(() => window.__gib.world.abortPlan(window.__gib.world.avatar, 't'));
 
+  console.log('\n== Portes');
+  await place(16.5, 21.5); await E(() => { window.__gib.tz = window.__gib.cz = 2.2; }); await settle(); const dc = await E(() => window.__gib.doors.openness(16, 18)); ok(dc === 0, `porte d'entrée fermée quand personne n'est près (ouverture ${dc})`);
+  await pg.screenshot({ path: 'docs/shots/porte-fermee.png' });
+  const dtap = await cellXY(16.5, 18.5); await place(16.5, 20.5); await sleep(200);
+  await E(() => window.__gib.walkTo({ x: 16, y: 18 })); let op = 0; for (let i = 0; i < 20; i++) { await sleep(150); op = await E(() => window.__gib.doors.openness(16, 18)); if (op > 0.9) break; }
+  ok(op > 0.9, `la porte s'ouvre quand le personnage s'en approche (ouverture ${op.toFixed(2)})`); await pg.screenshot({ path: 'docs/shots/porte-ouverte.png' });
+  await sleep(3500); await E(() => { const w = window.__gib.world; w.abortPlan(w.avatar, 't'); w.avatar.pos = { x: 16.5, y: 22.5 }; }); await sleep(900);
+  ok((await E(() => window.__gib.doors.openness(16, 18))) < 0.05, 'la porte se referme quand tout le monde s\'éloigne');
   console.log('\n== Caméra');
   await place(20.5, 21.5); await E(() => { window.__gib.tz = window.__gib.cz = 2; const c = window.__gib.camLimits(); window.__lim = c; }); await settle();
   await E(() => { window.__j = []; let last = null; const f = () => { const g = window.__gib; const cam = g.cameras.main; const c = { x: cam.worldView.centerX, y: cam.worldView.centerY }; if (last) window.__j.push(Math.hypot(c.x - last.x, c.y - last.y)); last = c; window.__raf = requestAnimationFrame(f); }; f(); });

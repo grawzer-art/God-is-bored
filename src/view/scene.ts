@@ -12,6 +12,7 @@ import { cellKey, toGrid, toScreen, zOf } from './iso';
 import { texKey } from './texreg';
 import { Hud } from '../ui/hud';
 import { pickProp } from './picking';
+import { Doors } from './doors';
 import * as Act from '../sim/interact';
 
 export const SPEEDS = [0, 1, 3, 8];
@@ -30,7 +31,7 @@ export class GameScene extends Phaser.Scene {
   floorSprite!: Phaser.GameObjects.Image; sunSprite!: Phaser.GameObjects.Image;
   mode: 'god' | 'human' = 'god'; wallMode = 1; speedIndex = 1; selectedId = -1; hoverId = -1; follow = false; autosave = 0; fxT = 0;
   tx = 0; ty = 0; tz = 1; cx = 0; cy = 0; cz = 1; minZoom = 0.35; maxZoom = 3.5; bounds = { x: 0, y: 0, w: 0, h: 0 };
-  analog = { x: 0, y: 0, mag: 0 }; dest: { x: number; y: number; t0: number; fade: number } | null = null;
+  doors!: Doors; analog = { x: 0, y: 0, mag: 0 }; dest: { x: number; y: number; t0: number; fade: number } | null = null;
   keys = new Set<string>(); runLatch = false; params = new URLSearchParams(location.search);
   private pan = { down: false, moved: false, sx: 0, sy: 0, button: 0, t: 0 }; private pinch = 0; private lastClick = { t: 0, id: -1 };
 
@@ -66,7 +67,7 @@ export class GameScene extends Phaser.Scene {
 
   // ------------------------------------------------------------------ construction de la vue
   buildView() {
-    this.bakeFloor(); this.buildWalls(); this.buildFurniture(); this.buildDecor();
+    this.bakeFloor(); this.buildWalls(); this.buildFurniture(); this.doors = new Doors(this, this.world, (x, y) => this.wallHeight(x, y)); this.buildDecor();
     this.chars = this.world.chars.map((c) => new CharView(this, c, this.world));
     this.fx = this.add.graphics().setDepth(3800);
     this.lighting = new Lighting(this, this.world);
@@ -149,6 +150,7 @@ export class GameScene extends Phaser.Scene {
     this.applyWalls();
   }
   applyWalls() {
+    this.doors?.invalidate();
     for (const wd of this.walls) {
       const h = this.wallHeight(wd.x, wd.y); let mask = 0;
       if (wd.x > 0 && L.isWall(wd.x - 1, wd.y)) mask |= 1; if (wd.y > 0 && L.isWall(wd.x, wd.y - 1)) mask |= 2;
@@ -311,6 +313,8 @@ export class GameScene extends Phaser.Scene {
     this.hud.toast('Vous reprenez votre place de dieu. L\'avatar reste là où vous l\'avez laissé.');
   }
   focusZone(z: 'house' | 'bar' | 'street') { this.follow = false; const t = z === 'house' ? { x: 14, y: 9, z: 0.95 } : z === 'bar' ? { x: 40, y: 13, z: 1.35 } : { x: 26, y: 20.5, z: 0.8 }; const p = toScreen(t.x, t.y); this.tx = p.x; this.ty = p.y; this.tz = t.z; }
+  /** Le joueur peut-il parler à ce personnage depuis sa position (à portée et sans mur entre eux) ? */
+  canTalkTo(id: number) { return Act.nearby(this.world, this.world.avatar).some((i) => i.npc?.id === id); }
   interact() {
     const w = this.world; const av = w.avatar; if (this.hud.dialogueOpen()) return; const list = Act.nearby(w, av);
     if (!list.length) { this.hud.toast('Rien à faire ici'); return; }
@@ -383,7 +387,7 @@ export class GameScene extends Phaser.Scene {
     { const c = this.camLimits(); this.cx = Math.max(c.x0, Math.min(c.x1, this.cx)); this.cy = Math.max(c.y0, Math.min(c.y1, this.cy)); }
     const cam = this.cameras.main; cam.setZoom(this.cz); cam.centerOn(Math.round(this.cx * this.cz) / this.cz, Math.round(this.cy * this.cz) / this.cz);
     // vue
-    this.syncProps(); this.syncFeast(); this.syncPlants();
+    this.syncProps(); this.syncFeast(); this.syncPlants(); this.doors.update(dt);
     for (const cv of this.chars) cv.update(dt, cv.sim.id === this.selectedId || (this.mode === 'human' && cv.sim.kind === 'avatar'), cv.sim.id === this.hoverId);
     this.lighting.update(dt); this.lighting.render(); this.sunSprite.setAlpha(this.lighting.daylight * 0.9);
     this.drawFx(dt); this.hud.update(dt);

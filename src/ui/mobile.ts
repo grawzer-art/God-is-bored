@@ -49,6 +49,7 @@ const CSS = `
 #rotate{position:fixed;inset:0;z-index:50;background:#0b0c12;color:#e6e9f2;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px;pointer-events:auto;touch-action:none}
 #ui.mobile.portrait #rotate{display:flex} #rotate .ph{width:54px;height:92px;border:3px solid #fccd5c;border-radius:11px;animation:rot 2.4s ease-in-out infinite}
 @keyframes rot{0%,20%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+#ui.mobile #fps{left:calc(var(--sl) + 14px);top:calc(var(--st) + 62px);font-size:11px;text-shadow:0 0 3px #000,0 0 3px #000}
 #ui.mobile #toast{top:calc(var(--st) + 52px);font-size:12px;max-width:60vw} #ui.mobile #prompt{font-size:11px}
 #ui.mobile #dlg{bottom:auto;top:calc(var(--st) + 6px);width:min(640px,calc(100vw - var(--sl) - var(--sr) - 24px));max-height:calc(var(--vh,100vh) - var(--st) - 12px);overflow:auto;touch-action:pan-y;font-size:12px;padding:8px 10px}
 #ui.mobile #dlg .txt{font-size:13px;min-height:0;margin:2px 0 6px} #ui.mobile #dlg .choices{gap:5px} #ui.mobile #dlg .btn{min-height:44px} #ui.mobile #dlg img.pp{width:44px;height:52px} #ui.mobile #dlg .small.dim:last-child{display:none}
@@ -155,7 +156,7 @@ export class MobileUi {
   }
   private bindBtns(sel: string, fn: (b: HTMLElement) => void) { this.el.msheet.querySelectorAll<HTMLElement>(sel).forEach((b) => (b.onclick = () => fn(b))); }
   openMenu() {
-    const god = this.g.mode === 'god'; const items: [string, string][] = god ? [['res', 'Habitants'], ['pow', 'Pouvoirs'], ['lieux', 'Lieux'], ['journal', 'Journal'], ['murs', 'Murs'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['help', 'Aide']] : [['inv', 'Inventaire'], ['journal', 'Journal'], ['lieux', 'Lieux'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['help', 'Aide']];
+    const god = this.g.mode === 'god'; const items: [string, string][] = god ? [['res', 'Habitants'], ['pow', 'Pouvoirs'], ['lieux', 'Lieux'], ['journal', 'Journal'], ['murs', 'Murs'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['help', 'Aide']] : [['inv', 'Inventaire'], ['journal', 'Journal'], ['lieux', 'Lieux'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['help', 'Aide']];
     this.show('Menu', `<div class="grid">${items.map(([k, l]) => `<button class="mbtn" data-k="${k}"${k === 'export' || k === 'import' ? ' data-native' : ''}>${l}</button>`).join('')}</div>`);
     this.bindBtns('[data-k]', (b) => this.menuAction(b.dataset.k!));
   }
@@ -164,7 +165,7 @@ export class MobileUi {
     switch (k) {
       case 'res': this.openResidents(); break; case 'pow': this.openPowers(); break; case 'lieux': this.openPlaces(); break; case 'journal': this.openJournal(); break;
       case 'murs': { const m = g.cycleWalls(); this.hud.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); this.closeSheet(); break; }
-      case 'save': g.saveGame(); this.closeSheet(); break; case 'load': this.closeSheet(); g.loadGame(); break; case 'export': this.closeSheet(); g.exportGame(); break; case 'import': this.closeSheet(); g.importGame(); break; case 'help': this.openHelp(); break;
+      case 'save': g.saveGame(); this.closeSheet(); break; case 'load': this.closeSheet(); g.loadGame(); break; case 'export': this.closeSheet(); g.exportGame(); break; case 'import': this.closeSheet(); g.importGame(); break; case 'fps': this.hud.toggleFps(); this.closeSheet(); break; case 'help': this.openHelp(); break;
       case 'inv': this.closeSheet(); this.hud.toggleInventory(); break;
     }
   }
