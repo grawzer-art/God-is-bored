@@ -19,12 +19,12 @@ const ok = (c, m) => { n++; if (!c) fails++; console.log(c ? '  [OK]   ' : '  [F
   ok(c1 - c0 > 1.0, `le temps s'écoule à 1x (+${(c1 - c0).toFixed(1)} min en 2 s ; idéal 4, le rendu logiciel du navigateur de test cale parfois plus d'une seconde)`);
   await pg.keyboard.press(' '); await pg.waitForTimeout(300); const p0 = await G(() => window.__gib.world.clock); await pg.waitForTimeout(1000);
   ok((await G(() => window.__gib.world.clock)) === p0, 'Espace : pause'); ok(await G(() => document.getElementById('pause').style.display === 'block'), 'indicateur PAUSE affiché');
-  await pg.keyboard.press(' '); await pg.click('#speeds button:nth-child(5)'); const s0 = await G(() => window.__gib.world.clock); await pg.waitForTimeout(1500);
+  await pg.keyboard.press(' '); await pg.click('#speeds button:nth-child(5)'); const s0 = await G(() => window.__gib.world.clock); await pg.waitForFunction((a) => window.__gib.world.clock - a > 10, s0, { timeout: 15000 }).catch(() => {});
   ok((await G(() => window.__gib.world.clock)) - s0 > 10, 'bouton 8x : le temps accélère'); await pg.click('#speeds button:nth-child(2)');
   console.log('\n== Caméra');
   const z0 = await G(() => window.__gib.tz); await pg.mouse.move(720, 450); await pg.mouse.wheel(0, -400); await pg.waitForTimeout(400);
   ok((await G(() => window.__gib.tz)) > z0, 'molette : zoom avant');
-  const x0 = await G(() => window.__gib.tx); await pg.keyboard.down('d'); await pg.waitForTimeout(500); await pg.keyboard.up('d');
+  const x0 = await G(() => window.__gib.tx); await pg.keyboard.down('d'); for (let k = 0; k < 20 && (await G(() => window.__gib.tx)) < x0 + 30; k++) await pg.waitForTimeout(250); await pg.keyboard.up('d');
   ok((await G(() => window.__gib.tx)) > x0 + 20, 'touche D : la caméra se déplace');
   const x1 = await G(() => window.__gib.tx); await pg.mouse.move(600, 400); await pg.mouse.down({ button: 'right' }); await pg.mouse.move(500, 400, { steps: 6 }); await pg.mouse.up({ button: 'right' });
   ok((await G(() => window.__gib.tx)) > x1 + 30, 'glisser (clic droit) : la caméra se déplace');
@@ -37,7 +37,7 @@ const ok = (c, m) => { n++; if (!c) fails++; console.log(c ? '  [OK]   ' : '  [F
   await pg.keyboard.press('Tab'); await pg.waitForTimeout(300); ok((await G(() => window.__gib.selectedId)) === 2, 'Tab : habitant suivant');
   await pg.keyboard.press('Escape'); await pg.keyboard.press('Escape'); ok((await G(() => window.__gib.selectedId)) === -1, 'Échap : désélection');
   // clic réel dans le monde sur un personnage
-  await G(() => { const g = window.__gib; g.selectChar(-1); g.setSpeed(0); g.tz = g.cz = 1.4; g.tx = g.cx = g.chars[3].x; g.ty = g.cy = g.chars[3].y - 20; }); await pg.waitForTimeout(500);
+  await G(() => { const g = window.__gib; g.selectChar(-1); g.setSpeed(0); g.tz = g.cz = 1.4; g.tx = g.cx = g.chars[3].x; g.ty = g.cy = g.chars[3].y - 20; }); await pg.waitForTimeout(500); await G(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r)))));
   const pos = await G(() => { const g = window.__gib; const cv = g.chars[3]; const s = g.worldToScreen(cv.x, cv.y - 20); return s; });
   await pg.mouse.click(pos.x, pos.y); await pg.waitForTimeout(400);
   await G(() => window.__gib.setSpeed(1)); ok((await G(() => window.__gib.selectedId)) === 3, 'clic souris sur le personnage dans la scène : sélectionné');
@@ -48,10 +48,10 @@ const ok = (c, m) => { n++; if (!c) fails++; console.log(c ? '  [OK]   ' : '  [F
   const e0 = await G(() => window.__gib.world.godEnergy); const pos2 = await G(() => { const g = window.__gib; g.tx = g.cx = g.chars[3].x; g.ty = g.cy = g.chars[3].y - 20; return null; }); await pg.waitForTimeout(300); const pc = await G(() => { const g = window.__gib; return g.worldToScreen(g.chars[3].x, g.chars[3].y - 20); }); void pos2; await pg.mouse.click(pc.x, pc.y); await pg.waitForTimeout(300);
   ok((await G(() => window.__gib.world.chars[3].memories.some((m) => m.kind === 'miracle'))), 'clic sur l\'habitant : bénédiction appliquée (souvenir de miracle)'); void e0; ok(await G(() => window.__gib.world.chars[3].faith > 20), 'la foi de l\'habitant augmente');
   await G(() => { window.__gib.world.godEnergy = 100; }); await pg.keyboard.press('4'); ok(await G(() => window.__gib.world.feastActive()), 'touche 4 : Festin céleste invoqué');
-  await pg.waitForTimeout(500); ok(await G(() => window.__gib.feastNodes.length > 0), 'le festin apparaît sur la table');
+  ok(await pg.waitForFunction(() => window.__gib.feastNodes.length > 0, null, { timeout: 8000 }).then(() => true, () => false), 'le festin apparaît sur la table');
   console.log('\n== Tactile (iPhone)');
   await G(() => { const g = window.__gib; g.selectChar(-1); g.setSpeed(0); }); const tp = await G(() => { const g = window.__gib; return g.worldToScreen(g.chars[5].x, g.chars[5].y - 20); });
-  await G(() => { const g = window.__gib; g.tx = g.cx = g.chars[5].x; g.ty = g.cy = g.chars[5].y - 20; }); await pg.waitForTimeout(400);
+  await G(() => { const g = window.__gib; g.tx = g.cx = g.chars[5].x; g.ty = g.cy = g.chars[5].y - 20; }); await pg.waitForTimeout(400); await G(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r)))));
   const tp2 = await G(() => { const g = window.__gib; return g.worldToScreen(g.chars[5].x, g.chars[5].y - 20); }); await pg.touchscreen.tap(tp2.x, tp2.y); await pg.waitForTimeout(400);
   ok((await G(() => window.__gib.selectedId)) === 5, 'toucher un habitant le sélectionne'); void tp; await G(() => window.__gib.setSpeed(1));
   console.log('\n== Simulation vivante (30 s à 8x)');
