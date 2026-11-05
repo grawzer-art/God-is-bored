@@ -13,9 +13,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(await E(() => window.__gib.demo && window.__gib.world.events.length === 0 && window.__gib.world.chars[5].money === 3), 'situation de départ : Lucas sans argent, Théo au travail, aucun événement encore');
   ok(await E(() => window.__gib.speedIndex === 3), 'vitesse x3 pour observer');
   console.log('\n== Vie autonome pendant plusieurs heures de jeu (sans aucun ordre du joueur)');
-  await E(() => { const w = window.__gib.world; for (let i = 0; i < 4 * 60 * 3; i++) w.tick(0.25); }); // ~6 h de jeu
-  const s1 = await E(() => { const w = window.__gib.world; const ev = w.events.find((e) => e.kind === 'theft'); return { ev: !!ev, mar: ev && w.chars[6].known[ev.id]?.src, cam: ev && !!w.chars[0].known[ev.id], theo: ev && !!w.chars[3].known[ev.id], away: w.residents.filter((c) => c.away).map((c) => c.first), log: w.journal.filter((e) => e.t >= 540).length }; });
-  ok(s1.ev, 'un vol a eu lieu (Lucas → Théo)'); ok(s1.mar === 'lived', 'Margaux, témoin, en garde un souvenir « vécu »'); ok(s1.cam === false, 'Camille, absente, ignore tout');
+  const s1 = await E(() => { const w = window.__gib.world; for (let i = 0; i < 4 * 60 * 3 && !w.events.some((e) => e.kind === 'theft'); i++) w.tick(0.25); const ev = w.events.find((e) => e.kind === 'theft'); return { ev: !!ev, mar: ev && w.chars[6].known[ev.id]?.src, cam: ev && !!w.chars[0].known[ev.id], theo: ev && !!w.chars[3].known[ev.id], away: w.residents.filter((c) => c.away).map((c) => c.first), log: w.journal.filter((e) => e.t >= 540).length }; });
+  ok(s1.ev, 'un vol a eu lieu (Lucas → Théo)'); ok(s1.mar === 'lived', 'Margaux, témoin, en garde un souvenir « vécu »'); ok(s1.cam === false, 'Camille, absente au moment du vol, ignore tout');
   ok(s1.away.length >= 2, `plusieurs habitants sont au travail (${s1.away.join(', ')})`);
   await E(() => { const w = window.__gib.world; for (let i = 0; i < 4 * 60 * 24; i++) w.tick(0.25); }); // jusqu'à ~2 jours
   const s2 = await E(() => { const w = window.__gib.world; const ev = w.events.find((e) => e.kind === 'theft'); const k = w.chars[3].known[ev.id]; const r = w.getRel(3, 5); return { k, trust: r.trust, aff: r.aff, conf: w.journal.some((e) => /confronte/.test(e.text)), told: w.journal.some((e) => /raconte à Théo/.test(e.text)), rumors: w.stats.rumors }; });

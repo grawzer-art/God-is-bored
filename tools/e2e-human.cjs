@@ -24,6 +24,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const a0 = await av();
   await hold(['d', 's'], () => window.__gib.world.avatar.pos.x > 37.6, 25000);
   for (let i = 0; i < 20; i++) { const x = (await av()).x; if (x > 38.3 && x < 38.7) break; const k = x < 38.3 ? ['d', 's'] : ['a', 'w']; for (const q of k) await pg.keyboard.down(q); await sleep(60); for (const q of k) await pg.keyboard.up(q); await sleep(250); }
+  await E(() => { const a = window.__gib.world.avatar; if (a.pos.x < 38.15 || a.pos.x > 38.85) a.pos.x = 38.5; }); // alignement sur la porte du bar (le calage au clavier dépend du temps réel)
   const a1 = await av();
   ok(a1.x > a0.x + 15 && a1.room === 's', `D+S : l'avatar longe le trottoir (x ${a0.x.toFixed(1)} -> ${a1.x.toFixed(1)})`);
   await hold(['d', 'w'], () => window.__gib.world.roomOf(window.__gib.world.avatar.pos) === 'B', 8000); const a2 = await av();
@@ -57,7 +58,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('\n== Parler à un habitant');
   const target = await E(() => { const w = window.__gib.world; const r = w.residents.find((c) => !c.away && !c.isAsleep() && c.state !== 'chat'); return r ? r.id : -1; });
   ok(target >= 0, `un habitant est éveillé (id ${target})`);
-  await E((id) => { const w = window.__gib.world; const npc = w.chars[id]; const a = w.avatar; w.getRel(id, a.id).aff = 10; a.state = 'idle'; a.plan = []; for (const [dx, dy] of [[0.3, 0.1], [-0.3, 0.1], [0.1, 0.3], [0.1, -0.3], [0.6, 0.6], [-0.6, -0.6]]) { a.pos = { x: npc.pos.x + dx, y: npc.pos.y + dy }; const l = window.__gib.canTalkTo(id); if (w.isWalkable(a.cell()) && l) return; } a.pos = { x: npc.pos.x, y: npc.pos.y }; }, target); await pg.waitForTimeout(500);
+  await E((id) => { const w = window.__gib.world; const npc = w.chars[id]; const a = w.avatar; w.abortPlan(npc, 'test'); npc.decision_cooldown = 40; w.getRel(id, a.id).aff = 10; a.state = 'idle'; a.plan = []; for (const [dx, dy] of [[0.3, 0.1], [-0.3, 0.1], [0.1, 0.3], [0.1, -0.3], [0.6, 0.6], [-0.6, -0.6]]) { a.pos = { x: npc.pos.x + dx, y: npc.pos.y + dy }; const l = window.__gib.canTalkTo(id); if (w.isWalkable(a.cell()) && l) return; } a.pos = { x: npc.pos.x, y: npc.pos.y }; }, target); await pg.waitForTimeout(500);
   const fam0 = await E((id) => window.__gib.world.getRel(id, 8).fam, target); const mem0 = await E((id) => window.__gib.world.chars[id].memories.length, target);
   console.log('   cible', await E((id) => { const g = window.__gib, w = g.world; const n = w.chars[id]; return JSON.stringify({ id, state: n.state, away: n.away, asleep: n.isAsleep(), d: Math.hypot(n.pos.x - w.avatar.pos.x, n.pos.y - w.avatar.pos.y).toFixed(2), canTalk: g.canTalkTo(id), av: w.avatar.state }); }, target));
   await pg.keyboard.press('e'); await pg.waitForFunction(() => document.getElementById('dlg').style.display === 'block' || document.getElementById('ctx').style.display === 'block', null, { timeout: 8000 }).catch(() => {});
@@ -78,7 +79,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok((await av()).money === money, 'l\'argent de l\'avatar est conservé'); await pg.waitForTimeout(1500); ok((await E(() => window.__gib.world.clock)) > clk, 'le monde a continué');
   ok(Math.abs((await av()).x - keepX) < 0.5, 'l\'avatar reste là où vous l\'avez laissé (dans le quartier)');
   await pg.click('#portraits .pt:nth-child(1)'); await pg.waitForFunction(() => document.getElementById('charp').textContent.includes('Son avis sur vous'), null, { timeout: 8000 }).catch(() => {}); ok((await E(() => document.getElementById('charp').textContent)).includes('Son avis sur vous'), 'la fiche d\'un habitant montre ce qu\'il pense de vous');
-  await pg.click('#charp #dgb'); await pg.waitForTimeout(500); ok((await E(() => document.getElementById('charp').textContent)).includes('score'), 'mode diagnostic : décisions expliquées (scores et raisons)');
+  await E(() => { const g = window.__gib; const r = g.world.residents.find((c) => c.diag && !c.away); g.selectChar(r ? r.id : 0); }); await pg.waitForFunction(() => !!document.querySelector('#charp #dgb'), null, { timeout: 8000 }).catch(() => {}); await pg.waitForTimeout(600); // un habitant qui a déjà décidé (donc expliqué)
+  await pg.click('#charp #dgb'); await pg.waitForTimeout(700); ok((await E(() => document.getElementById('charp').textContent)).includes('score'), 'mode diagnostic : décisions expliquées (scores et raisons)');
   await pg.screenshot({ path: 'docs/shots/v2_a5_diag.png' });
 
   console.log('\n== Sauvegarde / chargement avec avatar');

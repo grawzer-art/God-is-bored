@@ -380,10 +380,10 @@ export function decide(w: World, c: SimChar): boolean {
   const it = c.intent;
   if (it) {
     if (w.clock > it.until) c.intent = null;
-    else if (it.kind === 'steal') { const v = w.chars[it.target]; if (!v || !searchPlan(w, c, v)) c.intent = null; else return true; }
+    else if (it.kind === 'steal') { const v = w.chars[it.target]; if (!v || !searchPlan(w, c, v)) c.intent = null; else { c.lifeAct = 'Fouiller une chambre'; c.lifeWhy = `à court d'argent (${Math.round(c.money)} €), peu scrupuleux, ${v.first} est riche et absent ou endormi`; return true; } }
     else {
       const t = w.chars[it.target];
-      if (t && !t.away && !t.isAsleep() && c.needs.hunger > 8 && c.needs.bladder > 8) { c.plan = [{ type: 'approach', target: t.id }]; w.startNextStep(c); if (c.state === 'walk') return true; }
+      if (t && !t.away && !t.isAsleep() && c.needs.hunger > 8 && c.needs.bladder > 8) { c.plan = [{ type: 'approach', target: t.id }]; w.startNextStep(c); if (c.state === 'walk') { c.lifeAct = { help: 'Aller aider', confront: 'Aller confronter', tell: 'Aller raconter', apologize: "Aller s'excuser", steal: 'Voler' }[it.kind]; c.lifeWhy = `intention en cours envers ${t.first}`; return true; } }
       if (t && t.isAsleep() && w.clock - it.until < 0) { /* attend qu'il se réveille */ }
     }
   }
@@ -391,27 +391,27 @@ export function decide(w: World, c: SimChar): boolean {
   // sortie au bar en cours
   if (c.outing === 'bar') {
     const inB = inBuilding(c, 'bar');
-    if (w.clock > c.outUntil || !w.barOpen() || c.needs.energy < 22 || c.money < 4 || c.needs.bladder < 14) { c.outing = ''; goHome(w, c); return true; }
-    if (!inB) return planDrink(w, c) || (goHome(w, c), c.outing = '', true);
-    if (c.money >= 4 && w.rng.randf() < 0.55) return planDrink(w, c);
+    if (w.clock > c.outUntil || !w.barOpen() || c.needs.energy < 22 || c.money < 4 || c.needs.bladder < 14) { c.outing = ''; goHome(w, c); c.lifeAct = 'Rentrer'; c.lifeWhy = 'la soirée au bar est finie (heure, fatigue ou argent)'; return true; }
+    if (!inB) { c.lifeAct = 'Aller au bar'; c.lifeWhy = 'sortie du soir en cours'; return planDrink(w, c) || (goHome(w, c), c.outing = '', true); }
+    if (c.money >= 4 && w.rng.randf() < 0.55) { c.lifeAct = 'Reprendre un verre'; c.lifeWhy = `au bar, ${Math.round(c.money)} € en poche`; return planDrink(w, c); }
     return false;
   }
   // travail
   const s = c.shift;
   if (s && !c.isAsleep() && c.jobPhase === '' && (c.stats.worked_day ?? -1) !== day && h >= s.from - 0.4 && h < s.to - 3 && c.needs.energy >= 25 && inBuilding(c, 'house')) {
     c.stats.worked_day = day; c.jobPhase = 'working'; c.jobStart = w.clock; c.jobUntil = w.clock - w.tod() + s.to * 60;
-    w.emitLog(`${c.first} part travailler (${s.place}).`, 'info', c.id); depart(w, c); return true;
+    w.emitLog(`${c.first} part travailler (${s.place}).`, 'info', c.id); c.lifeAct = 'Partir travailler'; c.lifeWhy = `service à ${Math.floor(s.from)} h, ${s.place}`; depart(w, c); return true;
   }
   // recherche d'emploi
   if (!s && c.money < 12 && c.jobPhase === '' && (c.stats.search_day ?? -1) !== day && h >= 9.5 && h < 15 && c.needs.energy >= 35 && inBuilding(c, 'house') && c.needs.hunger > 25) {
     c.stats.search_day = day; c.jobPhase = 'searching'; c.jobStart = w.clock; c.jobUntil = w.clock + w.rng.range(150, 220);
-    w.emitLog(`${c.first} n'a presque plus d'argent et part chercher du travail.`, 'info', c.id); depart(w, c); return true;
+    w.emitLog(`${c.first} n'a presque plus d'argent et part chercher du travail.`, 'info', c.id); c.lifeAct = 'Chercher du travail'; c.lifeWhy = `plus que ${Math.round(c.money)} € et pas d'emploi`; depart(w, c); return true;
   }
   // sortie du soir
   if (c.jobPhase === '' && h >= 18.2 && h < 22.5 && w.barOpen() && w.barman && !w.barman.away && (c.stats.bar_day ?? -1) !== day && c.money >= 8 && c.needs.energy > 40 && c.needs.hunger > 25 && inBuilding(c, 'house') && !c.isAsleep()) {
     const friends = w.chars.filter((o) => o.id !== c.id && !o.away && inBuilding(o, 'bar') && w.getRel(c.id, o.id).aff > 15).length;
     const u = (100 - c.needs.social) * 0.45 * (0.35 + c.trait('extraversion')) + (100 - c.needs.fun) * 0.35 + friends * 6 + (c.chrono > 0 ? 5 : 0) + w.rng.randf() * 10;
-    if (u > 40) { c.stats.bar_day = day; c.outing = 'bar'; c.outUntil = w.clock + w.rng.range(70, 160); w.emitLog(`${c.first} sort prendre un verre au bar.`, 'info', c.id); if (planDrink(w, c)) return true; c.outing = ''; }
+    if (u > 40) { c.stats.bar_day = day; c.outing = 'bar'; c.outUntil = w.clock + w.rng.range(70, 160); w.emitLog(`${c.first} sort prendre un verre au bar.`, 'info', c.id); if (planDrink(w, c)) { c.lifeAct = 'Sortir au bar'; c.lifeWhy = `soirée : besoin social ${Math.round(c.needs.social)} %, loisirs ${Math.round(c.needs.fun)} %, ${Math.round(c.money)} €`; return true; } c.outing = ''; }
     else c.stats.bar_day = day;
   }
   return false;

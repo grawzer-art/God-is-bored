@@ -32,7 +32,7 @@ export function decide(w: World, c: SimChar) {
     const act = c.whisper_act; c.whisper_act = '';
     if (tryAct(w, c, act)) return;
   }
-  if (Life.decide(w, c)) { c.statAdd('life_decisions'); return; }
+  if (Life.decide(w, c)) { c.statAdd('life_decisions'); c.diag = { t: w.clock, chosen: c.lifeAct || 'Décision de vie', why: c.lifeWhy || 'emploi du temps, intention ou sortie', cands: [{ act: c.lifeAct || 'Décision de vie', score: 99, why: c.lifeWhy || 'priorité de vie (travail, sortie, intention) sur les activités ordinaires' }] }; return; }
   if (w.feastActive() && c.needs.hunger < 96 && (c.stats.feast_day ?? -1) !== w.day()) {
     const plan = planFeast(w, c);
     if (plan.length) { c.stats.feast_day = w.day(); c.plan = plan; w.startNextStep(c); return; }

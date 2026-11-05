@@ -31,7 +31,7 @@ export class SimChar {
   avoid: Record<number, number> = {}; pref: Record<string, number> = {};
   /** Vie autonome : savoirs par événement, intention, emploi (horaires, paie), sortie en cours. */
   known: Record<number, Know> = {}; intent: Intent | null = null; shift: Shift | null = null;
-  jobPhase: '' | 'working' | 'searching' | 'out' = ''; jobUntil = 0; jobStart = 0; outing: '' | 'bar' = ''; outUntil = 0; lifeT = 0;
+  lifeAct = ''; lifeWhy = ''; jobPhase: '' | 'working' | 'searching' | 'out' = ''; jobUntil = 0; jobStart = 0; outing: '' | 'bar' = ''; outUntil = 0; lifeT = 0;
   memories: Memory[] = []; goal: Goal = { id: 'social', progress: 0, done: false }; goal_index = 0;
   emote = ''; emote_t = 0; action_text = ''; stats: Record<string, number> = {};
   /** resident = habitant autonome ; avatar = le dieu incarné (joueur) ; staff = employé (barman). */

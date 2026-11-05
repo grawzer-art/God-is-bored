@@ -64,6 +64,7 @@ export class GameScene extends Phaser.Scene {
     if (this.world.avatarControlled || this.params.has('human')) this.descend(false);
     if (this.params.has('walls')) { this.wallMode = Number(this.params.get('walls')); this.applyWalls(); }
     if (this.demoKind === 'trio') { this.setSpeed(2); this.focusTrio(); } else if (this.demo) { this.setSpeed(3); this.focusZone('house'); }
+    if (fresh) this.setSpeed(2); // partie neuve : ×2 par défaut, la ville bouge deux fois plus vite sous les yeux (×1 reste à un toucher)
     if (this.params.has('speed')) this.setSpeed(Number(this.params.get('speed')));
     if (this.params.has('zoom')) { this.tz = this.cz = Number(this.params.get('zoom')); }
     if (this.params.has('at')) { const [x, y] = this.params.get('at')!.split(',').map(Number); const p = toScreen(x, y); this.tx = this.cx = p.x; this.ty = this.cy = p.y; }
