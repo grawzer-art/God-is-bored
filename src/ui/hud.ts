@@ -1,4 +1,5 @@
 /** Interface GOD en HTML/CSS par-dessus le canvas (sobre, sombre, tactile). */
+import * as Nav from './nav';
 import type { GameScene } from '../view/scene';
 import { SPEEDS } from '../view/scene';
 import { NEEDS, NEED_LABEL, EMOTIONS, ROOM_NAMES, actLabel } from '../sim/defs';
@@ -85,10 +86,11 @@ export class Hud {
     for (const [id, d] of Object.entries(God.POWERS)) { const b = document.createElement('button'); b.className = 'btn'; b.style.flex = '1'; b.textContent = this.w.freePowers ? `${d.key} ${d.label}` : `${d.key} ${d.label} (${d.cost})`; b.title = d.desc; b.dataset.id = id; b.onclick = () => this.pickPower(id); this.el.pw.appendChild(b); }
     this.el.go.onclick = () => { this.el.help.style.display = 'none'; this.helpT = 1e9; };
     if (g.params.has('nohelp')) this.el.help.style.display = 'none';
-    this.buildPortraits(); this.demoGuide = new DemoGuide(g, this.root); this.cityHud = new CityHud(g, this.root); this.fiche = new FicheUi(g, this.root); this.hv2 = new HudV2(g, this.root); this.gbar = new GodBar(g, this.root); this.deco = new DecoUi(g, this.root); this.journal = new JournalUi(g, this.root); this.human = new HumanUi(g, this.root); this.mobile = new MobileUi(g, this); if (this.mobile.active) { this.el.help.style.display = 'none'; this.helpT = 1e9; this.toast('Croix : caméra · A : choisir · B : pouvoirs · Menu : le reste'); } this.rebind(); this.onSpeed(g.speedIndex);
+    Nav.installKeys(); this.buildPortraits(); this.demoGuide = new DemoGuide(g, this.root); this.cityHud = new CityHud(g, this.root); this.fiche = new FicheUi(g, this.root); this.hv2 = new HudV2(g, this.root); this.gbar = new GodBar(g, this.root); this.deco = new DecoUi(g, this.root); this.journal = new JournalUi(g, this.root); this.human = new HumanUi(g, this.root); this.mobile = new MobileUi(g, this); if (this.mobile.active) { this.el.help.style.display = 'none'; this.helpT = 1e9; this.toast('Croix : caméra · A : choisir · B : pouvoirs · Menu : le reste'); } this.rebind(); this.onSpeed(g.speedIndex);
     document.addEventListener('pointerdown', (e) => { if (!(e.target as HTMLElement).closest('#menu')) this.el.menu.style.display = 'none'; });
   }
   get w() { return this.g.world; }
+
   onMode(m: 'god' | 'human') { this.mobile?.updateLabels(); if (m === 'human') this.mobile?.onSelect(-1); this.root.classList.toggle('human', m === 'human'); this.modeBtn.textContent = m === 'human' ? 'Redevenir dieu (G)' : 'Descendre (G)'; this.modeBtn.classList.toggle('on', m === 'human'); }
   openDialogue(n: SimChar) { this.human.openDialogue(n); } closeDialogue() { this.human.close(); } dialogueOpen() { return this.human.dialogueOpen(); } pickDialogue(i: number) { this.human.pickDialogue(i); }
   contextOpen() { return this.human.contextOpen(); } showContext(l: any) { this.human.showContext(l); } hideContext() { this.human.hideContext(); } pickContext(i: number) { this.human.pickContext(i); }
@@ -124,7 +126,7 @@ export class Hud {
     else { this.powerMode = this.powerMode === id ? '' : id; this.powerFirst = -1; }
     this.syncPowers();
   }
-  escape() { if (this.journal.isOpen()) { this.journal.close(); return; } if (this.w.decoMode) { this.deco.exit(); return; } if (this.fiche.isOpen()) { this.fiche.close(); return; } if (this.w.homeEdit) { this.w.homeEdit = null; this.toast('Aménagement annulé'); return; } if (this.powerMode) { this.powerMode = ''; this.powerFirst = -1; this.syncPowers(); } else if (this.el.help.style.display !== 'none') this.el.help.style.display = 'none'; else this.g.selectChar(-1); this.el.menu.style.display = 'none'; }
+  escape() { if (Nav.back()) return; if (this.journal.isOpen()) { this.journal.close(); return; } if (this.w.decoMode) { this.deco.exit(); return; } if (this.fiche.isOpen()) { this.fiche.close(); return; } if (this.w.homeEdit) { this.w.homeEdit = null; this.toast('Aménagement annulé'); return; } if (this.powerMode) { this.powerMode = ''; this.powerFirst = -1; this.syncPowers(); } else if (this.el.help.style.display !== 'none') this.el.help.style.display = 'none'; else this.g.selectChar(-1); this.el.menu.style.display = 'none'; }
   toggleHelp() { if (this.mobile?.active) { this.mobile.sheet === 'Aide' ? this.mobile.closeSheet() : this.mobile.openHelp(); return; } this.el.help.style.display = this.el.help.style.display === 'none' ? 'block' : 'none'; this.helpT = 1e9; }
   /** Appelé quand le suivi de caméra change : met à jour les boutons « Suivre ». */
   onFollow?: () => void;

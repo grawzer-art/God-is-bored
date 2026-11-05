@@ -4,6 +4,7 @@ import type { GameScene } from '../view/scene';
 import type { SimChar } from '../sim/simchar';
 import * as God from '../sim/god';
 import * as Quests from '../sim/quests';
+import * as Nav from './nav';
 import * as L from '../sim/layout';
 import { NEEDS, ROOM_NAMES, EMOTIONS } from '../sim/defs';
 import { GOALS } from '../sim/roster';
@@ -15,7 +16,7 @@ const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt
 const NEED_FR: Record<string, string> = { hunger: 'Faim', energy: 'Énergie', bladder: 'Vessie', hygiene: 'Hygiène', social: 'Social', fun: 'Loisirs' };
 const col = (v: number) => (v > 66 ? '#7ee0a0' : v > 33 ? '#fccd5c' : '#ff8a8a');
 const CSS = `
-#fiche{position:absolute;z-index:40;pointer-events:auto;display:none;flex-direction:column;overflow:hidden;right:calc(var(--sr,0px) + 8px);top:calc(var(--st,0px) + 8px);bottom:calc(var(--sb,0px) + 8px);width:min(430px,48vw)}
+#fiche{position:absolute;z-index:40;pointer-events:auto;display:none;flex-direction:column;overflow:hidden;right:calc(var(--sr,0px) + 8px);top:calc(var(--st,0px) + 58px);bottom:calc(var(--sb,0px) + 8px);width:min(430px,48vw)}
 #fiche .hd{display:flex;gap:10px;padding:10px 10px 6px;align-items:flex-start} #fiche .hd img.p{width:62px;height:74px;image-rendering:pixelated;object-fit:contain;background:rgba(0,0,0,.25);border-radius:10px}
 #fiche .hd h3{margin:0;font-size:18px;color:#fff} #fiche .x{margin-left:auto}
 #fiche .body{flex:1;overflow:auto;padding:4px 12px 10px;font-size:12.5px;line-height:1.45;-webkit-overflow-scrolling:touch}
@@ -23,7 +24,7 @@ const CSS = `
 #fiche .act{display:flex;flex-wrap:wrap;gap:6px;padding:8px;border-top:1px solid var(--gp-line-soft)} #fiche .act .gp-btn{flex:1;min-width:92px}
 #fiche .pick{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
 #fiche .mem{margin:5px 0;padding:6px 8px;border-left:2px solid var(--gp-line);background:rgba(255,255,255,.04);border-radius:0 8px 8px 0}
-@media (orientation:portrait){#fiche{left:calc(var(--sl,0px) + 6px);right:calc(var(--sr,0px) + 6px);width:auto;top:12%;bottom:calc(var(--sb,0px) + 6px)}}
+@media (orientation:portrait){#fiche{left:calc(var(--sl,0px) + 6px);right:calc(var(--sr,0px) + 6px);width:auto;top:calc(var(--st,0px) + 58px);bottom:calc(var(--sb,0px) + 6px)}}
 `;
 type Tab = 'profil' | 'relations' | 'souvenirs' | 'secrets';
 export class FicheUi {
@@ -36,8 +37,8 @@ export class FicheUi {
   private pressed = false;
   private watchPress() { this.el.addEventListener('pointerdown', () => (this.pressed = true)); const up = () => setTimeout(() => (this.pressed = false), 120); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up); }
   isOpen() { return this.id >= 0; }
-  open(id: number, tab: Tab = 'profil') { Quests.emit(this.g.world, 'sheet'); this.id = id; this.tab = tab; this.sub = ''; this.sig = ''; this.render(true); this.el.style.display = 'flex'; this.g.hud.root.classList.add('fiche-open'); }
-  close() { this.id = -1; this.el.style.display = 'none'; this.g.hud.root.classList.remove('fiche-open'); }
+  open(id: number, tab: Tab = 'profil') { Quests.emit(this.g.world, 'sheet'); this.id = id; this.tab = tab; this.sub = ''; this.sig = ''; this.render(true); this.el.style.display = 'flex'; this.g.hud.root.classList.add('fiche-open'); this.el.classList.remove('anim-in'); void this.el.offsetWidth; this.el.classList.add('anim-in'); Nav.open({ id: 'fiche', close: () => this.close(), back: () => { if (this.sub) { this.sub = ''; this.render(true); return true; } return false; } }); }
+  close() { this.id = -1; this.el.style.display = 'none'; this.g.hud.root.classList.remove('fiche-open'); Nav.closed('fiche'); }
   update(dt: number) { if (this.id < 0) return; this.acc += dt; if (this.acc < 0.6) return; this.acc = 0; if (this.pressed) return; this.render(false); }
   private home(c: SimChar) { if (c.kind === 'resident') return 'La maison des colocataires'; const b = c.home ? L.buildingAt(Math.floor(c.home.x), Math.floor(c.home.y)) : undefined; return b?.title ?? (c.kind === 'avatar' ? 'Sans domicile fixe' : '—'); }
   private rels(c: SimChar) {
@@ -88,7 +89,7 @@ export class FicheUi {
   private action(a: string) {
     const w = this.g.world; const c = w.chars[this.id]; const hud = this.g.hud; const [k, p, q] = a.split(':');
     switch (k) {
-      case 'close': this.close(); return;
+      case 'close': Nav.closeTop(); this.close(); return;
       case 'sub': this.sub = p ?? ''; break;
       case 'incarner': this.close(); this.g.incarnate(c.id); return;
       case 'give': God.give(w, c, Number(p)); hud.toast(`${Number(p) > 0 ? '+' : ''}${Number(p).toLocaleString('fr-FR')} € pour ${c.first}`); break;

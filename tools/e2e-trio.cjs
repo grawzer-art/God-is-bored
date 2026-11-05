@@ -40,8 +40,8 @@ const newCtx = (b) => b.newContext({ ...devices['iPhone 13 landscape'], viewport
   await tap('#dg .r[data-id="5"]'); await pg.waitForTimeout(800);
   ok(await E(() => window.__gib.selectedId === 5 && window.__gib.follow === true), 'toucher une ligne du guide sélectionne et suit l\'habitant');
   const card = await E(() => document.getElementById('qcard').innerText); ok(/Lucas/.test(card) && /(Faim|Loisirs|Énergie|Social|Hygiène|Vessie) \d+ %/.test(card), 'carte rapide : activité, destination, besoin prioritaire — « ' + card.replace(/\s+/g, ' ').slice(0, 90) + ' »');
-  await tap('#qf'); await pg.waitForTimeout(700); const fiche = await E(() => document.getElementById('charp').innerText); ok(/destination/i.test(fiche) && /besoin prioritaire/i.test(fiche) && /objectif/i.test(fiche) && /souvenirs/i.test(fiche) && /relations/i.test(fiche), 'fiche : activité, destination, besoin prioritaire, objectif, relations, souvenirs marquants');
-  await pg.screenshot({ path: 'docs/shots/trio-e2e-3.png' }); await tap('#fx');
+  await tap('#qf'); await pg.waitForTimeout(700); const fiche = await E(() => document.getElementById('fiche').innerText); ok(/activité/i.test(fiche) && /besoins/i.test(fiche) && /objectif/i.test(fiche) && /souvenirs/i.test(fiche) && /relations/i.test(fiche), 'fiche V2 : activité, besoins, objectif, onglets relations et souvenirs');
+  await pg.screenshot({ path: 'docs/shots/trio-e2e-3.png' }); await tap('#fiche [data-a="close"]');
   await E(() => { const g = window.__gib; g.follow = true; }); await pg.waitForTimeout(2500); const dist = await E(() => { const g = window.__gib; const cv = g.chars[5]; return Math.hypot(g.cameras.main.worldView.centerX - cv.x, g.cameras.main.worldView.centerY - (cv.y - 20)); }); ok(dist < 90, `la caméra suit Lucas (écart ${Math.round(dist)} px monde)`);
   await tap('#qs'); ok(await E(() => window.__gib.follow === false), 'le bouton « Suivre » arrête le suivi');
 

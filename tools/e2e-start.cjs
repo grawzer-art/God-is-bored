@@ -25,7 +25,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await E(() => { const f = (id, v) => { const e = document.getElementById(id); e.value = v; e.dispatchEvent(new Event('input')); }; f('f-first', 'Sam'); f('f-last', 'Dupont'); f('f-nick', 'Sammy'); });
   await tapSel('#creator [data-pn="iel"]'); await tapSel('#creator [data-cat="hair"]'); await tapSel('#creator [data-hair="afro"]'); await tapSel('#creator [data-hc="pink"]');
   await tapSel('#creator [data-cat="cloth"]'); await tapSel('#creator [data-os="streetwear"]'); await tapSel('#creator [data-set="streetwear:2"]');
-  await tapSel('#creator [data-cat="tat"]'); await tapSel('#creator [data-tat="hand:1"]'); await tapSel('#creator [data-tat="face:0"]'); await tapSel('#creator [data-cat="pers"]'); await tapSel('#creator [data-tr="charismatique"]'); await tapSel('#creator [data-tr="ambitieux"]');
+  await tapSel('#creator [data-cat="acc"]'); await tapSel('#creator [data-tat="hand:1"]'); await tapSel('#creator [data-tat="face:0"]'); await tapSel('#creator [data-cat="pers"]'); await tapSel('#creator [data-tr="charismatique"]'); await tapSel('#creator [data-tr="ambitieux"]');
   await tapSel('#creator [data-a="rotr"]'); await tapSel('#creator [data-a="zoom"]'); await pg.screenshot({ path: 'docs/shots/start-4-createur.png' }); await tapSel('#creator [data-a="zoom"]');
   await tapSel('#creator [data-a="presets"]'); await tapSel('.sheet [data-p="save"]'); ok(await E(() => JSON.parse(localStorage.getItem('gib:presets') || '[]').length === 1), 'préréglage enregistré'); await tapSel('.sheet [data-p="close"]');
   await tapSel('#creator [data-a="ok"]'); await waitFor(() => !document.getElementById('creator') && window.__gib.world.profile, 30000);

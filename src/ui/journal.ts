@@ -3,13 +3,14 @@ import type { GameScene } from '../view/scene';
 import * as Q from '../sim/quests';
 import { installTheme } from './theme';
 import * as Sfx from '../start/sfx';
+import * as Nav from './nav';
 
 const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]!));
 const CSS = `
 #qtrack{position:absolute;z-index:6;pointer-events:auto;display:none;left:calc(var(--sl,0px) + 10px);top:calc(var(--st,0px) + 104px);max-width:min(300px,38vw);padding:6px 10px;border-radius:12px;font-size:12px;line-height:1.35}
 #qtrack b{color:var(--gp-gold);display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase} #qtrack .where{color:var(--gp-dim);font-size:11px}
 @media (min-width:900px){#qtrack{top:168px}}
-#journal{position:absolute;z-index:40;pointer-events:auto;display:none;flex-direction:column;overflow:hidden;right:calc(var(--sr,0px) + 8px);top:calc(var(--st,0px) + 8px);bottom:calc(var(--sb,0px) + 8px);width:min(440px,54vw)}
+#journal{position:absolute;z-index:40;pointer-events:auto;display:none;flex-direction:column;overflow:hidden;right:calc(var(--sr,0px) + 8px);top:calc(var(--st,0px) + 58px);bottom:calc(var(--sb,0px) + 8px);width:min(440px,54vw)}
 #journal .hd{display:flex;align-items:center;gap:6px;padding:8px 10px} #journal .hd b{flex:1;font-size:16px;color:#fff}
 #journal .body{flex:1;overflow:auto;padding:6px 12px 12px;font-size:12.5px;line-height:1.45;-webkit-overflow-scrolling:touch}
 #journal .gp-tabs button{font-size:10.5px;padding:8px 2px}
@@ -31,8 +32,8 @@ export class JournalUi {
     this.narr = document.createElement('div'); this.narr.id = 'narr'; document.body.appendChild(this.narr);
   }
   isOpen() { return this.shown; }
-  open(sec?: Sec) { if (sec) this.sec = sec; this.shown = true; this.sig = ''; this.el.style.display = 'flex'; this.g.hud.root.classList.add('fiche-open'); this.render(); }
-  close() { this.shown = false; this.el.style.display = 'none'; this.g.hud.root.classList.remove('fiche-open'); }
+  open(sec?: Sec) { if (sec) this.sec = sec; this.shown = true; this.sig = ''; this.el.style.display = 'flex'; this.g.hud.root.classList.add('fiche-open'); this.el.classList.remove('anim-in'); void this.el.offsetWidth; this.el.classList.add('anim-in'); Nav.open({ id: 'journal', close: () => this.close() }); this.render(); }
+  close() { this.shown = false; this.el.style.display = 'none'; this.g.hud.root.classList.remove('fiche-open'); Nav.closed('journal'); }
   toggle() { this.shown ? this.close() : this.open(); }
   private card(w: any, id: string, s: Q.QState, d: Q.QuestDef, finished: boolean) {
     const objs = d.objectives.map((o, i) => { const ok = s.p[i] >= (o.n ?? 1); return `<div class="o ${ok ? 'ok' : ''}"><i>${ok ? '✔' : '○'}</i><span>${esc(o.text)}${(o.n ?? 1) > 1 ? ` (${Math.min(s.p[i], o.n!)}/${o.n})` : ''}${!ok && o.where ? `<br><span class="wh">${esc(o.where)}</span>` : ''}</span></div>`; }).join('');
@@ -46,7 +47,7 @@ export class JournalUi {
     const stats = `<div class="stat"><div><b>${Math.round(w.avatar.money)} €</b>Argent</div><div><b>${P.reputation}</b>Réputation</div><div><b>${P.chapters.length}/5</b>Missions du chapitre 1</div><div><b>${w.property ? 1 : 0}</b>Propriété</div><div><b>${P.activities}</b>Activités</div><div><b>${P.discoveries.length}</b>Lieux découverts</div></div>`;
     this.el.innerHTML = `<div class="hd"><b>Journal</b><button class="gp-btn" data-x="close" aria-label="Fermer">✕</button></div><div class="gp-tabs">${SECS.map(([k, l]) => `<button data-s="${k}" class="${k === this.sec ? 'on' : ''}">${l}</button>`).join('')}</div><div class="body">${stats}${body}</div>`;
     this.el.querySelectorAll<HTMLElement>('[data-s]').forEach((b) => (b.onclick = () => { this.sec = b.dataset.s as Sec; this.sig = ''; this.render(); }));
-    this.el.querySelector('[data-x]')!.addEventListener('click', () => this.close());
+    this.el.querySelector('[data-x]')!.addEventListener('click', () => Nav.closeTop());
     this.el.querySelectorAll<HTMLElement>('[data-tr]').forEach((b) => (b.onclick = () => { const s = w.quests[b.dataset.tr!]; Q.track(w, b.dataset.tr!, !s.tracked); this.sig = ''; this.render(); }));
   }
   /** Narration plein écran (une à la fois). */

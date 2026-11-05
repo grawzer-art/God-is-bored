@@ -2,6 +2,7 @@
 import type { GameScene } from '../view/scene';
 import * as God from '../sim/god';
 import { installTheme } from './theme';
+import * as Nav from './nav';
 
 const CSS = `
 #gbar{position:absolute;z-index:7;display:none;left:50%;transform:translateX(-50%);bottom:calc(var(--sb,0px) + 6px);flex-direction:column;align-items:center;gap:6px;pointer-events:none;max-width:calc(100vw - var(--sl,0px) - var(--sr,0px) - 140px)}
@@ -21,7 +22,9 @@ export class GodBar {
   }
   private btn(label: string, fn: () => void, cls = '') { const b = document.createElement('button'); b.className = 'gp-btn ' + cls; b.textContent = label; b.onclick = () => { fn(); this.sig = ''; this.render(); }; return b; }
   private render() {
-    this.el.querySelectorAll('.row button').forEach((b) => b.classList.toggle('on', (b as HTMLElement).dataset.c === this.open)); this.tray.innerHTML = ''; this.tray.style.display = this.open ? 'flex' : 'none'; if (!this.open) return;
+    this.el.querySelectorAll('.row button').forEach((b) => b.classList.toggle('on', (b as HTMLElement).dataset.c === this.open)); this.tray.innerHTML = ''; this.tray.style.display = this.open ? 'flex' : 'none'; if (!this.open) { Nav.closed('gtray'); return; }
+    Nav.open({ id: 'gtray', world: true, close: () => { this.open = ''; this.render(); } });
+    { const x = document.createElement('button'); x.className = 'gp-btn'; x.textContent = '✕ Fermer'; x.style.cssText = 'width:100%;min-height:36px'; x.onclick = () => Nav.closeTop(); this.tray.appendChild(x); }
     const w = this.g.world; const sel = this.g.selectedId >= 0 ? w.chars[this.g.selectedId] : null; const hud = this.g.hud; const t = this.tray;
     const hint = (s: string) => { const d = document.createElement('div'); d.className = 'hint'; d.textContent = s; t.appendChild(d); };
     if (this.open === 'creer') {

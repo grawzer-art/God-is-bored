@@ -10,7 +10,7 @@ const URL = process.env.GAME_URL || 'http://localhost:5173/';
   await pg.evaluate(() => document.querySelector('[data-cat="hair"]').click()); await pg.evaluate(() => document.querySelector('[data-hair="afro"]').click()); await pg.evaluate(() => document.querySelector('[data-hc="pink"]').click()); await shot('2-cheveux');
   await pg.evaluate(() => document.querySelector('[data-cat="face"]').click()); await pg.evaluate(() => { document.querySelector('[data-beard="full"]').click(); document.querySelector('[data-eyes="3"]').click(); }); await shot('3-visage');
   await pg.evaluate(() => document.querySelector('[data-cat="cloth"]').click()); await pg.evaluate(() => document.querySelector('[data-set="streetwear:0"]').click()); await shot('4-vetements');
-  await pg.evaluate(() => document.querySelector('[data-cat="tat"]').click()); await pg.evaluate(() => { document.querySelector('[data-tat="hand:1"]').click(); document.querySelector('[data-tat="face:0"]').click(); }); await shot('5-tatouages');
+  await pg.evaluate(() => document.querySelector('[data-cat="acc"]').click()); await pg.evaluate(() => { document.querySelector('[data-tat="hand:1"]').click(); document.querySelector('[data-tat="face:0"]').click(); }); await shot('5-tatouages');
   await pg.evaluate(() => document.querySelector('[data-a="zoom"]').click()); await shot('6-zoom');
   console.log('errors:', errs.length, errs.slice(0, 2)); await b.close();
 })();

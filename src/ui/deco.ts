@@ -4,10 +4,11 @@ import * as Home from '../sim/home';
 import { FURN } from '../sim/defs';
 import { furnSprite } from '../art/furn';
 import { installTheme } from './theme';
+import * as Nav from './nav';
 
 const CSS = `
 #decobtn{position:absolute;z-index:6;pointer-events:auto;display:none;left:50%;transform:translateX(-50%);top:calc(var(--st,0px) + 10px);padding:8px 16px;border-radius:999px}
-#deco{position:absolute;z-index:40;pointer-events:auto;display:none;flex-direction:column;overflow:hidden;right:calc(var(--sr,0px) + 8px);top:calc(var(--st,0px) + 8px);bottom:calc(var(--sb,0px) + 8px);width:min(400px,50vw)}
+#deco{position:absolute;z-index:40;pointer-events:auto;display:none;flex-direction:column;overflow:hidden;right:calc(var(--sr,0px) + 8px);top:calc(var(--st,0px) + 58px);bottom:calc(var(--sb,0px) + 8px);width:min(400px,50vw)}
 #deco .hd{display:flex;align-items:center;gap:6px;padding:8px 10px} #deco .hd b{flex:1;font-size:15px;color:#fff} #deco .hd .gp-btn{min-width:42px;padding:6px 10px}
 #deco .body{flex:1;overflow:auto;padding:6px 10px 10px;-webkit-overflow-scrolling:touch} #deco .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px} #deco .chips .gp-btn{white-space:nowrap;min-height:34px;padding:4px 10px;font-size:12px} #deco .chips .gp-btn.on{border-color:var(--gp-gold);color:var(--gp-gold)}
 #deco .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px} #deco .card{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;font-size:11px;text-align:center;min-height:92px} #deco .card canvas,#deco .card img{width:48px;height:40px;object-fit:contain;image-rendering:pixelated} #deco .card .pr{color:var(--gp-gold)}
@@ -23,9 +24,9 @@ export class DecoUi {
   }
   private pressed = false;
   isOpen() { return this.g.world.decoMode; }
-  enter() { const w = this.g.world; if (!Home.inApartment(w.avatar.cell().x, w.avatar.cell().y)) { this.g.hud.toast('Entrez dans votre appartement pour le décorer.'); return; } w.decoMode = true; w.homeEdit = null; this.sig = ''; this.prevZ = this.g.tz; this.g.tz = Math.max(0.75, Math.min(1.5, (this.g.scale.width * 0.46) / 540)); this.render(); this.g.hud.toast('Mode décoration : touchez un meuble pour le déplacer'); }
+  enter() { const w = this.g.world; if (!Home.inApartment(w.avatar.cell().x, w.avatar.cell().y)) { this.g.hud.toast('Entrez dans votre appartement pour le décorer.'); return; } w.decoMode = true; w.homeEdit = null; this.sig = ''; this.prevZ = this.g.tz; this.g.tz = Math.max(0.75, Math.min(1.5, (this.g.scale.width * 0.46) / 540)); this.render(); this.g.hud.toast('Mode décoration : touchez un meuble pour le déplacer'); this.el.classList.remove('anim-in'); void this.el.offsetWidth; this.el.classList.add('anim-in'); Nav.open({ id: 'deco', world: true, close: () => this.exit(), back: () => { if (w.homeEdit) { w.homeEdit = null; this.render(); return true; } return false; } }); }
   private prevZ = 2;
-  exit() { const w = this.g.world; if (w.decoMode) this.g.tz = this.prevZ; w.decoMode = false; w.homeEdit = null; this.el.style.display = 'none'; }
+  exit() { const w = this.g.world; if (w.decoMode) this.g.tz = this.prevZ; w.decoMode = false; w.homeEdit = null; this.el.style.display = 'none'; Nav.closed('deco'); }
   update(dt: number) {
     const w = this.g.world; const human = this.g.mode === 'human'; const inApt = human && Home.inApartment(w.avatar.cell().x, w.avatar.cell().y);
     this.btn.style.display = inApt && !w.decoMode && !this.g.hud.fiche.isOpen() ? 'block' : 'none'; if (w.decoMode && !inApt) this.exit();
@@ -46,7 +47,7 @@ export class DecoUi {
         <div class="gp-sec">Sol</div><div class="grid">${Home.FLOORS.map((f) => `<button class="gp-btn card ${w.homeStyle.floor[this.room] === f.id ? 'on' : ''}" data-fl="${f.id}" ${w.avatar.money < f.price ? 'disabled' : ''}><span>${f.label}</span><span class="pr">${f.price ? '€ ' + f.price : 'gratuit'}</span></button>`).join('')}</div>
         <div class="gp-sec">Murs</div><div class="grid">${Home.WALLS.map((f) => `<button class="gp-btn card" data-wl="${f.id}" ${w.avatar.money < f.price ? 'disabled' : ''}><div class="sw" style="background:rgb(${f.col.map((v) => Math.round(v * 255)).join(',')})"></div><span>${f.label}</span><span class="pr">${f.price ? '€ ' + f.price : 'gratuit'}</span></button>`).join('')}</div>`;
     }
-    this.el.innerHTML = `<div class="hd"><b>Mon appartement · € ${Math.round(w.avatar.money).toLocaleString('fr-FR')}</b><button class="gp-btn" data-x="undo" ${w.hist.length ? '' : 'disabled'} aria-label="Annuler">↶</button><button class="gp-btn" data-x="rot" ${w.homeEdit?.mode === 'move' && Home.canRotate(w.furn[w.homeEdit.furn].def) ? '' : 'disabled'} aria-label="Pivoter">⟳</button><button class="gp-btn" data-x="redo" ${w.redo.length ? '' : 'disabled'} aria-label="Rétablir">↷</button><button class="gp-btn gold" data-x="ok" aria-label="Valider">✔</button></div>
+    this.el.innerHTML = `<div class="hd"><b>Mon appartement · € ${Math.round(w.avatar.money).toLocaleString('fr-FR')}</b><button class="gp-btn" data-x="undo" ${w.hist.length ? '' : 'disabled'} aria-label="Annuler">↶</button><button class="gp-btn" data-x="rot" ${w.homeEdit?.mode === 'move' && Home.canRotate(w.furn[w.homeEdit.furn].def) ? '' : 'disabled'} aria-label="Pivoter">⟳</button><button class="gp-btn" data-x="redo" ${w.redo.length ? '' : 'disabled'} aria-label="Rétablir">↷</button><button class="gp-btn gold" data-x="ok" aria-label="Valider">✔</button><button class="gp-btn" data-x="ok" aria-label="Fermer">✕</button></div>
       <div class="gp-tabs"><button data-tab="mobilier" class="${this.tab === 'mobilier' ? 'on' : ''}">Mobilier</button><button data-tab="sols" class="${this.tab === 'sols' ? 'on' : ''}">Sol &amp; murs</button></div><div class="body">${w.homeEdit ? `<div class="gp-sec" style="color:#7ee0a0">${w.homeEdit.mode === 'move' ? 'Touchez la case de destination' : 'Touchez la case où poser'}</div>` : ''}${body}</div>`;
     (this.el.querySelector('.body') as HTMLElement).scrollTop = scroll; const q = <T extends HTMLElement>(sel: string, fn: (b: T) => void) => this.el.querySelectorAll<T>(sel).forEach((b) => (b.onclick = () => fn(b)));
     q('[data-tab]', (b) => { this.tab = b.dataset.tab as any; this.render(); }); q('[data-cat]', (b) => { this.cat = b.dataset.cat as Home.Cat; this.render(); }); q('[data-room]', (b) => { this.room = b.dataset.room!; this.render(); });

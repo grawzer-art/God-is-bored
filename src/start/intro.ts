@@ -7,6 +7,7 @@ import * as Save from '../sim/save';
 import { drawText, textWidth, drawSprite, FINGER, SKIN_PAL, CROWN } from './pixel';
 import { installTheme } from '../ui/theme';
 import { openCreator } from './creator';
+import * as Nav from '../ui/nav';
 
 const CSS = `
 #start{position:fixed;inset:0;z-index:100;display:none;color:#fff;font-family:Inter,system-ui,sans-serif;-webkit-user-select:none;user-select:none}
@@ -18,7 +19,7 @@ const CSS = `
 #start .btns .gp-btn.main{border-color:var(--gp-gold);color:var(--gp-gold)} #start .btns .gp-btn[disabled]{opacity:.35}
 #start .menu .ver{position:absolute;left:calc(env(safe-area-inset-left,0px) + 12px);bottom:calc(env(safe-area-inset-bottom,0px) + 8px);font-size:10px;opacity:.5}
 #start .sheet{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55)} #start .sheet .gp{width:min(560px,90vw);max-height:86vh;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
-#start .xclose{position:sticky;top:0;align-self:flex-end;z-index:2;min-width:44px;min-height:40px;padding:4px 10px;margin-bottom:-34px} #start .sheet h3{margin:0;font-size:17px;color:var(--gp-gold);letter-spacing:.08em;text-transform:uppercase} #start .row{display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:13px} #start .row input[type=range]{width:46%}
+#start .xclose{position:sticky;top:0;align-self:flex-end;z-index:2;min-width:44px;min-height:40px;padding:4px 10px;margin-bottom:-34px} #start .sheet h3{margin:0;font-size:17px;color:var(--gp-gold);letter-spacing:.08em;text-transform:uppercase} #start .row{display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:13px} #start .row input[type=range]{width:46%;height:34px;touch-action:manipulation}
 #start .row .gp-btn{min-width:84px} #start .row .gp-btn.on{border-color:var(--gp-gold);color:var(--gp-gold)} #start .small{font-size:12px;color:var(--gp-dim);line-height:1.5}
 `;
 const PALM = [
@@ -102,16 +103,22 @@ export class StartFlow {
     else if (a === 'new') { if (hasValidSave()) this.confirmNew(); else this.startNew(); }
     else if (a === 'load') this.loadSheet(); else if (a === 'set') this.settingsSheet(); else if (a === 'cred') this.credits();
   }
-  private sheet(html: string) { const s = document.createElement('div'); s.className = 'sheet'; s.innerHTML = `<div class="gp"><button class="gp-btn xclose" aria-label="Fermer">✕</button>${html}</div>`; s.querySelector('.xclose')!.addEventListener('click', () => { Sfx.back(); s.remove(); }); this.el.appendChild(s); s.addEventListener('pointerdown', (e) => { if (e.target === s) { Sfx.back(); s.remove(); } }); return s; }
+  private sheet(html: string) {
+    const s = document.createElement('div'); s.className = 'sheet'; s.innerHTML = `<div class="gp"><button class="gp-btn xclose" aria-label="Fermer">✕</button>${html}</div>`; this.el.appendChild(s);
+    s.addEventListener('pointerdown', (e) => { if (e.target === s) Nav.closeTop(); }); s.querySelector('.xclose')!.addEventListener('click', () => Nav.closeTop());
+    Nav.open({ id: 'ssheet', close: () => { Sfx.back(); s.remove(); } }); return s;
+  }
+  /** Ferme une feuille (et la retire de la navigation). */
+  private drop(s: HTMLElement) { s.remove(); Nav.closed('ssheet'); }
   private confirmNew() {
     const s = this.sheet(`<h3>Nouvelle partie</h3><div class="small">Une sauvegarde existe déjà. Commencer une nouvelle partie <b>ne l'efface pas</b> tant que vous ne sauvegardez pas : une copie de secours est conservée. Continuer ?</div><div class="row"><button class="gp-btn" data-c="no">Annuler</button><button class="gp-btn gold" data-c="yes">Nouvelle partie</button></div>`);
-    s.querySelector('[data-c="no"]')!.addEventListener('click', () => { Sfx.back(); s.remove(); }); s.querySelector('[data-c="yes"]')!.addEventListener('click', () => { Sfx.confirm(); try { const cur = localStorage.getItem(Save.SAVE_KEY); if (cur) localStorage.setItem(Save.BACKUP_KEY, cur); } catch { /* ignoré */ } s.remove(); this.startNew(); });
+    s.querySelector('[data-c="no"]')!.addEventListener('click', () => { Nav.closeTop(); }); s.querySelector('[data-c="yes"]')!.addEventListener('click', () => { Sfx.confirm(); try { const cur = localStorage.getItem(Save.SAVE_KEY); if (cur) localStorage.setItem(Save.BACKUP_KEY, cur); } catch { /* ignoré */ } this.drop(s); this.startNew(); });
   }
   private startNew() { Sfx.musicStop(); this.el.style.display = 'none'; cancelAnimationFrame(this.raf); openCreator(this.g, { mode: 'new', onDone: () => { this.el.innerHTML = ''; document.getElementById('ui')!.style.display = ''; }, onCancel: () => { this.el.style.display = 'block'; document.getElementById('ui')!.style.display = 'none'; this.menu(); } }); }
   private loadSheet() {
     const has = hasValidSave(); const s = this.sheet(`<h3>Charger une partie</h3><div class="small">${has ? 'Sauvegarde sur cet appareil disponible.' : 'Aucune sauvegarde valide sur cet appareil.'}</div><div class="row"><span>Sauvegarde locale</span><button class="gp-btn" data-c="slot" ${has ? '' : 'disabled'}>Charger</button></div><div class="row"><span>Depuis un fichier (.json)</span><button class="gp-btn" data-c="file">Importer</button></div><div class="row"><span></span><button class="gp-btn" data-c="close">Fermer</button></div>`);
-    s.querySelector('[data-c="slot"]')!.addEventListener('click', () => { Sfx.confirm(); s.remove(); this.close(); Sfx.musicStop(); this.g.loadGame(); }); s.querySelector('[data-c="file"]')!.addEventListener('click', async () => { await this.g.importGame(); if (hasValidSave()) { s.remove(); this.close(); Sfx.musicStop(); } });
-    s.querySelector('[data-c="close"]')!.addEventListener('click', () => { Sfx.back(); s.remove(); });
+    s.querySelector('[data-c="slot"]')!.addEventListener('click', () => { Sfx.confirm(); this.drop(s); this.close(); Sfx.musicStop(); this.g.loadGame(); }); s.querySelector('[data-c="file"]')!.addEventListener('click', async () => { await this.g.importGame(); if (hasValidSave()) { this.drop(s); this.close(); Sfx.musicStop(); } });
+    s.querySelector('[data-c="close"]')!.addEventListener('click', () => { Nav.closeTop(); });
   }
   private settingsSheet() {
     const S: any = Settings.get(); const sl = (k: keyof SettingsT, label: string, min: number, max: number, step: number) => `<div class="row"><span>${label}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${S[k] as number}" data-r="${k}"></div>`;
@@ -122,8 +129,8 @@ export class StartFlow {
       <div class="small">Économe : désactive les effets de lumière coûteux. Le son ne démarre qu'après un premier toucher (règle d'iOS).</div><div class="row"><span></span><button class="gp-btn gold" data-c="ok">Fermer</button></div>`);
     s.querySelectorAll<HTMLInputElement>('[data-r]').forEach((i) => i.addEventListener('input', () => { Settings.set({ [i.dataset.r!]: Number(i.value) } as any); Sfx.click(); }));
     s.querySelectorAll<HTMLElement>('[data-t]').forEach((b) => (b.onclick = () => { const k = b.dataset.t as keyof SettingsT; Settings.set({ [k]: !Settings.get()[k] } as any); Sfx.click(); const on = !!Settings.get()[k]; b.classList.toggle('on', on); b.textContent = on ? 'Activé' : 'Désactivé'; if (k === 'music') { on ? Sfx.musicStart() : void 0; } }));
-    s.querySelectorAll<HTMLElement>('[data-q]').forEach((b) => (b.onclick = () => { Settings.set({ quality: b.dataset.q as any }); s.remove(); this.settingsSheet(); }));
-    s.querySelector('[data-c="ok"]')!.addEventListener('click', () => { Sfx.confirm(); s.remove(); });
+    s.querySelectorAll<HTMLElement>('[data-q]').forEach((b) => (b.onclick = () => { Settings.set({ quality: b.dataset.q as any }); this.drop(s); this.settingsSheet(); }));
+    s.querySelector('[data-c="ok"]')!.addEventListener('click', () => { Sfx.confirm(); this.drop(s); });
   }
-  private credits() { const s = this.sheet(`<h3>Crédits</h3><div class="small"><b style="color:#fff">GOD IS BORED</b> — un jeu GRAW STUDIO<br>Conception, code, pixel art procédural, sons synthétisés : tous les éléments sont originaux.<br>Moteur : Phaser 3 · Vite · TypeScript.<br>Aucune musique ni aucun asset de jeu commercial.</div><div class="row"><span></span><button class="gp-btn gold" data-c="ok">Fermer</button></div>`); s.querySelector('[data-c="ok"]')!.addEventListener('click', () => { Sfx.back(); s.remove(); }); }
+  private credits() { const s = this.sheet(`<h3>Crédits</h3><div class="small"><b style="color:#fff">GOD IS BORED</b> — un jeu GRAW STUDIO<br>Conception, code, pixel art procédural, sons synthétisés : tous les éléments sont originaux.<br>Moteur : Phaser 3 · Vite · TypeScript.<br>Aucune musique ni aucun asset de jeu commercial.</div><div class="row"><span></span><button class="gp-btn gold" data-c="ok">Fermer</button></div>`); s.querySelector('[data-c="ok"]')!.addEventListener('click', () => { Nav.closeTop(); }); }
 }

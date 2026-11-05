@@ -1,5 +1,6 @@
 /** Interface mobile (iPhone, paysage) : barre compacte, croix directionnelle, boutons A/B, menu temporaire, carte rapide, invitation à tourner.
  *  Active uniquement sur écran tactile de petite taille (ou ?mobile=1) : la version Mac est inchangée. */
+import * as Nav from './nav';
 import { openCreator } from '../start/creator';
 import type { GameScene } from '../view/scene';
 import type { Hud } from './hud';
@@ -17,7 +18,7 @@ const CSS = `
 #ui:not(.mobile) .mob{display:none!important}
 #ui.mobile #clock,#ui.mobile #god,#ui.mobile #powers,#ui.mobile #portraits,#ui.mobile #feed,#ui.mobile #hhud,#ui.mobile #pause{display:none!important}
 #ui.mobile #charp{display:none!important}
-#ui.mobile.charp-open #charp{display:block!important;top:calc(var(--st) + 8px);bottom:calc(var(--sb) + 8px);right:calc(var(--sr) + 8px);width:min(340px,46vw);font-size:12px}
+
 .mob{position:absolute;pointer-events:auto;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .mob.pill{background:rgba(12,14,22,.78);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:#e6e9f2;font-size:12px}
 .mbtn{font:inherit;color:#e6e9f2;background:rgba(12,14,22,.78);border:1px solid rgba(255,255,255,.16);border-radius:10px;min-width:44px;min-height:44px;padding:0 12px;touch-action:none;transition:none;-webkit-tap-highlight-color:transparent}
@@ -44,10 +45,10 @@ const CSS = `
 #qcard{left:50%;transform:translateX(-50%);top:calc(var(--st) + 6px);display:none;align-items:center;gap:8px;padding:5px 8px;max-width:min(430px,calc(100vw - 260px))}
 #qcard img.p{width:32px;height:38px;image-rendering:pixelated;object-fit:contain} #qcard .t{display:flex;flex-direction:column;line-height:1.25;min-width:0} #qcard .t b{color:#fff;font-size:13px} #qcard .t span{color:#98a2b8;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #msheet{left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - var(--sl) - var(--sr) - 24px));max-height:calc(var(--vh,100vh) - var(--st) - var(--sb) - 20px);overflow:auto;display:none;padding:10px;z-index:12;touch-action:pan-y;-webkit-overflow-scrolling:touch}
-#msheet h4{margin:0 0 8px;font-size:13px;color:#fccd5c;letter-spacing:.08em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+#msheet h4{position:sticky;top:-10px;z-index:3;background:rgba(18,20,30,.97);padding:6px 0;gap:8px;margin:0 0 8px;font-size:13px;color:#fccd5c;letter-spacing:.08em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
 #msheet .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:7px} #msheet .grid .mbtn{min-height:48px;text-align:center} #msheet .pc{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px;min-height:76px;font-size:11px} #msheet .pc img{width:32px;height:38px;image-rendering:pixelated}
 #msheet .feedl{font-size:12px;line-height:1.45}
-#fclose{right:calc(var(--sr) + 14px);top:calc(var(--st) + 12px);display:none;z-index:13;min-width:44px} #ui.charp-open #fclose{display:block}
+
 #rotate{position:fixed;inset:0;z-index:50;background:#0b0c12;color:#e6e9f2;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px;pointer-events:auto;touch-action:none}
 #ui.mobile.portrait #rotate{display:flex} #rotate .ph{width:54px;height:92px;border:3px solid #fccd5c;border-radius:11px;animation:rot 2.4s ease-in-out infinite}
 @keyframes rot{0%,20%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
@@ -81,10 +82,9 @@ export class MobileUi {
     add('mtr', 'mob', '<button class="mbtn mode" id="mmode">DIEU</button><button class="mbtn" id="mmenu" aria-label="Menu">Menu</button>');
     add('dpad', 'mob', '<div class="jbase"></div><div class="jknob"></div>');
     add('abtn', 'mob', 'A<small id="alab"></small>'); add('bbtn', 'mob', 'B<small id="blab"></small>');
-    add('qcard', 'mob pill'); add('msheet', 'mob panel scroll'); add('fclose', 'mob', '<button class="mbtn" id="fx">Fermer</button>'); add('mhud', 'mob pill');
+    add('qcard', 'mob pill'); add('msheet', 'mob panel scroll'); add('mhud', 'mob pill');
     const rot = document.createElement('div'); rot.id = 'rotate'; rot.innerHTML = '<div class="ph"></div><b style="font-size:18px;color:#fccd5c">Tournez votre iPhone</b><div class="dim" style="font-size:13px;max-width:280px">GOD IS BORED se joue en paysage. Verrouillez la rotation de l\'écran dans le centre de contrôle si elle ne suit pas.</div>'; root.appendChild(rot);
     this.bindDpad(); this.bindAB(); this.bindTop();
-    document.getElementById('fx')!.onclick = () => this.closeFiche();
     document.addEventListener('touchmove', (e) => { if (this.active && !(e.target as HTMLElement).closest('.scroll,#dlg,#inv,#ctx,#help,#charp')) e.preventDefault(); }, { passive: false });
     for (const ev of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick']) document.addEventListener(ev, (e) => { if (this.active) e.preventDefault(); }, { passive: false } as any);
     this.bindFastTap();
@@ -149,12 +149,16 @@ export class MobileUi {
   private bindTop() {
     document.getElementById('mspeed')!.onclick = () => { this.g.setSpeed((this.g.speedIndex + 1) % SPEEDS_LABEL.length); };
     document.getElementById('mmode')!.onclick = () => this.g.toggleMode();
-    document.getElementById('mmenu')!.onclick = () => (this.sheet ? this.closeSheet() : this.openMenu());
+    document.getElementById('mmenu')!.onclick = () => (this.sheet ? Nav.closeTop() : this.openMenu());
   }
   // ---- feuilles temporaires
-  closeSheet() { this.sheet = ''; this.el.msheet.style.display = 'none'; }
+  closeSheet() { this.sheet = ''; this.el.msheet.style.display = 'none'; Nav.closed('msheet'); }
+  /** Feuille : en-tête fixe avec Retour (sous-menus → Menu) et ✕ toujours visibles. */
   private show(title: string, body: string) {
-    this.sheet = title; this.el.msheet.innerHTML = `<h4><span>${title}</span><button class="mbtn" id="mclose">Fermer</button></h4>${body}`; this.el.msheet.style.display = 'block'; document.getElementById('mclose')!.onclick = () => this.closeSheet();
+    const sub = title !== 'Menu'; this.sheet = title;
+    this.el.msheet.innerHTML = `<h4>${sub ? '<button class="mbtn nvb" id="mback" aria-label="Retour">‹ Retour</button>' : ''}<span>${title}</span><button class="mbtn nvx" id="mclose" aria-label="Fermer">✕</button></h4>${body}`; this.el.msheet.style.display = 'block'; this.el.msheet.scrollTop = 0;
+    document.getElementById('mclose')!.onclick = () => Nav.closeTop(); if (sub) document.getElementById('mback')!.onclick = () => Nav.back();
+    Nav.open({ id: 'msheet', close: () => this.closeSheet(), back: sub ? () => { this.openMenu(); return true; } : undefined });
   }
   private bindBtns(sel: string, fn: (b: HTMLElement) => void) { this.el.msheet.querySelectorAll<HTMLElement>(sel).forEach((b) => (b.onclick = () => fn(b))); }
   openMenu() {
@@ -212,3 +216,4 @@ export class MobileUi {
   }
 }
 void SAFE;
+

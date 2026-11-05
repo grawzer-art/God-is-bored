@@ -21,6 +21,7 @@ import * as Act from '../sim/interact';
 import * as Home from '../sim/home';
 import * as Possess from '../sim/possess';
 import * as Quests from '../sim/quests';
+import * as Nav from '../ui/nav';
 import * as Settings from '../start/settings';
 import { StartFlow } from '../start/intro';
 import { openCreator } from '../start/creator';
@@ -103,7 +104,7 @@ export class GameScene extends Phaser.Scene {
   destroyView() {
     this.children.removeAll(true); this.carNodes = []; this.walls = []; this.floorChunks.clear(); this.roofs = []; this.furnNodes.clear(); this.propNodes.clear(); this.feastNodes = []; this.chars = []; this.staticNodes = [];
   }
-  replaceWorld(w: World) { this.destroyView(); this.world = w; this.buildView(); this.selectedId = -1; this.world.onAvatarArrive = (npc) => this.hud.openDialogue(npc); this.hookCrime(); this.hud.rebind(); this.mode = 'god'; if (w.avatarControlled) this.descend(false); else this.hud.onMode('god'); }
+  replaceWorld(w: World) { Nav.closeAll(); this.destroyView(); this.world = w; this.buildView(); this.selectedId = -1; this.world.onAvatarArrive = (npc) => this.hud.openDialogue(npc); this.hookCrime(); this.hud.rebind(); this.mode = 'god'; if (w.avatarControlled) this.descend(false); else this.hud.onMode('god'); }
 
   // ------------------------------------------------------------------ sol : blocs de 16 x 16 cases dessinés à la demande
   // (la ville est trop grande pour un seul canevas : iOS limite à ~16 millions de pixels ; on ne garde en mémoire que les blocs proches de la caméra)
@@ -377,7 +378,7 @@ export class GameScene extends Phaser.Scene {
   private setupInput() {
     this.input.addPointer(1);
     this.input.mouse?.disableContextMenu();
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => { this.pan = { down: true, moved: false, sx: p.x, sy: p.y, button: p.button, t: performance.now() }; });
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => { if (Nav.blocksWorld()) { this.pan = { ...this.pan, down: false, moved: true }; return; } this.pan = { down: true, moved: false, sx: p.x, sy: p.y, button: p.button, t: performance.now() }; });
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
       const wp = this.screenToWorld(p.x, p.y); this.hoverId = this.charAt(wp.x, wp.y);
       const p1 = this.input.pointer1, p2 = this.input.pointer2;
@@ -389,6 +390,7 @@ export class GameScene extends Phaser.Scene {
       this.pan.moved = true; if (this.mode === 'human') return; this.follow = false; this.tx -= dx / this.cz; this.ty -= dy / this.cz;
     });
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
+      if (Nav.blocksWorld()) { this.pan = { ...this.pan, down: false }; return; }
       this.pinch = 0; const was = this.pan; this.pan = { ...this.pan, down: false };
       if (was.moved || was.button !== 0) return;
       const wp = this.screenToWorld(p.x, p.y); const id = this.charAt(wp.x, wp.y); const now = performance.now();
@@ -431,6 +433,7 @@ export class GameScene extends Phaser.Scene {
   setVirtualKey(k: string, down: boolean) { if (down) this.keys.add(k); else this.keys.delete(k); this.syncInput(); }
   /** Bouton A : action principale. Humain : interagir. Dieu : choisir le personnage visé (puis fiche / pouvoir armé). */
   actionA() {
+    if (Nav.blocksWorld()) return;
     if (this.hud.dialogueOpen()) return;
     if (this.mode === 'human') { this.interact(); return; }
     let id = this.selectedId;
@@ -441,6 +444,7 @@ export class GameScene extends Phaser.Scene {
   }
   /** Bouton B : action secondaire. Humain : inventaire. Dieu : menu des pouvoirs (ou annule le pouvoir armé). */
   actionB() {
+    if (Nav.back()) return;                 // B ferme / revient en arrière quand une fenêtre est ouverte
     if (this.hud.dialogueOpen()) { this.hud.closeDialogue(); return; }
     if (this.mode === 'human') { this.hud.toggleInventory(); return; }
     if (this.hud.powerMode) { this.hud.escape(); return; }
