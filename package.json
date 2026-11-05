@@ -14,7 +14,9 @@
     "test:all": "vitest run && node tools/e2e.cjs",
     "e2e:human": "node tools/e2e-human.cjs",
     "dev:phone": "node tools/lan.mjs",
-    "e2e:mobile": "node tools/e2e-mobile.cjs"
+    "e2e:mobile": "node tools/e2e-mobile.cjs",
+    "e2e:pwa": "node tools/e2e-pwa.cjs",
+    "icons": "node tools/make-icons.mjs"
   },
   "dependencies": {
     "phaser": "3.90.0"

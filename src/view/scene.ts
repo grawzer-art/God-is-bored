@@ -3,6 +3,7 @@ import { World } from '../sim/world';
 import * as L from '../sim/layout';
 import { MIN_PER_SEC } from '../sim/defs';
 import * as Save from '../sim/save';
+import { exportToFile, pickFile } from '../ui/saveio';
 import { FLOOR_STYLES, canvas, ctx2, floorTile, wallTex, type FaceSpec, type C, c, shade } from '../art/core';
 import { furnSprite, rugCanvas } from '../art/furn';
 import { CharView } from './charview';
@@ -57,7 +58,7 @@ export class GameScene extends Phaser.Scene {
     if (this.params.has('at')) { const [x, y] = this.params.get('at')!.split(',').map(Number); const p = toScreen(x, y); this.tx = this.cx = p.x; this.ty = this.cy = p.y; }
     if (this.params.has('focus')) this.selectChar(Number(this.params.get('focus')), true);
     this.scale.on('resize', (s: Phaser.Structs.Size) => this.lighting.resize(s.width, s.height));
-    document.getElementById('boot')?.remove();
+    { const done = (window as any).__gibBootDone; if (done) done(); else document.getElementById('boot')?.remove(); }
     (window as any).__gib = this;
   }
 
@@ -311,6 +312,17 @@ export class GameScene extends Phaser.Scene {
   toggleFollow() { this.follow = !this.follow; this.hud.toast('Caméra : ' + (this.follow ? 'suit le personnage' : 'libre')); }
   setSpeed(i: number) { this.speedIndex = Math.max(0, Math.min(SPEEDS.length - 1, i)); this.hud?.onSpeed(this.speedIndex); }
   saveGame() { const ok = Save.save(this.world); this.hud.toast(ok ? 'Partie sauvegardée' : 'Échec de la sauvegarde'); return ok; }
+  async exportGame() { try { const r = await exportToFile(this.world); if (r !== 'cancelled') this.hud.toast(r === 'shared' ? 'Sauvegarde exportée' : 'Fichier de sauvegarde téléchargé'); } catch { this.hud.toast('Export impossible'); } }
+  async importGame() {
+    const text = await pickFile(); if (text === null) return;
+    const r = Save.parseImport(text); if (!r.ok) { this.hud.toast('Import refusé : ' + r.error); return; }
+    if (!window.confirm(`Importer cette partie (jour ${r.summary.day}, ${r.summary.residents} habitants) ? La partie actuelle sera remplacée (une copie de secours est gardée).`)) return;
+    Save.save(this.world); // l'état courant passe dans le slot, puis commitImport le range en secours
+    if (!Save.commitImport(r.payload)) { this.hud.toast('Import impossible (stockage plein ?)'); return; }
+    const w = Save.load(); if (!w) { this.hud.toast('Import échoué'); return; }
+    this.replaceWorld(w); this.hud.toast('Partie importée');
+  }
+  restoreBackup() { const w = Save.restoreBackup(); if (!w) { this.hud.toast('Aucune copie de secours'); return; } this.replaceWorld(w); Save.save(w); this.hud.toast('Copie de secours restaurée'); }
   loadGame() { const w = Save.load(); if (!w) { this.hud.toast('Aucune sauvegarde'); return false; } this.replaceWorld(w); this.hud.toast('Partie chargée'); return true; }
 
   // ------------------------------------------------------------------ boucle

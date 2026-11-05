@@ -71,7 +71,7 @@ export class Hud {
     const mk = (label: string, fn: () => void, tip = '') => { const b = document.createElement('button'); b.className = 'btn'; b.textContent = label; b.title = tip; b.onclick = fn; this.el.speeds.appendChild(b); };
     mk('Descendre (G)', () => g.toggleMode(), 'Incarner un humain / redevenir dieu'); this.modeBtn = this.el.speeds.lastElementChild as HTMLElement;
     mk('Maison', () => g.focusZone('house')); mk('Bar', () => g.focusZone('bar')); mk('Rue', () => g.focusZone('street'));
-    mk('Murs', () => { const m = g.cycleWalls(); this.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); }, 'V'); mk('Sauver', () => g.saveGame(), 'F5'); mk('Charger', () => g.loadGame(), 'F9');
+    mk('Murs', () => { const m = g.cycleWalls(); this.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); }, 'V'); mk('Sauver', () => g.saveGame(), 'F5'); mk('Charger', () => g.loadGame(), 'F9'); mk('Exporter', () => g.exportGame(), 'Fichier JSON'); mk('Importer', () => g.importGame(), 'Fichier JSON');
     for (const [id, d] of Object.entries(God.POWERS)) { const b = document.createElement('button'); b.className = 'btn'; b.style.flex = '1'; b.textContent = `${d.key} ${d.label} (${d.cost})`; b.title = d.desc; b.dataset.id = id; b.onclick = () => this.pickPower(id); this.el.pw.appendChild(b); }
     this.el.go.onclick = () => { this.el.help.style.display = 'none'; this.helpT = 1e9; };
     if (g.params.has('nohelp')) this.el.help.style.display = 'none';

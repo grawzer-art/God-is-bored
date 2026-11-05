@@ -56,6 +56,93 @@ export function fromJSON(d: any): World | null {
   for (const e of d.journal ?? []) w.journal.push(e);
   return w;
 }
+// ---------------------------------------------------------------------------
+// Migrations : MIGRATIONS[n] transforme une sauvegarde de version n en version n+1.
+// À chaque évolution du format, incrémenter SAVE_VERSION et ajouter l'étape ici : les anciennes parties restent chargeables.
+export const MIGRATIONS: Record<number, (d: any) => any> = {};
+/** Met une sauvegarde à la version courante. Lève une Error lisible si impossible. */
+export function migrate(d: any): any {
+  if (!d || typeof d !== 'object' || !Number.isInteger(d.version) || d.version < 1) throw new Error('Version de sauvegarde inconnue.');
+  if (d.version > SAVE_VERSION) throw new Error('Cette sauvegarde vient d\'une version plus récente du jeu. Mettez le jeu à jour.');
+  let cur = d;
+  while (cur.version < SAVE_VERSION) {
+    const step = MIGRATIONS[cur.version];
+    if (!step) throw new Error(`Aucune migration depuis la version ${cur.version}.`);
+    cur = { ...step(cur), version: cur.version + 1 };
+  }
+  return cur;
+}
+
+// ---------------------------------------------------------------------------
+// Fichier d'export (enveloppe JSON) + validation à l'import.
+export const FILE_FORMAT = 'god-is-bored-save';
+export const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+export const BACKUP_KEY = 'god-is-bored:backup';
+export interface SaveSummary { day: number; residents: number; version: number }
+export type ImportResult = { ok: true; payload: any; summary: SaveSummary } | { ok: false; error: string };
+
+/** Somme de contrôle FNV-1a 32 bits (détecte une corruption ou une édition accidentelle, pas une protection anti-triche). */
+export function checksum(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, '0');
+}
+export function exportText(w: World, build = ''): string {
+  const payload = toJSON(w);
+  return JSON.stringify({ format: FILE_FORMAT, version: SAVE_VERSION, build, exportedAt: new Date().toISOString(), summary: { day: w.day(), residents: w.residents.length }, checksum: checksum(JSON.stringify(payload)), payload }, null, 1);
+}
+const fin = (v: any) => typeof v === 'number' && Number.isFinite(v);
+const isPos = (p: any) => p && fin(p.x) && fin(p.y);
+/** Contrôle de structure d'une charge utile (déjà migrée). Renvoie un message d'erreur ou null. */
+export function validatePayload(d: any): string | null {
+  if (!d || typeof d !== 'object') return 'Contenu illisible.';
+  if (d.version !== SAVE_VERSION) return 'Version de sauvegarde incompatible.';
+  for (const k of ['seed', 'clock', 'godEnergy', 'ennui', 'pot', 'potCook', 'potTime', 'feastUntil', 'nextMessId']) if (!fin(d[k])) return `Champ invalide : ${k}.`;
+  if (!fin(d.rng) && typeof d.rng !== 'number') return 'Champ invalide : rng.';
+  if (d.clock < 0 || d.clock > 1e9) return 'Horloge hors limites.';
+  if (!d.stats || typeof d.stats !== 'object') return 'Statistiques manquantes.';
+  if (!Array.isArray(d.rel) || d.rel.some((e: any) => !Array.isArray(e) || e.length !== 2)) return 'Relations invalides.';
+  if (!Array.isArray(d.furn) || !Array.isArray(d.mess) || !Array.isArray(d.chars)) return 'Listes manquantes.';
+  if (d.chars.length < 1 || d.chars.length > 64) return 'Nombre d\'habitants invalide.';
+  const ids = new Set<number>();
+  for (const c of d.chars) {
+    if (!c || !Number.isInteger(c.id) || c.id < 0 || ids.has(c.id)) return 'Identifiant d\'habitant invalide.';
+    ids.add(c.id);
+    if (!isPos(c.pos)) return `Position invalide (habitant ${c.id}).`;
+    if (!c.needs || NEEDS.some((n) => !fin(c.needs[n]))) return `Besoins invalides (habitant ${c.id}).`;
+    if (!Array.isArray(c.memories) || !c.goal || typeof c.goal !== 'object' || !c.avoid || !c.pref || !c.stats) return `Données incomplètes (habitant ${c.id}).`;
+    for (const k of ['joy', 'stress', 'anger', 'faith']) if (!fin(c[k])) return `Champ invalide : ${k} (habitant ${c.id}).`;
+  }
+  return null;
+}
+/** Analyse un fichier importé : enveloppe ou ancienne sauvegarde brute. N'altère rien. */
+export function parseImport(text: string): ImportResult {
+  try {
+    if (text.length > MAX_IMPORT_BYTES) return { ok: false, error: 'Fichier trop volumineux.' };
+    let raw: any; try { raw = JSON.parse(text); } catch { return { ok: false, error: 'Ce fichier n\'est pas un JSON valide.' }; }
+    let payload = raw;
+    if (raw && raw.format !== undefined) {
+      if (raw.format !== FILE_FORMAT) return { ok: false, error: 'Ce fichier n\'est pas une sauvegarde de GOD IS BORED.' };
+      if (!raw.payload) return { ok: false, error: 'Sauvegarde vide.' };
+      if (raw.checksum !== checksum(JSON.stringify(raw.payload))) return { ok: false, error: 'Fichier corrompu ou modifié (somme de contrôle invalide).' };
+      payload = raw.payload;
+    } else if (!raw || !Array.isArray(raw.chars)) return { ok: false, error: 'Ce fichier n\'est pas une sauvegarde de GOD IS BORED.' };
+    payload = migrate(payload);
+    const bad = validatePayload(payload); if (bad) return { ok: false, error: bad };
+    const w = fromJSON(payload); if (!w) return { ok: false, error: 'La partie n\'a pas pu être reconstruite.' };
+    return { ok: true, payload, summary: { day: w.day(), residents: w.residents.length, version: payload.version } };
+  } catch (e: any) { return { ok: false, error: e?.message ?? 'Fichier invalide.' }; }
+}
+/** Écrit la charge utile validée dans le slot, en gardant l'ancienne partie dans BACKUP_KEY. */
+export function commitImport(payload: any): boolean {
+  try {
+    const prev = localStorage.getItem(SAVE_KEY); if (prev) localStorage.setItem(BACKUP_KEY, prev);
+    localStorage.setItem(SAVE_KEY, JSON.stringify(payload)); return true;
+  } catch { return false; }
+}
+export function restoreBackup(): World | null { try { const s = localStorage.getItem(BACKUP_KEY); return s ? fromJSON(migrate(JSON.parse(s))) : null; } catch { return null; } }
+export function hasBackup(): boolean { try { return localStorage.getItem(BACKUP_KEY) !== null; } catch { return false; } }
+
 export function save(w: World): boolean { try { localStorage.setItem(SAVE_KEY, JSON.stringify(toJSON(w))); return true; } catch { return false; } }
 export function hasSave(): boolean { try { return localStorage.getItem(SAVE_KEY) !== null; } catch { return false; } }
-export function load(): World | null { try { const s = localStorage.getItem(SAVE_KEY); return s ? fromJSON(JSON.parse(s)) : null; } catch { return null; } }
+export function load(): World | null { try { const s = localStorage.getItem(SAVE_KEY); return s ? fromJSON(migrate(JSON.parse(s))) : null; } catch { return null; } }

@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import { GameScene } from './view/scene';
+import { initPwa } from './pwa';
+
+initPwa();
 
 new Phaser.Game({
   type: Phaser.AUTO,
