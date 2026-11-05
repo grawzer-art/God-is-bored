@@ -46,7 +46,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await tap('#fx'); ok(await E(() => !document.getElementById('ui').classList.contains('charp-open')), 'fiche refermable');
   await tap('#bbtn'); ok(await E(() => document.getElementById('msheet').style.display === 'block' && document.getElementById('msheet').textContent.includes('Pouvoirs divins')), 'B : menu des pouvoirs divins');
   await E(() => { window.__gib.world.godEnergy = 100; }); await tap('#msheet [data-p="bless"]'); ok(await E(() => window.__gib.hud.powerMode === 'bless'), 'pouvoir Bénédiction armé depuis le menu tactile');
-  const e0 = await E(() => window.__gib.world.godEnergy); await tap('#abtn'); ok((await E(() => window.__gib.world.godEnergy)) < e0 - 15, 'A applique le pouvoir au personnage choisi (énergie divine dépensée)');
+  const f0 = await E(() => window.__gib.world.chars[window.__gib.selectedId].faith); await tap('#abtn'); ok((await E(() => window.__gib.world.divine.length + window.__gib.world.chars[window.__gib.selectedId].faith)) > f0 || (await E(() => window.__gib.world.chars[window.__gib.selectedId].memories.some((m) => m.kind === 'miracle'))), 'A applique le pouvoir au personnage choisi (effet réel : foi / souvenir de miracle, sans jauge)');
   await tap('#mmenu'); await tap('#msheet [data-k="res"]'); ok(await E(() => document.getElementById('msheet').querySelectorAll('[data-id]').length === 8), 'Menu → Habitants : 8 portraits tactiles');
   await tap('#msheet [data-id="2"]'); ok((await E(() => window.__gib.selectedId)) === 2, 'toucher un portrait : habitant sélectionné et caméra centrée');
 

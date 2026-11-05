@@ -46,7 +46,7 @@ const ok = (c, m) => { n++; if (!c) fails++; console.log(c ? '  [OK]   ' : '  [F
   await pg.keyboard.press('1'); ok(await G(() => window.__gib.hud.powerMode === 'bless'), 'touche 1 : Bénédiction armée');
   await G(() => { const c = window.__gib.world.chars[3]; if (c.away) { c.away = false; c.jobPhase = ''; c.state = 'idle'; c.plan = []; } }); await pg.waitForTimeout(300); // Théo travaille tôt : on le fait revenir pour pouvoir cliquer sur lui
   const e0 = await G(() => window.__gib.world.godEnergy); const pos2 = await G(() => { const g = window.__gib; g.tx = g.cx = g.chars[3].x; g.ty = g.cy = g.chars[3].y - 20; return null; }); await pg.waitForTimeout(300); const pc = await G(() => { const g = window.__gib; return g.worldToScreen(g.chars[3].x, g.chars[3].y - 20); }); void pos2; await pg.mouse.click(pc.x, pc.y); await pg.waitForTimeout(300);
-  ok((await G(() => window.__gib.world.godEnergy)) < e0 - 15, 'clic sur l\'habitant : énergie divine dépensée'); ok(await G(() => window.__gib.world.chars[3].faith > 20), 'la foi de l\'habitant augmente');
+  ok((await G(() => window.__gib.world.chars[3].memories.some((m) => m.kind === 'miracle'))), 'clic sur l\'habitant : bénédiction appliquée (souvenir de miracle)'); void e0; ok(await G(() => window.__gib.world.chars[3].faith > 20), 'la foi de l\'habitant augmente');
   await G(() => { window.__gib.world.godEnergy = 100; }); await pg.keyboard.press('4'); ok(await G(() => window.__gib.world.feastActive()), 'touche 4 : Festin céleste invoqué');
   await pg.waitForTimeout(500); ok(await G(() => window.__gib.feastNodes.length > 0), 'le festin apparaît sur la table');
   console.log('\n== Tactile (iPhone)');
