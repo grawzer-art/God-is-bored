@@ -41,14 +41,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(600); ok(await E(() => window.__gib.dest === null), 'repère effacé à l\'arrivée');
 
   console.log('\n== 3. Contourner un bâtiment');
-  await E(() => { window.__gib.tz = window.__gib.cz = 0.9; }); await place(29.5, 15.5); await settle();
+  await E(() => { window.__gib.tz = window.__gib.cz = 0.55; }); await place(29.5, 15.5); await settle();
   const far = await cellXY(41.5, 6.5); ok(far.x > 0 && far.x < 844 && far.y > 0 && far.y < 390, `destination au nord du bar visible à l'écran (${Math.round(far.x)}, ${Math.round(far.y)})`);
   await tapAt(far.x, far.y); let bad = 0, arrived = false;
   for (let i = 0; i < 70; i++) { await sleep(300); const ok2 = await E(() => { const a = window.__gib.world.avatar; return window.__gib.world.isWalkable({ x: Math.floor(a.pos.x), y: Math.floor(a.pos.y) }); }); if (!ok2) bad++; const q = await pos(); if (Math.hypot(q.x - 41.5, q.y - 6.5) < 0.6) { arrived = true; break; } }
   ok(bad === 0 && arrived, `le bar est contourné, aucun mur traversé, destination atteinte`);
 
   console.log('\n== 4. Du déplacement automatique au joystick');
-  await E(() => { window.__gib.tz = window.__gib.cz = 1.4; }); await place(4.5, 20.5); await settle(); const f = await cellXY(30.5, 21.5); await tapAt(f.x < 844 ? f.x : 800, f.y);
+  await E(() => { window.__gib.tz = window.__gib.cz = 1.4; }); await place(4.5, 20.5); await settle(); const f = await cellXY(12.5, 21.5); await tapAt(f.x, f.y);
   await sleep(500); ok((await pos()).st === 'walk', 'trajet automatique en cours');
   const jr2 = await rect('#dpad'); await touch('touchStart', [{ x: jr2.cx, y: jr2.cy, id: 1 }]); await touch('touchMove', [{ x: jr2.cx - 0.4 * jr2.w, y: jr2.cy, id: 1 }]); await sleep(120);
   const cancelled = await E(() => { const a = window.__gib.world.avatar; return { plan: a.plan.length, path: a.path.length, st: a.state }; }); await touch('touchEnd', []);
@@ -63,16 +63,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await E(() => window.__gib.hud.closeDialogue());
 
   console.log('\n== 6. Interagir avec un meuble');
-  await E(() => { window.__gib.setSpeed(1); const w = window.__gib.world; w.avatar.needs.hunger = 30; }); await place(14.5, 8.5); await E(() => { window.__gib.tz = window.__gib.cz = 1.6; }); await settle();
+  await E(() => { window.__gib.setSpeed(1); const w = window.__gib.world; w.avatar.needs.hunger = 30; }); await E(() => { const w = window.__gib.world; const f = w.furn.find((x) => x.def === 'fridge'); const c = w.nearestFreeCell({ x: f.x + 2, y: f.y + 3 }, 4); w.abortPlan(w.avatar, 't'); w.avatar.pos = { x: c.x + 0.5, y: c.y + 0.5 }; w.avatar.state = 'idle'; window.__gib.tz = window.__gib.cz = 1.6; }); await settle();
   const fur = await E(() => { const g = window.__gib; const I = g.world; for (const [fi, nodes] of g.furnNodes) { const f = I.furn[fi]; if (f.def !== 'fridge') continue; const n = nodes[0]; const b = n.getBounds(); const s = g.worldToScreen(b.centerX, b.centerY); return { fi, x: s.x, y: s.y }; } return null; });
   console.log('   meuble de test :', JSON.stringify(fur));
   if (fur) { await tapAt(fur.x, fur.y); await sleep(300); const st = await E(() => ({ ctx: document.getElementById('ctx').style.display === 'block', walk: window.__gib.world.avatar.state })); ok(st.ctx || st.walk === 'walk' || st.walk === 'use', `toucher le frigo : ${st.ctx ? 'menu contextuel (plusieurs actions)' : 'le personnage s\'y rend'}`);
     if (st.ctx) { await E(() => document.querySelector('#ctx button').click()); }
     let used = false; for (let i = 0; i < 60 && !used; i++) { await sleep(300); used = await E((fi) => { const a = window.__gib.world.avatar; return a.state === 'use' && a.use_furn === fi; }, fur.fi); } ok(used, 'le personnage utilise le meuble une fois arrivé au point d\'accès'); }
   await settle();
-  await place(14.5, 8.5); await E(() => { const w = window.__gib.world; const f = w.furn.find((x) => x.def === 'nightstand'); window.__ns = f ? f.i : -1; });
+  await E(() => { const w = window.__gib.world; const f = w.furn.find((x) => x.def === 'nightstand'); window.__ns = f ? f.i : -1; const c = w.nearestFreeCell({ x: f.x + 1, y: f.y + 2 }, 4); w.abortPlan(w.avatar, 't'); w.avatar.pos = { x: c.x + 0.5, y: c.y + 0.5 }; w.avatar.state = 'idle'; }); await settle();
   const ns = await E(() => { const g = window.__gib; const nodes = g.furnNodes.get(window.__ns); if (!nodes) return null; const b = nodes[0].getBounds(); return g.worldToScreen(b.centerX, b.centerY); });
-  if (ns) { await tapAt(ns.x, ns.y); await sleep(300); const t = await E(() => document.getElementById('toast').textContent); ok(/Rien à faire|Impossible/.test(t) || true, `objet sans action : message honnête « ${t} »`); }
+  if (ns) { await tapAt(ns.x, ns.y); await sleep(300); const t = await E(() => document.getElementById('toast').textContent); ok(/Rien à faire/.test(t), `objet sans action : message honnête « ${t} »`); }
 
   console.log('\n== 7. Un mur empêche l\'interaction');
   await E(() => { const w = window.__gib.world; const n = w.chars[3]; w.abortPlan(n, 't'); n.pos = { x: 11.2, y: 16.5 }; n.state = 'idle'; n.away = false; n.decision_cooldown = 1e9; }); await place(9.8, 16.5); await E(() => { window.__gib.tz = window.__gib.cz = 2; }); await settle();
