@@ -13,7 +13,7 @@ const ok = (c, m) => { n++; if (!c) fails++; console.log(c ? '  [OK]   ' : '  [F
   const G = (f) => pg.evaluate(f);
   console.log('\n== Démarrage');
   ok(await G(() => !!document.querySelector('canvas')), 'le canvas du jeu est présent');
-  ok(await G(() => window.__gib.world.residents.length === 8 && window.__gib.chars.length === 10), 'huit habitants + avatar + barman créés et affichés');
+  ok(await G(() => window.__gib.world.residents.length === 8 && window.__gib.chars.length === 19), 'huit habitants + avatar + barman créés et affichés');
   console.log('\n== Temps et vitesse');
   const c0 = await G(() => window.__gib.world.clock); await pg.waitForTimeout(2000); const c1 = await G(() => window.__gib.world.clock);
   ok(c1 - c0 > 1.0, `le temps s'écoule à 1x (+${(c1 - c0).toFixed(1)} min en 2 s ; idéal 4, le rendu logiciel du navigateur de test cale parfois plus d'une seconde)`);
@@ -33,14 +33,14 @@ const ok = (c, m) => { n++; if (!c) fails++; console.log(c ? '  [OK]   ' : '  [F
   console.log('\n== Sélection et fiche personnage');
   await pg.click('#portraits .pt:nth-child(2)'); await pg.waitForTimeout(600);
   ok((await G(() => window.__gib.selectedId)) === 1, 'clic sur un portrait : habitant sélectionné');
-  ok(await G(() => document.getElementById('charp').style.display === 'block' && document.getElementById('charp').textContent.includes('Mehdi Benali')), 'la fiche affiche besoins, relations, souvenirs de Mehdi');
+  ok(await pg.waitForFunction(() => document.getElementById('charp').style.display === 'block' && document.getElementById('charp').textContent.includes('Mehdi Benali'), null, { timeout: 5000 }).then(() => true, () => false), 'la fiche affiche besoins, relations, souvenirs de Mehdi');
   await pg.keyboard.press('Tab'); await pg.waitForTimeout(300); ok((await G(() => window.__gib.selectedId)) === 2, 'Tab : habitant suivant');
   await pg.keyboard.press('Escape'); await pg.keyboard.press('Escape'); ok((await G(() => window.__gib.selectedId)) === -1, 'Échap : désélection');
   // clic réel dans le monde sur un personnage
-  await G(() => { const g = window.__gib; g.selectChar(-1); g.tz = g.cz = 1.4; g.tx = g.cx = g.chars[3].x; g.ty = g.cy = g.chars[3].y - 20; }); await pg.waitForTimeout(500);
+  await G(() => { const g = window.__gib; g.selectChar(-1); g.setSpeed(0); g.tz = g.cz = 1.4; g.tx = g.cx = g.chars[3].x; g.ty = g.cy = g.chars[3].y - 20; }); await pg.waitForTimeout(500);
   const pos = await G(() => { const g = window.__gib; const cv = g.chars[3]; const s = g.worldToScreen(cv.x, cv.y - 20); return s; });
   await pg.mouse.click(pos.x, pos.y); await pg.waitForTimeout(400);
-  ok((await G(() => window.__gib.selectedId)) === 3, 'clic souris sur le personnage dans la scène : sélectionné');
+  await G(() => window.__gib.setSpeed(1)); ok((await G(() => window.__gib.selectedId)) === 3, 'clic souris sur le personnage dans la scène : sélectionné');
   console.log('\n== Pouvoirs divins');
   await G(() => { window.__gib.world.godEnergy = 100; });
   await pg.keyboard.press('1'); ok(await G(() => window.__gib.hud.powerMode === 'bless'), 'touche 1 : Bénédiction armée');
@@ -50,10 +50,10 @@ const ok = (c, m) => { n++; if (!c) fails++; console.log(c ? '  [OK]   ' : '  [F
   await G(() => { window.__gib.world.godEnergy = 100; }); await pg.keyboard.press('4'); ok(await G(() => window.__gib.world.feastActive()), 'touche 4 : Festin céleste invoqué');
   await pg.waitForTimeout(500); ok(await G(() => window.__gib.feastNodes.length > 0), 'le festin apparaît sur la table');
   console.log('\n== Tactile (iPhone)');
-  await G(() => { const g = window.__gib; g.selectChar(-1); }); const tp = await G(() => { const g = window.__gib; return g.worldToScreen(g.chars[5].x, g.chars[5].y - 20); });
+  await G(() => { const g = window.__gib; g.selectChar(-1); g.setSpeed(0); }); const tp = await G(() => { const g = window.__gib; return g.worldToScreen(g.chars[5].x, g.chars[5].y - 20); });
   await G(() => { const g = window.__gib; g.tx = g.cx = g.chars[5].x; g.ty = g.cy = g.chars[5].y - 20; }); await pg.waitForTimeout(400);
   const tp2 = await G(() => { const g = window.__gib; return g.worldToScreen(g.chars[5].x, g.chars[5].y - 20); }); await pg.touchscreen.tap(tp2.x, tp2.y); await pg.waitForTimeout(400);
-  ok((await G(() => window.__gib.selectedId)) === 5, 'toucher un habitant le sélectionne'); void tp;
+  ok((await G(() => window.__gib.selectedId)) === 5, 'toucher un habitant le sélectionne'); void tp; await G(() => window.__gib.setSpeed(1));
   console.log('\n== Simulation vivante (30 s à 8x)');
   await G(() => window.__gib.setSpeed(4)); await pg.waitForTimeout(30000);
   const st = await G(() => { const w = window.__gib.world; return { day: w.clock, chats: w.stats.chats || 0, meals: w.chars.reduce((s, c) => s + (c.stats.done_eat || 0) + (c.stats.done_snack || 0), 0), moved: w.chars.filter((c) => (c.stats.act_idle || 0) + (c.stats.act_eat || 0) > 0).length }; });

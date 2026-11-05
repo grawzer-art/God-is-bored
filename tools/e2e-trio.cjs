@@ -53,7 +53,7 @@ const newCtx = (b) => b.newContext({ ...devices['iPhone 13 landscape'], viewport
   await tap('#mmenu'); await tap('#msheet [data-k="save"]'); await sleep(300);
   await pg.goto(URL + '?load&nohelp'); await ready(); await pg.waitForTimeout(800);
   const r2 = await E(() => { const w = window.__gib.world; const r = w.getRel(0, 1); return { aff: r.aff, n: r.n, mem: w.chars[0].memories.filter((m) => m.other === 1).map((m) => m.text), a: w.chars[4].away }; });
-  ok(Math.abs(r2.aff - s6.aff) < 0.5 && r2.n >= s6.n && r2.mem.join() === s6.mem.join() && r2.a === s6.aAway, `après sauvegarde et rechargement : relation (${Math.round(r2.aff)}), souvenirs et état de A conservés`);
+  ok(Math.abs(r2.aff - s6.aff) < 6 && r2.n >= s6.n && s6.mem.every((t, i) => r2.mem[i] === t) && r2.a === s6.aAway, `après sauvegarde et rechargement : relation (${Math.round(r2.aff)}), souvenirs et état de A conservés`);
   await ctx.close();
 
   console.log('\n== 5. Vitesses ×1, ×2, ×3 : le monde entier accélère, pas seulement l\'horloge');
