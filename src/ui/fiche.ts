@@ -3,6 +3,7 @@
 import type { GameScene } from '../view/scene';
 import type { SimChar } from '../sim/simchar';
 import * as God from '../sim/god';
+import * as Quests from '../sim/quests';
 import * as L from '../sim/layout';
 import { NEEDS, ROOM_NAMES, EMOTIONS } from '../sim/defs';
 import { GOALS } from '../sim/roster';
@@ -35,7 +36,7 @@ export class FicheUi {
   private pressed = false;
   private watchPress() { this.el.addEventListener('pointerdown', () => (this.pressed = true)); const up = () => setTimeout(() => (this.pressed = false), 120); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up); }
   isOpen() { return this.id >= 0; }
-  open(id: number, tab: Tab = 'profil') { this.id = id; this.tab = tab; this.sub = ''; this.sig = ''; this.render(true); this.el.style.display = 'flex'; this.g.hud.root.classList.add('fiche-open'); }
+  open(id: number, tab: Tab = 'profil') { Quests.emit(this.g.world, 'sheet'); this.id = id; this.tab = tab; this.sub = ''; this.sig = ''; this.render(true); this.el.style.display = 'flex'; this.g.hud.root.classList.add('fiche-open'); }
   close() { this.id = -1; this.el.style.display = 'none'; this.g.hud.root.classList.remove('fiche-open'); }
   update(dt: number) { if (this.id < 0) return; this.acc += dt; if (this.acc < 0.6) return; this.acc = 0; if (this.pressed) return; this.render(false); }
   private home(c: SimChar) { if (c.kind === 'resident') return 'La maison des colocataires'; const b = c.home ? L.buildingAt(Math.floor(c.home.x), Math.floor(c.home.y)) : undefined; return b?.title ?? (c.kind === 'avatar' ? 'Sans domicile fixe' : '—'); }

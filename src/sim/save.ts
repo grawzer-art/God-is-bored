@@ -1,4 +1,5 @@
 import * as Possess from './possess';
+import * as Quests from './quests';
 import { FURN } from './defs';
 /** Sauvegarde JSON versionnée dans localStorage. */
 import { World } from './world';
@@ -15,7 +16,7 @@ export function toJSON(w: World) {
     feastUntil: w.feastUntil, musicUntil: w.musicUntil, knownSecrets: w.knownSecrets, avatarControlled: w.avatarControlled, nextMessId: w.nextMessId, rng: w.rng.state, stats: w.stats,
     rel: [...w.rel.entries()], furn: w.furn.map((f) => ({ water: f.water })), mess: w.mess.map((m) => ({ ...m })),
     events: w.events, nextEvent: w.nextEvent, lastTheft: w.lastTheft, lifeAcc: w.lifeAcc,
-    crime: { wanted: w.wanted, record: w.record_, dispatches: w.dispatches, reports: w.reports, nextDispatch: w.nextDispatch, wantedNpcs: w.wantedNpcs, jail: w.jail, till: w.till }, divine: w.divine, freePowers: w.freePowers, laws: w.laws, possess: w.possess, incarnations: w.incarnations, home: { stash: w.stash, style: w.homeStyle, furn: w.furn.filter((f) => f.i >= w.baseFurn || f.gone || f.x !== f.ox || f.y !== f.oy).map((f) => ({ i: f.i, def: f.def, x: f.x, y: f.y, gone: !!f.gone, style: f.opts.style ?? 0 })) },
+    crime: { wanted: w.wanted, record: w.record_, dispatches: w.dispatches, reports: w.reports, nextDispatch: w.nextDispatch, wantedNpcs: w.wantedNpcs, jail: w.jail, till: w.till }, divine: w.divine, freePowers: w.freePowers, laws: w.laws, possess: w.possess, incarnations: w.incarnations, profile: w.profile, avatarLook: w.avatar.look, property: w.property, quests: w.quests, progress: w.progress, questLog: w.questLog, questDone: w.questDone, narrations: w.narrations, job: w.job, profileVersion: 0, home: { stash: w.stash, style: w.homeStyle, furn: w.furn.filter((f) => f.i >= w.baseFurn || f.gone || f.x !== f.ox || f.y !== f.oy).map((f) => ({ i: f.i, def: f.def, x: f.x, y: f.y, gone: !!f.gone, style: f.opts.style ?? 0 })) },
     journal: w.journal.slice(-60),
     chars: w.chars.map((c) => ({
       id: c.id, traits: c.traits, pos: c.pos, facing: c.facing, needs: c.needs, joy: c.joy, stress: c.stress, anger: c.anger, faith: c.faith, wake_target: c.wake_target,
@@ -38,6 +39,8 @@ export function fromJSON(d: any): World | null {
   if (Array.isArray(d.divine)) w.divine = d.divine; if (typeof d.freePowers === 'boolean') w.freePowers = d.freePowers; if (d.laws) w.laws = { ...w.laws, ...d.laws };
   if (d.home) { w.stash = d.home.stash ?? {}; if (d.home.style) { w.homeStyle = { floor: { ...d.home.style.floor }, wall: { ...d.home.style.wall } }; w.styleVersion++; } for (const e of [...(d.home.furn ?? [])].sort((a: any, b: any) => a.i - b.i)) { let f = w.furn[e.i]; if (!f && FURN[e.def]) { while (w.furn.length < e.i) w.addFurn('bin', -50, -50).gone = true; f = w.addFurn(e.def, e.x, e.y, e.style); } if (f && f.def === e.def) { f.x = e.x; f.y = e.y; f.gone = !!e.gone; } } w.reindexFurniture(); }
   if (Array.isArray(d.incarnations)) w.incarnations = d.incarnations; Possess.restore(w, d.possess);
+  if (d.profile) { w.profile = d.profile; w.profileVersion++; const av0 = w.chars.find((c) => c.kind === 'avatar' || c.kind === 'dormant'); if (av0) { av0.first = d.profile.nick || d.profile.first; av0.name = `${d.profile.first} ${d.profile.last}`.trim(); av0.age = d.profile.age; } } if (d.avatarLook) { const av = w.chars.find((c) => c.kind === 'avatar' || c.kind === 'dormant'); if (av) av.look = d.avatarLook; } if (d.property) w.property = d.property;
+  if (d.quests) { w.quests = d.quests; w.progress = { ...Quests.newProgress(), ...(d.progress ?? {}) }; w.questLog = d.questLog ?? []; w.questDone = d.questDone ?? []; w.narrations = d.narrations ?? []; } else { Quests.init(w); w.narrations = []; } w.job = d.job ?? null;
   if (d.crime) { if (typeof d.crime.till === 'number') w.till = d.crime.till; w.wanted = { ...w.wanted, ...d.crime.wanted }; w.record_ = { ...w.record_, ...d.crime.record }; w.dispatches = d.crime.dispatches ?? []; w.reports = d.crime.reports ?? []; w.nextDispatch = d.crime.nextDispatch ?? 1; w.wantedNpcs = d.crime.wantedNpcs ?? {}; w.jail = d.crime.jail ?? null; }
   w.events = (d.events ?? []).map((e: any) => ({ ...e })); w.nextEvent = d.nextEvent ?? (w.events.reduce((m: number, e: any) => Math.max(m, e.id), 0) + 1); w.lastTheft = d.lastTheft ?? -99999; w.lifeAcc = d.lifeAcc ?? 0;
   for (const f of w.furn) f.users = f.users.map(() => -1);
@@ -158,6 +161,6 @@ export function commitImport(payload: any): boolean {
 export function restoreBackup(): World | null { try { const s = localStorage.getItem(BACKUP_KEY); return s ? fromJSON(migrate(JSON.parse(s))) : null; } catch { return null; } }
 export function hasBackup(): boolean { try { return localStorage.getItem(BACKUP_KEY) !== null; } catch { return false; } }
 
-export function save(w: World): boolean { try { localStorage.setItem(SAVE_KEY, JSON.stringify(toJSON(w))); return true; } catch { return false; } }
+export function save(w: World): boolean { Quests.emit(w, 'saved'); try { localStorage.setItem(SAVE_KEY, JSON.stringify(toJSON(w))); return true; } catch { return false; } }
 export function hasSave(): boolean { try { return localStorage.getItem(SAVE_KEY) !== null; } catch { return false; } }
 export function load(): World | null { try { const s = localStorage.getItem(SAVE_KEY); return s ? fromJSON(migrate(JSON.parse(s))) : null; } catch { return null; } }

@@ -18,7 +18,7 @@ const build = (sha) => execSync('npx vite build', { env: { ...process.env, VERCE
   try {
     console.log('\n== Installation');
     const html = await (await ctx.request.get(URL)).text(); ok(/id="boot"/.test(html) && /safe-area-inset-top/.test(html), 'écran de chargement présent dans la page (avec zones de sécurité)');
-    await pg.goto(URL);
+    await pg.goto(URL + '?nointro');
     let navs = 0; pg.on('framenavigated', (f) => { if (f === pg.mainFrame()) navs++; });
     await ready(); await pg.evaluate(() => navigator.serviceWorker.ready); await pg.waitForTimeout(2500);
     ok(navs === 0, 'première visite : aucun rechargement automatique de la page');

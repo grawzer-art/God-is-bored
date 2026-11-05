@@ -24,7 +24,7 @@ export class HudV2 {
     const human = this.g.mode === 'human'; this.chip.style.display = this.right.style.display = human ? 'flex' : 'none'; if (!human) return;
     this.acc += dt; if (this.acc < 0.25) return; this.acc = 0; const w = this.g.world; const av = w.avatar; const cv = this.g.chars[av.id]; if (!cv) return;
     if (this.lastPort !== av.id) { this.lastPort = av.id; this.chip.innerHTML = `<div class="chip gp"><img id="hv2p" src="${cv.assets.portrait.toDataURL()}"><div><b id="hv2n"></b><span id="hv2d"></span></div></div>`; }
-    (this.chip.querySelector('#hv2n') as HTMLElement).textContent = w.possess ? av.first : 'Vous'; (this.chip.querySelector('#hv2d') as HTMLElement).textContent = `${inApartment(av.cell().x, av.cell().y) ? 'Mon appartement' : districtAt(av.pos.x, av.pos.y)} · ${w.clockLabel().replace('Jour', 'J')}`;
+    (this.chip.querySelector('#hv2n') as HTMLElement).textContent = w.possess || w.profile ? av.first : 'Vous'; (this.chip.querySelector('#hv2d') as HTMLElement).textContent = `${inApartment(av.cell().x, av.cell().y) ? 'Mon appartement' : districtAt(av.pos.x, av.pos.y)} · ${w.clockLabel().replace('Jour', 'J')}`;
     const bar = (l: string, v: number, c: string) => `<div><span>${l}</span><div class="gp-bar"><i style="width:${Math.max(0, Math.min(100, v))}%;background:${c}"></i></div></div>`; const col = (v: number) => (v > 60 ? '#7ee0a0' : v > 30 ? '#fccd5c' : '#ff8a8a');
     this.right.innerHTML = `<div class="money gp">€ ${Math.round(av.money).toLocaleString('fr-FR')}</div><div class="vit gp">${bar('Santé', av.hp, col(av.hp))}${bar('Faim', av.needs.hunger, col(av.needs.hunger))}${bar('Énergie', av.needs.energy, col(av.needs.energy))}${av.drunk > 2 ? bar('Ivresse', av.drunk, '#d66bff') : ''}</div>`;
   }

@@ -3,6 +3,7 @@ import { ACT } from './defs';
 import { NEEDS } from './defs';
 import type { SimChar } from './simchar';
 import type { World } from './world';
+import * as Quests from './quests';
 
 export const POWERS: Record<string, { label: string; cost: number; key: string; target: 'char' | 'two' | 'none'; desc: string }> = {
   bless: { label: 'Bénédiction', cost: 20, key: '1', target: 'char', desc: 'Apaise et réconforte un habitant : besoins améliorés, joie, foi.' },
@@ -16,7 +17,7 @@ export const WHISPERS: Record<string, string> = { eat: 'Va manger', sleep: 'Va d
 export const cost = (p: string) => POWERS[p].cost;
 /** Le créateur n'est pas limité par une jauge : `freePowers` (vrai par défaut) rend tous les pouvoirs gratuits. */
 export const canAfford = (w: World, p: string) => w.freePowers || w.godEnergy >= cost(p);
-function pay(w: World, p: string) { if (!w.freePowers) w.godEnergy -= cost(p); w.ennui = Math.max(0, w.ennui - 8); }
+function pay(w: World, p: string) { if (!w.freePowers) w.godEnergy -= cost(p); w.ennui = Math.max(0, w.ennui - 8); Quests.emit(w, 'power', p); }
 /** Journal des interventions divines (sauvegardé). */
 export interface DivineEntry { t: number; power: string; target: number; text: string }
 function note(w: World, power: string, target: number, text: string) { w.divine.push({ t: w.clock, power, target, text }); if (w.divine.length > 80) w.divine.shift(); w.emitLog(text, 'god', target); }
@@ -101,13 +102,13 @@ export function give(w: World, c: SimChar, amount: number): boolean {
   if (!Number.isFinite(amount) || amount === 0) return false; c.money = Math.max(0, c.money + amount);
   c.joy += amount > 0 ? Math.min(40, amount / 200) : -10; w.setEmotionFor(c, amount > 0 ? 'happy' : 'sad', 30); w.showEmote(c, amount > 0 ? 'spark' : 'sweat', 3);
   c.addMemory(w.clock, 'miracle', amount > 0 ? `De l'argent est apparu de nulle part : ${Math.round(amount)} € !` : `Mon argent a mystérieusement fondu (${Math.round(-amount)} €).`, amount > 0 ? 0.7 : -0.7, 0.9);
-  note(w, 'give', c.id, `Vous ${amount > 0 ? 'offrez' : 'retirez'} ${Math.abs(Math.round(amount)).toLocaleString('fr-FR')} € ${amount > 0 ? 'à' : 'à'} ${c.first}.`); return true;
+  Quests.emit(w, 'power', 'give'); if (amount >= 10000) Quests.emit(w, 'power', 'rich'); note(w, 'give', c.id, `Vous ${amount > 0 ? 'offrez' : 'retirez'} ${Math.abs(Math.round(amount)).toLocaleString('fr-FR')} € ${amount > 0 ? 'à' : 'à'} ${c.first}.`); return true;
 }
 export const TRAITS: Record<string, string> = { extraversion: 'Extraversion', agreeableness: 'Amabilité', neuroticism: 'Anxiété', orderliness: 'Rigueur', openness: 'Ouverture' };
 export function shiftTrait(w: World, c: SimChar, trait: string, delta: number): boolean {
   if (!(trait in c.traits)) return false; const t = c.traits as unknown as Record<string, number>; t[trait] = Math.max(0, Math.min(1, t[trait] + delta));
   c.addMemory(w.clock, 'miracle', 'Je me sens différent(e) depuis quelque temps, comme si ma façon d\'être avait changé.', 0, 0.5);
-  note(w, 'trait', c.id, `${TRAITS[trait]} de ${c.first} : ${delta > 0 ? '+' : ''}${Math.round(delta * 100)} points (${Math.round(t[trait] * 100)} %).`); return true;
+  Quests.emit(w, 'power', 'trait'); note(w, 'trait', c.id, `${TRAITS[trait]} de ${c.first} : ${delta > 0 ? '+' : ''}${Math.round(delta * 100)} points (${Math.round(t[trait] * 100)} %).`); return true;
 }
 /** Révèle le secret de `c` à `to` : celui-ci l'apprend (connaissance + souvenir « raconté ») et sa relation avec `c` change selon son caractère. */
 export function reveal(w: World, c: SimChar, to: SimChar): string {
@@ -115,7 +116,7 @@ export function reveal(w: World, c: SimChar, to: SimChar): string {
   to.addMemory(w.clock, 'secret', `Quelqu'un m'a soufflé un secret sur ${c.first} : ${c.secret}`, -0.1, 0.8, c.id, { src: 'told', conf: 0.9, subj: c.id });
   const r = w.getRel(to.id, c.id); const shock = open > 0.55 ? 3 : -3 - (1 - agree) * 6; r.aff = Math.max(-100, Math.min(100, r.aff + shock)); r.trust = Math.max(0, Math.min(100, r.trust - 4)); r.n++;
   const back = w.getRel(c.id, to.id); back.ten = Math.min(100, (back.ten ?? 0) + 6);
-  note(w, 'reveal', c.id, `Vous soufflez à ${to.first} le secret de ${c.first}.`); return `${to.first} ${shock >= 0 ? 'prend ça avec curiosité' : 'juge sévèrement ' + c.first}.`;
+  Quests.emit(w, 'power', 'reveal'); note(w, 'reveal', c.id, `Vous soufflez à ${to.first} le secret de ${c.first}.`); return `${to.first} ${shock >= 0 ? 'prend ça avec curiosité' : 'juge sévèrement ' + c.first}.`;
 }
 
 export { canPossess } from './possess';

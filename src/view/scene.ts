@@ -20,6 +20,10 @@ import { roofCanvas, signCanvas, type RoofStyle } from '../art/city';
 import * as Act from '../sim/interact';
 import * as Home from '../sim/home';
 import * as Possess from '../sim/possess';
+import * as Quests from '../sim/quests';
+import * as Settings from '../start/settings';
+import { StartFlow } from '../start/intro';
+import { openCreator } from '../start/creator';
 
 /** Vitesses : pause, ×1, ×2, ×3, ×8. La simulation (décisions, routines, trajets, conséquences) avance à ce rythme, pas seulement l'horloge. */
 export const SPEEDS = [0, 1, 2, 3, 8];
@@ -72,13 +76,21 @@ export class GameScene extends Phaser.Scene {
     if (this.demoKind === 'trio') { this.setSpeed(2); this.focusTrio(); } else if (this.demo) { this.setSpeed(3); this.focusZone('house'); }
     if (fresh) this.setSpeed(2); // partie neuve : ×2 par défaut, la ville bouge deux fois plus vite sous les yeux (×1 reste à un toucher)
     if (this.params.has('speed')) this.setSpeed(Number(this.params.get('speed')));
+    Settings.apply(); Settings.onChange(() => this.applyQuality()); this.applyQuality();
     if (this.params.has('zoom')) { this.tz = this.cz = Number(this.params.get('zoom')); }
     if (this.params.has('at')) { const [x, y] = this.params.get('at')!.split(',').map(Number); const p = toScreen(x, y); this.tx = this.cx = p.x; this.ty = this.cy = p.y; }
     if (this.params.has('focus')) this.selectChar(Number(this.params.get('focus')), true);
     this.scale.on('resize', (s: Phaser.Structs.Size) => this.lighting.resize(s.width, s.height));
     { const done = (window as any).__gibBootDone; if (done) done(); else document.getElementById('boot')?.remove(); }
     (window as any).__gib = this;
+    // parcours de démarrage (générique, menu, créateur) : uniquement pour une ouverture ordinaire du jeu (les paramètres d'URL de test/démo le contournent)
+    const skipIntro = ['fresh', 'load', 'simulate', 'human', 'demo', 'nohelp', 'nointro', 'feast'].some((k) => this.params.has(k)) || !!hot;
+    if (!skipIntro) { this.start = new StartFlow(this); this.start.run(); }
   }
+  start?: StartFlow;
+  /** Qualité « économe » : sans fenêtres éclairées ni voitures, marge de chargement du sol réduite. */
+  lowQuality = false;
+  applyQuality() { this.lowQuality = Settings.get().quality === 'low'; for (const r of this.roofs) if (r.glow && this.lowQuality) r.glow.setVisible(false); for (const n of this.carNodes) n.forEach((i) => i.setVisible(!this.lowQuality)); }
 
   // ------------------------------------------------------------------ construction de la vue
   buildView() {
@@ -100,7 +112,7 @@ export class GameScene extends Phaser.Scene {
   private bakeFloor() { this.floorChunks.clear(); this.updateFloorChunks(99); this.bakeSun(); }
   /** Charge les blocs visibles (+1 bloc de marge), en décharge les lointains. `limit` : nombre maximal de blocs dessinés par image. */
   updateFloorChunks(limit = 2) {
-    const CH = GameScene.CH, M = GameScene.FM; const cam = this.cameras.main; const wv = cam.worldView; const pad = 600; const cxw = wv.centerX, cyw = wv.centerY;
+    const CH = GameScene.CH, M = GameScene.FM; const cam = this.cameras.main; const wv = cam.worldView; const pad = this.lowQuality ? 380 : 600; const cxw = wv.centerX, cyw = wv.centerY;
     const nI = Math.ceil((L.W + 2 * M) / CH), nJ = Math.ceil((L.H + 2 * M) / CH); const want = new Set<string>(); const todo: { k: string; r: { a0: number; b0: number; a1: number; b1: number }; d: number; vis: boolean }[] = [];
     for (let j = 0; j < nJ; j++) for (let i = 0; i < nI; i++) {
       const r = { a0: -M + i * CH, b0: -M + j * CH, a1: -M + (i + 1) * CH, b1: -M + (j + 1) * CH };
@@ -234,7 +246,7 @@ export class GameScene extends Phaser.Scene {
   }
   cycleWalls() { this.wallMode = (this.wallMode + 1) % 3; this.applyWalls(); return this.wallMode; }
   /** Redessine les meubles quand l'aménagement change (déplacement, rangement, achat). */
-  furnSeen = 0; styleSeen = 0;
+  furnSeen = 0; styleSeen = 0; profSeen = 0;
   /** Sols et murs de l'appartement modifiés : on redessine les blocs de sol et les murs du bâtiment concerné. */
   private refreshStyle() { this.styleSeen = this.world.styleVersion; for (const [k, img] of this.floorChunks) { const key = img.texture.key; img.destroy(); this.textures.remove(key); this.floorChunks.delete(k); } this.updateFloorChunks(99); this.applyWalls(new Set(['flats1'])); }
   private refreshFurniture() { for (const nodes of this.furnNodes.values()) nodes.forEach((n) => n.destroy()); this.furnNodes.clear(); this.buildFurniture(); this.furnSeen = this.world.furnVersion; }
@@ -259,7 +271,7 @@ export class GameScene extends Phaser.Scene {
     }
     tr.cars.forEach((car, k) => {
       const nodes = this.carNodes[k]; const spr0 = furnSprite('car_p', 0, 0, 0, 3, 1);
-      for (let i = 0; i < 3; i++) { const cx = car.x + i, p = toScreen(cx, car.lane); nodes[i].setPosition(p.x - 32, p.y - spr0.pad).setDepth(zOf(cellKey(Math.floor(car.x + 1.5), car.lane)) + 1).setVisible(cx > -1 && cx < L.W + 1); }
+      for (let i = 0; i < 3; i++) { const cx = car.x + i, p = toScreen(cx, car.lane); nodes[i].setPosition(p.x - 32, p.y - spr0.pad).setDepth(zOf(cellKey(Math.floor(car.x + 1.5), car.lane)) + 1).setVisible(!this.lowQuality && cx > -1 && cx < L.W + 1); }
     });
   }
   roofs: { b: L.Building; roof: Phaser.GameObjects.Image; sign: Phaser.GameObjects.Image | null; glow: Phaser.GameObjects.Image | null }[] = [];
@@ -325,7 +337,7 @@ export class GameScene extends Phaser.Scene {
       const open = r.b.name === this.insideBuilding || this.wallMode === 0; const t = open ? 0 : 1;
       r.roof.setAlpha(r.roof.alpha + (t - r.roof.alpha) * k).setVisible(r.roof.alpha > 0.02);
       if (r.sign) r.sign.setVisible(!open);
-      if (r.glow) { const ga = open ? 0 : Math.min(1, dark * 1.3) * 0.85; r.glow.setAlpha(r.glow.alpha + (ga - r.glow.alpha) * k).setVisible(r.glow.alpha > 0.02); }
+      if (r.glow) { const ga = open || this.lowQuality ? 0 : Math.min(1, dark * 1.3) * 0.85; r.glow.setAlpha(r.glow.alpha + (ga - r.glow.alpha) * k).setVisible(r.glow.alpha > 0.02); }
     }
     this.updateFloorChunks(2);
   }
@@ -405,7 +417,7 @@ export class GameScene extends Phaser.Scene {
       case 'i': if (this.mode === 'human') this.hud.toggleInventory(); break;
       case ' ': if (!this.hud.dialogueOpen()) this.setSpeed(this.speedIndex === 0 ? 1 : 0); break;
       case '1': if (this.mode === 'god') this.hud.pickPower('bless'); break; case '2': if (this.mode === 'god') this.hud.pickPower('whisper'); break; case '3': if (this.mode === 'god') this.hud.pickPower('fate'); break; case '4': if (this.mode === 'god') this.hud.pickPower('feast'); break;
-      case 'f': this.toggleFollow(); break; case 'c': if (this.selectedId >= 0) this.hud.fiche.open(this.selectedId); break;
+      case 'f': this.toggleFollow(); break; case 'c': if (this.selectedId >= 0) this.hud.fiche.open(this.selectedId); break; case 'j': this.hud.journal.toggle(); break;
       case 'tab': if (this.mode === 'god') this.selectChar((this.selectedId + 1) % this.world.residents.length, true); break;
       case 'v': { const m = this.cycleWalls(); this.hud.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); break; }
       case 'f5': e.preventDefault(); this.saveGame(); break; case 'f9': e.preventDefault(); this.loadGame(); break;
@@ -415,7 +427,7 @@ export class GameScene extends Phaser.Scene {
   }
   /** Touches virtuelles (croix directionnelle tactile) : mêmes effets que le clavier, appuis simultanés cumulés. */
   /** Joystick virtuel : vecteur écran (x droite, y bas) de longueur 0..1. Appliqué immédiatement (sans attendre l'image suivante). */
-  setAnalog(x: number, y: number, mag: number) { this.analog = { x, y, mag }; this.syncInput(); }
+  setAnalog(x: number, y: number, mag: number) { this.analog = { x, y, mag: Math.min(1, mag * Settings.get().joy) }; this.syncInput(); }
   setVirtualKey(k: string, down: boolean) { if (down) this.keys.add(k); else this.keys.delete(k); this.syncInput(); }
   /** Bouton A : action principale. Humain : interagir. Dieu : choisir le personnage visé (puis fiche / pouvoir armé). */
   actionA() {
@@ -461,7 +473,7 @@ export class GameScene extends Phaser.Scene {
     for (const cv of this.chars) { const r = cv.hitRect(); if (wx >= r.x && wx <= r.x + r.w && wy >= r.y && wy <= r.y + r.h) { const d = Math.hypot(wx - cv.x, wy - (cv.y - 20)); if (d < bd) { bd = d; best = cv.sim.id; } } }
     return best;
   }
-  selectChar(id: number, focus = false) { this.selectedId = id; this.hud.onSelect(id); if (id >= 0 && focus) { this.follow = false; this.focusChar(id); } }
+  selectChar(id: number, focus = false) { if (id >= 0 && this.mode === 'god') Quests.emit(this.world, 'observe'); this.selectedId = id; this.hud.onSelect(id); if (id >= 0 && focus) { this.follow = false; this.focusChar(id); } }
   // ------------------------------------------------------------------ modes DIEU / HUMAIN
   /** Mode Dieu → Descendre à l'endroit regardé : l'avatar apparaît sur la case libre la plus proche du centre de la vue. */
   descendHere() {
@@ -470,7 +482,7 @@ export class GameScene extends Phaser.Scene {
   }
   toggleMode() { if (this.mode === 'god') this.descend(true); else this.ascend(true); }
   descend(flash = true) {
-    const w = this.world; this.mode = 'human'; w.avatarControlled = true; this.selectChar(-1); this.follow = false; this.hud.cancelPower();
+    const w = this.world; this.mode = 'human'; w.avatarControlled = true; this.selectChar(-1); Quests.emit(w, 'descend'); this.follow = false; this.hud.cancelPower();
     const av = w.avatar; if (av.away) av.away = false; this.hud.onMode('human'); if (flash) this.hud.flash('descend'); this.tz = Math.max(2.0, Math.min(this.tz, 2.4)); const cv = this.chars[av.id]; if (cv) { this.tx = cv.x; this.ty = cv.y - 20; }
     this.hud.toast(this.hud.mobile?.active ? 'Croix : marcher · A : agir · B : inventaire' : 'Vous êtes descendu parmi eux — ZQSD pour marcher, E pour interagir');
   }
@@ -482,7 +494,7 @@ export class GameScene extends Phaser.Scene {
   }
   ascend(flash = true) {
     if (this.world.possess) { const r = Possess.end(this.world); if (r.msg) this.hud.toast(r.msg); }
-    const w = this.world; this.mode = 'god'; w.avatarControlled = false; w.input = { dx: 0, dy: 0, run: false }; this.hud.closeDialogue(); this.hud.onMode('god'); if (flash) this.hud.flash('ascend');
+    const w = this.world; this.mode = 'god'; w.avatarControlled = false; Quests.emit(w, 'god'); w.input = { dx: 0, dy: 0, run: false }; this.hud.closeDialogue(); this.hud.onMode('god'); if (flash) this.hud.flash('ascend');
     const r = this.houseRect(); this.tz = Math.max(this.minZoom, Math.min(this.maxZoom, Math.min(this.scale.width / r.w, (this.scale.height - 120) / r.h) * 1.1)); const cv = this.chars[w.avatar.id]; this.tx = cv ? cv.x : this.tx; this.ty = cv ? cv.y - 60 : this.ty;
     this.hud.toast('Vous reprenez votre place de dieu. L\'avatar reste là où vous l\'avez laissé.');
   }
@@ -498,6 +510,8 @@ export class GameScene extends Phaser.Scene {
     const av = this.world.avatar; this.hud.hideContext();
     if (it.kind === 'sheet') { this.hud.fiche.open(it.npc!.id); return; }
     if (it.kind === 'home') {
+      if (it.act === 'outfit') { openCreator(this, { mode: 'edit', cat: 'cloth', onDone: () => {}, onCancel: () => {} }); return; }
+      if (it.act === 'rotate') { this.hud.toast(Home.rotate(this.world, it.furn!).msg); return; }
       if (it.act === 'stash') { const r = Home.stash(this.world, it.furn!); this.hud.toast(r.msg); } else { this.world.homeEdit = { mode: 'move', furn: it.furn! }; this.hud.toast(`Touchez la case où poser : ${Home.label(this.world.furn[it.furn!].def)} (Échap : annuler)`); }
       return;
     }
@@ -580,13 +594,14 @@ export class GameScene extends Phaser.Scene {
     if (this.mode === 'god' && !vx && !vy && this.analog.mag > 0) { vx = this.analog.x * this.analog.mag; vy = this.analog.y * this.analog.mag; }
     if (vx || vy) { this.follow = false; const n = Math.max(1, Math.hypot(vx, vy)); this.tx += (vx / n) * 620 * dt / this.cz; this.ty += (vy / n) * 620 * dt / this.cz; }
     if (K.has('-')) this.zoomBy(1 - 1.4 * dt); if (K.has('=') || K.has('+') || K.has('e')) this.zoomBy(1 + 1.4 * dt);
-    if (this.mode === 'human') { const cv = this.chars[this.world.avatar.id]; this.tx = cv.x; this.ty = cv.y - 24; }
+    if (this.mode === 'human' && this.world.decoMode) { const c0 = toScreen(62.5, 27.5); this.tx = c0.x + (this.scale.width * 0.26) / this.tz; this.ty = c0.y - 6; }     // décoration : l'appartement se place dans la moitié gauche, hors du panneau
+    else if (this.mode === 'human') { const cv = this.chars[this.world.avatar.id]; this.tx = cv.x; this.ty = cv.y - 24; }
     else if (this.follow && this.selectedId >= 0) { const cv = this.chars[this.selectedId]; this.tx = cv.x; this.ty = cv.y - 20; }
     this.clampCam(); const k = 1 - Math.exp(-dt * (this.mode === 'human' ? 8 : 9)); this.cx += (this.tx - this.cx) * k; this.cy += (this.ty - this.cy) * k; this.cz += (this.tz - this.cz) * k;
     { const c = this.camLimits(); this.cx = Math.max(c.x0, Math.min(c.x1, this.cx)); this.cy = Math.max(c.y0, Math.min(c.y1, this.cy)); }
     const cam = this.cameras.main; cam.setZoom(this.cz); cam.centerOn(Math.round(this.cx * this.cz) / this.cz, Math.round(this.cy * this.cz) / this.cz);
     // vue
-    this.syncProps(); this.syncFeast(); this.syncPlants(); this.doors.update(dt); this.updateCity(dt); this.syncCars(); if (this.furnSeen !== this.world.furnVersion) this.refreshFurniture(); if (this.styleSeen !== this.world.styleVersion) this.refreshStyle();
+    this.syncProps(); this.syncFeast(); this.syncPlants(); this.doors.update(dt); this.updateCity(dt); this.syncCars(); if (this.profSeen !== this.world.profileVersion) { this.profSeen = this.world.profileVersion; this.chars[this.world.avatar.id]?.refreshLook(); } if (this.furnSeen !== this.world.furnVersion) this.refreshFurniture(); if (this.styleSeen !== this.world.styleVersion) this.refreshStyle();
     for (const cv of this.chars) cv.update(dt, cv.sim.id === this.selectedId || (this.mode === 'human' && cv.sim.kind === 'avatar'), cv.sim.id === this.hoverId, Math.max(1, Math.min(SPEEDS[this.speedIndex], 3)));
     this.lighting.update(dt); this.lighting.render(); this.sunSprite.setAlpha(this.lighting.daylight * 0.9);
     this.drawFx(dt); this.hud.update(dt);

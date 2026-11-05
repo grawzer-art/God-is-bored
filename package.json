@@ -25,7 +25,8 @@
     "shot:trio": "node tools/shot-trio.cjs",
     "e2e:city": "node tools/e2e-city.cjs",
     "e2e:scenario": "node tools/e2e-scenario.cjs",
-    "e2e:ui2": "node tools/e2e-ui2.cjs"
+    "e2e:ui2": "node tools/e2e-ui2.cjs",
+    "e2e:start": "node tools/e2e-start.cjs"
   },
   "dependencies": {
     "phaser": "3.90.0"

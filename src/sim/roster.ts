@@ -1,6 +1,8 @@
 /** Les huit habitants (données pures). */
 import type { Need } from './defs';
-export interface Look { skin: number; hair: string; hair_color: string; top: string; top_color: string; bottom: string; bottom_color: string; shoes: string; build: number; height: number; acc: string }
+export interface Look { skin: number; hair: string; hair_color: string; top: string; top_color: string; bottom: string; bottom_color: string; shoes: string; build: number; height: number; acc: string;
+  /** Champs du créateur de personnage (tous facultatifs : les anciens personnages restent valides). */
+  face?: number; eyes?: number; brows?: number; nose?: number; mouth?: number; ears?: number; freckles?: boolean; scars?: number[]; beard?: string; beard_color?: string; accs?: string[]; acc_color?: string; tattoos?: { part: string; motif: number }[] }
 export interface RosterEntry {
   name: string; age: number; gender: 'F' | 'M'; job: string; bio: string; secret: string;
   traits: { extraversion: number; agreeableness: number; neuroticism: number; orderliness: number; openness: number };

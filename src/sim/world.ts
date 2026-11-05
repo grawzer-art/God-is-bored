@@ -1,4 +1,5 @@
 /** Monde simulé : grille, mobilier, habitants, horloge. Port de World.gd. Indépendant du rendu. */
+import * as Quests from './quests';
 import type * as Home from './home';
 import * as Possess from './possess';
 import * as God from './god';
@@ -50,6 +51,9 @@ export class World {
 
   // ---------------------------------------------------------------- construction
   possess: Possess.PossessState | null = null; incarnations: Possess.Incarnation[] = [];
+  profile: import('./profile').Profile | null = null; profileVersion = 0; property: { id: string; name: string; building: string; rent: number; since: number } | null = null;
+  quests: Record<string, Quests.QState> = {}; progress: Quests.Progress = Quests.newProgress(); narrations: Quests.Narration[] = []; questLog: { t: number; text: string }[] = []; questToasts: string[] = []; questDone: string[] = [];
+  job: { to: number; pay: number; t0: number } | null = null;
   traffic?: Traffic; till = 160; freePowers = true; laws: God.Laws = { police: true }; divine: God.DivineEntry[] = []; holdup: Crime.Holdup | null = null;
   build() {
     this.buildFurniture(); this.buildGrid(); this.buildChars(); this.buildExtras(); Life.init(this); this.traffic = new Traffic(this);
@@ -215,7 +219,7 @@ export class World {
     if (this.day() !== this.lastDay) { this.lastDay = this.day(); this.emitLog(`Jour ${this.day()}.`, 'info'); this.chars.forEach((c) => (c.stats.days = this.day())); }
     this.updateWorld(dmin);
     for (const c of this.chars) this.updateChar(c, dt, dmin);
-    Life.tick(this, dmin); Crime.tick(this, dt, dmin); this.traffic?.tick(dt);
+    Life.tick(this, dmin); Crime.tick(this, dt, dmin); this.traffic?.tick(dt); Quests.tick(this);
     Social.updateSessions(this, dmin);
     Social.ambient(this, dmin);
   }

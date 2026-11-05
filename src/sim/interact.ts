@@ -1,4 +1,6 @@
 /** Interactions du mode humain : dialogues, achats, objets, inventaire. Fonctions pures sur le World : tout est persistant. */
+import * as Quests from './quests';
+import * as Profile from './profile';
 import { ACT, EMOTIONS, NEEDS, type V2 } from './defs';
 import { LINES_ARGUE, LINES_BAD, LINES_GREAT, LINES_OK } from './social';
 import { roomAt } from './layout';
@@ -11,6 +13,7 @@ import * as Shop from './shop';
 import * as Crime from './crime';
 
 export const ITEMS: Record<string, { label: string; hunger?: number; fun?: number; gift: number; desc: string }> = {
+  parcel: { label: 'Colis scellé', gift: 0, desc: 'Un colis à remettre en main propre. Ne l\'ouvrez pas.' },
   sandwich: { label: 'Sandwich', hunger: 35, gift: 2, desc: 'Un sandwich un peu écrasé.' },
   bonbons: { label: 'Bonbons', hunger: 5, fun: 8, gift: 3, desc: 'Un sachet de bonbons acidulés.' },
   briquet: { label: 'Briquet', gift: 0.5, desc: 'Un briquet. Il fonctionne encore.' },
@@ -52,6 +55,7 @@ export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: C
     return { line: due > 0 ? `${npc.first} regarde vos articles : « Ça fait ${due} €. »` : r.fam < 20 ? "Bonjour. Je vous laisse regarder, hein." : 'Tiens, un habitué.', choices: [
       { id: 'pay', label: due > 0 ? `Payer mes articles (${due} €)` : 'Payer', enabled: open && due > 0 && av.money >= due, hint: due > 0 && av.money < due ? 'pas assez d\'argent' : due > 0 ? '' : 'rien à payer' },
       { id: 'holdup', label: 'Menacer : « La caisse ! »', enabled: open && !w.holdup, hint: 'braquage : témoins, police, conséquences' },
+      ...(Quests.done(w, 'c1m2') || Quests.unlocked(w, 'job_board') ? [{ id: 'job', label: w.job ? 'Livraison en cours…' : `Travail : livrer un colis (${Math.round(25 * Profile.payMult(w))} €)`, enabled: open && !w.job && !(av.inventory.parcel > 0), hint: w.job ? 'allez au café' : 'petit boulot payé' }] : []),
       { id: 'chat', label: 'Bavarder', enabled: open }, { id: 'bye', label: 'Au revoir', enabled: true }] };
   }
   if (npc.kind === 'police') {
@@ -68,12 +72,14 @@ export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: C
     { id: 'give', label: 'Donner 10 €', enabled: av.money >= 10 }, { id: 'ask_money', label: 'Emprunter 10 €', enabled: true, hint: r.aff >= 30 ? '' : 'peu probable' },
     { id: 'secret', label: 'Poser une question personnelle', enabled: true, hint: r.aff >= 45 && r.fam >= 40 ? '' : 'trop tôt ?' });
   if (inBar(w, npc) && w.barman && !w.barman.away) ch.push({ id: 'drink', label: 'Offrir un verre (4 €)', enabled: av.money >= 4 });
+  if (w.job && w.job.to === npc.id && av.inventory.parcel > 0) ch.unshift({ id: 'deliver', label: 'Remettre le colis', enabled: true, hint: `+${w.job.pay} €` });
   ch.push({ id: 'steal', label: 'Faire les poches', enabled: npc.money >= 5, hint: 'très risqué' }, { id: 'bye', label: 'Partir', enabled: true });
   return { line, choices: ch };
 }
 
 function remember(npc: SimChar, w: World, kind: string, text: string, v: number, wt: number) { npc.addMemory(w.clock, kind, text, v, wt, w.avatar.id); }
 function bump(w: World, npc: SimChar, d: number, fam = 2, ten = 0) {
+  if (d > 0) d *= Profile.affinityMult(w);
   const r = rel(w, npc.id, w.avatar.id); r.aff = clamp(r.aff + d); r.fam = clamp(r.fam + fam, 0, 100); r.ten = clamp(r.ten + ten, 0, 100); r.n++;
   const r2 = rel(w, w.avatar.id, npc.id); r2.aff = clamp(r2.aff + d * 0.6); r2.fam = clamp(r2.fam + fam, 0, 100);
 }
@@ -87,14 +93,29 @@ const quality = (w: World, npc: SimChar) => {
 const pickLine = (w: World, pool: string[][], who: 0 | 1) => w.rng.pick(pool)[who];
 
 /** Applique le choix du joueur. Modifie besoins, relations, souvenirs, argent, inventaire. */
+/** Destinataire d'une livraison : la serveuse du café si elle est là, sinon un autre citoyen présent. */
+export function pickDeliveryTarget(w: World): SimChar | null { const cs = w.citizens.filter((c) => !c.away); return cs.find((c) => c.job.toLowerCase().includes('café')) ?? cs[0] ?? null; }
+/** Une conversation s'ouvre avec `npc` : événements de quête (parler à un habitant). */
+export function noteTalk(w: World, npc: SimChar) { if (npc.kind === 'resident' || npc.kind === 'citizen') { Quests.emit(w, 'talk', 'person'); w.progress.flags.lastTalk = npc.id; } Quests.emit(w, 'talk', npc.id); }
 export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
+  if (id !== 'bye' && id !== 'sheet') Quests.emit(w, 'choice');
   const av = w.avatar; const r = rel(w, npc.id, av.id); w.stats.player_talks = (w.stats.player_talks ?? 0) + 1;
   switch (id) {
     case 'bye': return { line: npc.kind === 'staff' ? 'Bonne soirée.' : 'À plus tard.', close: true };
     case 'holdup': { const r = Crime.startHoldup(w, av); return { line: r.line, close: r.ok }; }
+    case 'job': {
+      if (w.job || (av.inventory.parcel ?? 0) > 0) return { line: 'Tu as déjà un colis à livrer.' }; const to = pickDeliveryTarget(w); if (!to) return { line: "Je n'ai personne à qui l'envoyer pour l'instant. Repasse plus tard." };
+      w.job = { to: to.id, pay: Math.round(25 * Profile.payMult(w)), t0: w.clock }; av.inventory.parcel = 1; Quests.emit(w, 'job_accept'); w.emitLog(`${npc.first} vous confie un colis pour ${to.first}.`, 'info', av.id);
+      return { line: `${npc.first} : « Ce colis est pour ${to.first}${to.kind === 'citizen' && to.job ? ' (' + to.job.toLowerCase() + ')' : ''}. Tu le trouveras ${to.away ? 'plus tard' : 'dans le quartier'} — le café, d'habitude. ${w.job.pay} € à la livraison. »`, close: true };
+    }
+    case 'deliver': {
+      if (!w.job || w.job.to !== npc.id || (av.inventory.parcel ?? 0) <= 0) return { line: 'Ce colis n\'est pas pour moi.' }; const pay = w.job.pay; const tip = npc.trait('agreeableness') > 0.6 ? 3 : 0;
+      av.inventory.parcel = 0; w.job = null; av.money += pay + tip; w.stats.jobs_done = (w.stats.jobs_done ?? 0) + 1; bump(w, npc, 4, 4); remember(npc, w, 'help', `${av.first === 'Vous' ? 'Quelqu\'un' : av.first} m'a livré un colis.`, 0.3, 0.5);
+      Quests.emit(w, 'job_deliver'); Quests.emit(w, 'job_paid'); w.emitLog(`Livraison effectuée : +${pay + tip} €.`, 'info', av.id); return { line: `${npc.first} : « Merci, c'est bien celui que j'attendais. » Vous touchez ${pay}${tip ? ' + ' + tip + ' € de pourboire' : ' €'}.`, close: true };
+    }
     case 'pay': { const n = Shop.pay(w, av); return { line: n > 0 ? `Vous payez ${n} €. « Merci, bonne journée. »` : "Vous n'avez rien à payer." }; }
     case 'surrender': { const off = npc.kind === 'police' ? npc : w.police[0]; Crime.arrest(w, off, av, true); return { line: 'Vous levez les mains. On vous emmène.', close: true }; }
-    case 'steal': { const r = Life.playerSteal(w, av, npc); return { line: r.line, close: r.ok && npc.isAsleep() }; }
+    case 'steal': { const r = Life.playerSteal(w, av, npc); if (r.ok) Quests.emit(w, 'steal'); return { line: r.line, close: r.ok && npc.isAsleep() }; }
     case 'wake': {
       bump(w, npc, -6, 1, 15); npc.anger = clamp(npc.anger + 25, 0, 100); remember(npc, w, 'wake', 'Quelqu\'un m\'a réveillé en pleine nuit.', -0.6, 0.6); w.showEmote(npc, 'anger', 3);
       if (npc.state === 'use' && npc.use_act === 'sleep') w.endUse(npc, false); w.emitLog(`${npc.first} est réveillé${feel(npc, 'e', '')} de mauvaise humeur par ${av.first.toLowerCase()}.`, 'drama', npc.id);
@@ -148,10 +169,10 @@ export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
     }
     case 'gift': return { line: 'Que voulez-vous offrir ?', openGift: true };
     case 'give_item': {
-      const it = ITEMS[arg]; if (!it || (av.inventory[arg] ?? 0) <= 0) return { line: 'Vous n\'avez plus cet objet.' };
+      const it = ITEMS[arg]; if (!it || (av.inventory[arg] ?? 0) <= 0) return { line: 'Vous n\'avez plus cet objet.' }; if (arg === 'parcel') return { line: 'Ce colis n\'est pas à offrir : il doit être livré.' };
       av.inventory[arg]--; const want = (arg === 'sandwich' && npc.needs.hunger < 50) || (arg === 'bonbons' && npc.likes.includes('snack')) ? 2 : 1;
       bump(w, npc, it.gift * want, 2); npc.joy += 5 * want; if (it.hunger) npc.needs.hunger = Math.min(100, npc.needs.hunger + it.hunger); w.showEmote(npc, 'heart', 3); remember(npc, w, 'gift', `L'étranger m'a offert : ${it.label.toLowerCase()}.`, 0.4, 0.4);
-      return { line: `Vous offrez : ${it.label}. ${npc.first} sourit : « C'est gentil. »` };
+      Quests.emit(w, 'gift', npc.id); return { line: `Vous offrez : ${it.label}. ${npc.first} sourit : « C'est gentil. »` };
     }
     case 'drink': {
       const d = DRINKS.biere; if (av.money < d.price) return { line: "Vous n'avez pas assez d'argent." };
@@ -181,7 +202,7 @@ export function orderDrink(w: World, id: string): { ok: boolean; msg: string } {
   av.plan = [{ type: 'wait', act: 'drink', dur: 6 }]; if (av.state === 'idle') w.startNextStep(av);
   w.emitLog(`Vous commandez : ${d.label.toLowerCase()} (${price} €).`, 'info', av.id); w.showEmote(av, d.drunk > 0 ? 'note' : 'smile', 3);
   gb.addMemory(w.clock, 'customer', `Un client a commandé : ${d.label.toLowerCase()}.`, 0.1, 0.1, av.id);
-  const r = rel(w, gb.id, av.id); r.aff = clamp(r.aff + 0.8); r.fam = clamp(r.fam + 1.5, 0, 100);
+  const r = rel(w, gb.id, av.id); r.aff = clamp(r.aff + 0.8); r.fam = clamp(r.fam + 1.5, 0, 100); Quests.emit(w, 'drink');
   return { ok: true, msg: `${d.label} — ${price} €. Santé !` };
 }
 
@@ -239,7 +260,8 @@ export type TapPlan =
 /** Toutes les actions réellement implémentées pour un meuble donné, où que se trouve le joueur (la marche est gérée par le plan). */
 export function furnitureOptions(w: World, furnIdx: number): Interactable[] {
   const f = w.furn[furnIdx]; const out: Interactable[] = []; if (!f) return out;
-  if (Home.isMovable(f)) out.push({ kind: 'home', label: `Déplacer : ${Home.label(f.def)}`, d: 5, furn: f.i, act: 'move' }, { kind: 'home', label: `Ranger : ${Home.label(f.def)}`, d: 5, furn: f.i, act: 'stash' });
+  if (Home.isMovable(f)) out.push({ kind: 'home', label: `Déplacer : ${Home.label(f.def)}`, d: 5, furn: f.i, act: 'move' }, ...(Home.canRotate(f.def) ? [{ kind: 'home' as const, label: `Pivoter : ${Home.label(f.def)}`, d: 5, furn: f.i, act: 'rotate' }] : []), { kind: 'home', label: `Ranger : ${Home.label(f.def)}`, d: 5, furn: f.i, act: 'stash' });
+  if (f.def === 'wardrobe' && !f.gone && Home.inApartment(f.x, f.y)) out.push({ kind: 'home', label: 'Changer de tenue', d: 1, furn: f.i, act: 'outfit' });
   f.slots.forEach((slot, si) => {
     if (f.users[si] !== -1) return;
     for (const tag of slot.tags) {

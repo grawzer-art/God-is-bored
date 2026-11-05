@@ -1,4 +1,5 @@
 /** Interface du mode humain : dialogues, carte du bar, cadeaux, inventaire, menu contextuel, bandeau d'état, invite d'interaction. */
+import * as Quests from '../sim/quests';
 import * as Home from '../sim/home';
 import type { GameScene } from '../view/scene';
 import * as I from '../sim/interact';
@@ -37,7 +38,7 @@ export class HumanUi {
   // ---- dialogue
   dialogueOpen() { return this.open !== null; }
   openDialogue(npc: SimChar) {
-    if (this.open) return; this.open = npc; this.barMode = ''; this.prevSpeed = this.g.speedIndex; this.g.setSpeed(0); this.hideContext(); this.hideInv();
+    if (this.open) return; I.noteTalk(this.w, npc); this.open = npc; this.barMode = ''; this.prevSpeed = this.g.speedIndex; this.g.setSpeed(0); this.hideContext(); this.hideInv();
     const av = this.w.avatar; npc.facing = this.w.dirFrom({ x: av.pos.x - npc.pos.x, y: av.pos.y - npc.pos.y }, npc.facing);
     const d = I.dialogueOpen(this.w, npc); this.last = `${npc.first} : « ${d.line} »`; this.render(); this.el.dlg.style.display = 'block';
   }

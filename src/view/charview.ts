@@ -25,6 +25,8 @@ export class CharView {
     this.zzz = scene.add.image(0, 0, texKey(scene, iconCanvas('zzz'))).setOrigin(0, 0).setVisible(false).setDepth(9001);
     this.act = scene.add.image(0, 0, texKey(scene, iconCanvas('dots'))).setOrigin(0.5, 1).setVisible(false).setDepth(8999);
   }
+  /** Apparence modifiée (créateur de personnage) : régénère les sprites du personnage. */
+  refreshLook() { const bed = this.world.furnById.get(this.sim.bed_id); const style = bed !== undefined ? this.world.furn[bed].opts.style ?? 0 : 0; this.assets = buildChar(this.sim.id, this.sim.look, BLANKETS[style % 4]); }
   expression(): string {
     switch (this.sim.emotion) {
       case 'joy': case 'content': case 'love': return 'happy'; case 'sad': case 'lonely': return 'sad'; case 'angry': case 'irritated': return 'angry';

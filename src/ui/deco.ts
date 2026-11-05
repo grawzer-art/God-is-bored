@@ -23,8 +23,9 @@ export class DecoUi {
   }
   private pressed = false;
   isOpen() { return this.g.world.decoMode; }
-  enter() { const w = this.g.world; if (!Home.inApartment(w.avatar.cell().x, w.avatar.cell().y)) { this.g.hud.toast('Entrez dans votre appartement pour le décorer.'); return; } w.decoMode = true; w.homeEdit = null; this.sig = ''; this.render(); this.g.hud.toast('Mode décoration : touchez un meuble pour le déplacer'); }
-  exit() { const w = this.g.world; w.decoMode = false; w.homeEdit = null; this.el.style.display = 'none'; }
+  enter() { const w = this.g.world; if (!Home.inApartment(w.avatar.cell().x, w.avatar.cell().y)) { this.g.hud.toast('Entrez dans votre appartement pour le décorer.'); return; } w.decoMode = true; w.homeEdit = null; this.sig = ''; this.prevZ = this.g.tz; this.g.tz = Math.max(0.75, Math.min(1.5, (this.g.scale.width * 0.46) / 540)); this.render(); this.g.hud.toast('Mode décoration : touchez un meuble pour le déplacer'); }
+  private prevZ = 2;
+  exit() { const w = this.g.world; if (w.decoMode) this.g.tz = this.prevZ; w.decoMode = false; w.homeEdit = null; this.el.style.display = 'none'; }
   update(dt: number) {
     const w = this.g.world; const human = this.g.mode === 'human'; const inApt = human && Home.inApartment(w.avatar.cell().x, w.avatar.cell().y);
     this.btn.style.display = inApt && !w.decoMode && !this.g.hud.fiche.isOpen() ? 'block' : 'none'; if (w.decoMode && !inApt) this.exit();
@@ -38,19 +39,19 @@ export class DecoUi {
     if (this.tab === 'mobilier') {
       const inv = Object.entries(w.stash).filter(([, n]) => n > 0);
       body = `<div class="chips">${Home.CATS.map(([k, l]) => `<button class="gp-btn ${k === this.cat ? 'on' : ''}" data-cat="${k}">${l}</button>`).join('')}</div>
-        <div class="grid">${Home.CATALOG.filter((c) => c.cat === this.cat).map((c) => `<button class="gp-btn card" data-buy="${c.def}" ${w.avatar.money < c.price ? 'disabled' : ''}><img src="${this.thumb(c.def)}"><span>${c.label}</span><span class="pr">€ ${c.price}</span></button>`).join('')}</div>
+        <div class="grid">${Home.CATALOG.filter((c) => c.cat === this.cat).map((c) => `<button class="gp-btn card" data-buy="${c.def}" ${w.avatar.money < c.price || (Home.LOCKED[c.def] && !w.progress.unlocks.includes(Home.LOCKED[c.def])) ? 'disabled' : ''}><img src="${this.thumb(c.def)}"><span>${c.label}</span><span class="pr">${Home.LOCKED[c.def] && !w.progress.unlocks.includes(Home.LOCKED[c.def]) ? 'verrouillé' : '€ ' + c.price}</span></button>`).join('')}</div>
         <div class="gp-sec">Mon inventaire (touchez pour poser)</div><div class="inv">${inv.map(([d, n]) => `<button class="gp-btn card" data-pl="${d}" style="width:30%"><img src="${this.thumb(d)}"><span>${Home.label(d)} ×${n}</span></button>`).join('') || '<span class="dim small">Vide : achetez un meuble ci-dessus, ou rangez-en un de l\'appartement.</span>'}</div>`;
     } else {
       body = `<div class="chips">${[['j', 'Séjour'], ['m', 'Chambre'], ['v', 'Bains']].map(([k, l]) => `<button class="gp-btn ${k === this.room ? 'on' : ''}" data-room="${k}">${l}</button>`).join('')}</div>
         <div class="gp-sec">Sol</div><div class="grid">${Home.FLOORS.map((f) => `<button class="gp-btn card ${w.homeStyle.floor[this.room] === f.id ? 'on' : ''}" data-fl="${f.id}" ${w.avatar.money < f.price ? 'disabled' : ''}><span>${f.label}</span><span class="pr">${f.price ? '€ ' + f.price : 'gratuit'}</span></button>`).join('')}</div>
         <div class="gp-sec">Murs</div><div class="grid">${Home.WALLS.map((f) => `<button class="gp-btn card" data-wl="${f.id}" ${w.avatar.money < f.price ? 'disabled' : ''}><div class="sw" style="background:rgb(${f.col.map((v) => Math.round(v * 255)).join(',')})"></div><span>${f.label}</span><span class="pr">${f.price ? '€ ' + f.price : 'gratuit'}</span></button>`).join('')}</div>`;
     }
-    this.el.innerHTML = `<div class="hd"><b>Mon appartement · € ${Math.round(w.avatar.money).toLocaleString('fr-FR')}</b><button class="gp-btn" data-x="undo" ${w.hist.length ? '' : 'disabled'} aria-label="Annuler">↶</button><button class="gp-btn" data-x="redo" ${w.redo.length ? '' : 'disabled'} aria-label="Rétablir">↷</button><button class="gp-btn gold" data-x="ok" aria-label="Valider">✔</button></div>
+    this.el.innerHTML = `<div class="hd"><b>Mon appartement · € ${Math.round(w.avatar.money).toLocaleString('fr-FR')}</b><button class="gp-btn" data-x="undo" ${w.hist.length ? '' : 'disabled'} aria-label="Annuler">↶</button><button class="gp-btn" data-x="rot" ${w.homeEdit?.mode === 'move' && Home.canRotate(w.furn[w.homeEdit.furn].def) ? '' : 'disabled'} aria-label="Pivoter">⟳</button><button class="gp-btn" data-x="redo" ${w.redo.length ? '' : 'disabled'} aria-label="Rétablir">↷</button><button class="gp-btn gold" data-x="ok" aria-label="Valider">✔</button></div>
       <div class="gp-tabs"><button data-tab="mobilier" class="${this.tab === 'mobilier' ? 'on' : ''}">Mobilier</button><button data-tab="sols" class="${this.tab === 'sols' ? 'on' : ''}">Sol &amp; murs</button></div><div class="body">${w.homeEdit ? `<div class="gp-sec" style="color:#7ee0a0">${w.homeEdit.mode === 'move' ? 'Touchez la case de destination' : 'Touchez la case où poser'}</div>` : ''}${body}</div>`;
     (this.el.querySelector('.body') as HTMLElement).scrollTop = scroll; const q = <T extends HTMLElement>(sel: string, fn: (b: T) => void) => this.el.querySelectorAll<T>(sel).forEach((b) => (b.onclick = () => fn(b)));
     q('[data-tab]', (b) => { this.tab = b.dataset.tab as any; this.render(); }); q('[data-cat]', (b) => { this.cat = b.dataset.cat as Home.Cat; this.render(); }); q('[data-room]', (b) => { this.room = b.dataset.room!; this.render(); });
     q('[data-buy]', (b) => { hud.toast(Home.buy(w, b.dataset.buy!).msg); this.render(); }); q('[data-pl]', (b) => { w.homeEdit = { mode: 'place', def: b.dataset.pl! }; hud.toast(`Touchez la case où poser : ${Home.label(b.dataset.pl!)}`); this.render(); });
     q('[data-fl]', (b) => { hud.toast(Home.restyle(w, this.room, 'floor', b.dataset.fl!).msg); this.render(); }); q('[data-wl]', (b) => { hud.toast(Home.restyle(w, this.room, 'wall', b.dataset.wl!).msg); this.render(); });
-    q('[data-x]', (b) => { const k = b.dataset.x; if (k === 'undo') hud.toast(Home.undo(w).msg); else if (k === 'redo') hud.toast(Home.redo(w).msg); else this.exit(); this.render(); });
+    q('[data-x]', (b) => { const k = b.dataset.x; if (k === 'undo') hud.toast(Home.undo(w).msg); else if (k === 'redo') hud.toast(Home.redo(w).msg); else if (k === 'rot') { if (w.homeEdit?.mode === 'move') hud.toast(Home.rotate(w, w.homeEdit.furn).msg); } else this.exit(); this.render(); });
   }
 }

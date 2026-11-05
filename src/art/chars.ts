@@ -3,10 +3,10 @@ import { c, canvas, crisp, ctx2, hash2, outline, poly, px, rect, shade, type C }
 import type { Look } from '../sim/roster';
 
 export const CW = 28, CH = 48, FEET_Y = 45, LW = 60, LH = 44;
-const SKINS: C[] = [c(0.97, 0.82, 0.71), c(0.91, 0.73, 0.56), c(0.78, 0.58, 0.41), c(0.6, 0.42, 0.3), c(0.42, 0.28, 0.2)];
-const HAIRS: Record<string, C> = { auburn: c(0.62, 0.27, 0.14), black: c(0.11, 0.1, 0.13), darkbrown: c(0.24, 0.15, 0.11), gray: c(0.58, 0.58, 0.61), blond: c(0.9, 0.76, 0.42), silver: c(0.82, 0.82, 0.86) };
-const COLORS: Record<string, C> = { yellow: c(0.95, 0.76, 0.22), green: c(0.33, 0.58, 0.4), purple: c(0.52, 0.36, 0.72), red: c(0.8, 0.22, 0.22), gray: c(0.52, 0.54, 0.58), teal: c(0.2, 0.56, 0.56), black: c(0.16, 0.16, 0.19), navy: c(0.18, 0.22, 0.42), denim: c(0.3, 0.45, 0.7), dark: c(0.22, 0.24, 0.32), light: c(0.6, 0.72, 0.88), brown: c(0.38, 0.26, 0.19), white: c(0.93, 0.93, 0.96) };
-const SHOES: Record<string, C> = { white: c(0.92, 0.92, 0.95), brown: c(0.36, 0.24, 0.17), black: c(0.15, 0.15, 0.18) };
+export const SKINS: C[] = [c(0.97, 0.82, 0.71), c(0.91, 0.73, 0.56), c(0.78, 0.58, 0.41), c(0.6, 0.42, 0.3), c(0.42, 0.28, 0.2), c(0.99, 0.88, 0.82), c(0.84, 0.66, 0.46), c(0.3, 0.2, 0.15)];
+export const HAIRS: Record<string, C> = { brown: c(0.4, 0.26, 0.17), ginger: c(0.78, 0.4, 0.18), white: c(0.95, 0.95, 0.97), blue: c(0.25, 0.4, 0.85), pink: c(0.95, 0.45, 0.7), purple: c(0.5, 0.3, 0.75), green: c(0.3, 0.7, 0.45), teal: c(0.2, 0.7, 0.72), auburn: c(0.62, 0.27, 0.14), black: c(0.11, 0.1, 0.13), darkbrown: c(0.24, 0.15, 0.11), gray: c(0.58, 0.58, 0.61), blond: c(0.9, 0.76, 0.42), silver: c(0.82, 0.82, 0.86) };
+export const COLORS: Record<string, C> = { orange: c(0.95, 0.55, 0.2), pink: c(0.95, 0.5, 0.7), beige: c(0.84, 0.74, 0.58), olive: c(0.42, 0.48, 0.28), burgundy: c(0.5, 0.15, 0.25), cyan: c(0.3, 0.75, 0.85), lime: c(0.6, 0.85, 0.3), gold: c(0.9, 0.72, 0.25), blue: c(0.25, 0.4, 0.8), yellow: c(0.95, 0.76, 0.22), green: c(0.33, 0.58, 0.4), purple: c(0.52, 0.36, 0.72), red: c(0.8, 0.22, 0.22), gray: c(0.52, 0.54, 0.58), teal: c(0.2, 0.56, 0.56), black: c(0.16, 0.16, 0.19), navy: c(0.18, 0.22, 0.42), denim: c(0.3, 0.45, 0.7), dark: c(0.22, 0.24, 0.32), light: c(0.6, 0.72, 0.88), brown: c(0.38, 0.26, 0.19), white: c(0.93, 0.93, 0.96) };
+export const SHOES: Record<string, C> = { red: c(0.8, 0.2, 0.22), blue: c(0.25, 0.4, 0.8), gray: c(0.55, 0.57, 0.62), tan: c(0.7, 0.55, 0.38), white: c(0.92, 0.92, 0.95), brown: c(0.36, 0.24, 0.17), black: c(0.15, 0.15, 0.18) };
 
 interface FrameDef { bob: number; ll?: number; rl?: number; la?: number; ra?: number; sp?: number; la_mode?: string; ra_mode?: string; arms?: string; ad?: number }
 export const POSES: Record<string, FrameDef[]> = {
@@ -31,10 +31,14 @@ export function buildChar(cid: number, look: Look, blanket: C): CharAssets {
   for (const e of EXPRESSIONS) out.faces[e] = face(look, e);
   out.portrait = portrait(look); cache.set(key, out); return out;
 }
-const skinOf = (l: Look) => SKINS[Math.max(0, Math.min(4, l.skin))];
+const skinOf = (l: Look) => SKINS[Math.max(0, Math.min(SKINS.length - 1, l.skin))];
+const has = (l: Look, k: string) => l.acc === k || !!l.accs?.includes(k);
+const beardOf = (l: Look) => l.beard ?? (l.acc === 'beard' || l.acc === 'stubble' ? l.acc : 'none');
+let curLook: Look | null = null;
+const tat = (part: string) => curLook?.tattoos?.find((t) => t.part === part);
 
 function figure(look: Look, front: boolean, pose: string, fd: FrameDef): HTMLCanvasElement {
-  const cv = canvas(CW, CH); const g = ctx2(cv);
+  curLook = look; const cv = canvas(CW, CH); const g = ctx2(cv);
   const skin = skinOf(look), skinD = shade(skin, -0.14); const topC = COLORS[look.top_color] ?? c(0.5, 0.5, 0.5), botC = COLORS[look.bottom_color] ?? c(0.2, 0.2, 0.3);
   const shoeC = SHOES[look.shoes] ?? SHOES.white; const hairC = HAIRS[look.hair_color] ?? c(0.1, 0.1, 0.1);
   const s = fd.bob, sitting = pose.startsWith('sit'); const tw = 10 + 2 * look.build, tx0 = 14 - Math.floor(tw / 2), yoff = -look.height;
@@ -51,16 +55,31 @@ function figure(look: Look, front: boolean, pose: string, fd: FrameDef): HTMLCan
   rect(g, 13, 17 + s + yoff, 2, 2, skinD);
   arms(g, pose, fd, tx0, tw, ty, topC, look.top, skin);
   const hy2 = 6 + s + yoff; rect(g, 9, hy2, 10, 11, skin); rect(g, 18, hy2 + 1, 1, 10, shade(skin, -0.09)); rect(g, 9, hy2 + 10, 10, 1, shade(skin, -0.07)); rect(g, 10, hy2 + 1, 1, 4, shade(skin, 0.05));
-  px(g, 8, hy2 + 5, skinD); px(g, 19, hy2 + 5, skinD);
+  const fs = look.face ?? 0;
+  if (fs === 1) { for (const [x, y] of [[9, 0], [18, 0], [9, 10], [18, 10]]) g.clearRect(x, hy2 + y, 1, 1); }                                   // rond
+  else if (fs === 2) { rect(g, 8, hy2 + 7, 12, 3, skin); rect(g, 19, hy2 + 7, 1, 3, shade(skin, -0.1)); }                                           // carré
+  else if (fs === 3) { rect(g, 10, hy2 + 11, 8, 1, skin); }                                                                                          // allongé
+  else if (fs === 4) { for (const [x, y] of [[9, 9], [9, 10], [18, 9], [18, 10]]) g.clearRect(x, hy2 + y, 1, 1); }                                     // menton pointu
+  const ea = look.ears ?? 0; if (ea === 0) { px(g, 8, hy2 + 5, skinD); px(g, 19, hy2 + 5, skinD); } else if (ea === 1) { rect(g, 7, hy2 + 4, 2, 3, skinD); rect(g, 19, hy2 + 4, 2, 3, skinD); }
+  const bcol = look.beard_color ? (HAIRS[look.beard_color] ?? hairC) : hairC;
   if (front) {
-    if (look.acc === 'beard') { const bc = shade(hairC, -0.1); rect(g, 9, hy2 + 7, 10, 4, bc); rect(g, 11, hy2 + 7, 6, 1, shade(bc, 0.1)); rect(g, 12, hy2 + 7, 4, 1, skin); rect(g, 12, hy2 + 8, 4, 1, shade(skin, -0.05)); }
-    else if (look.acc === 'stubble') { for (let yy = hy2 + 7; yy < hy2 + 11; yy++) for (let xx = 9; xx < 19; xx++) if (hash2(xx, yy, 77) > 0.5) px(g, xx, yy, shade(skin, -0.28)); }
-    else if (look.acc === 'earrings') { px(g, 8, hy2 + 7, c(0.95, 0.8, 0.3)); px(g, 19, hy2 + 7, c(0.95, 0.8, 0.3)); }
-  }
+    const bs = beardOf(look); const bc2 = shade(bcol, -0.1);
+    if (bs === 'beard' || bs === 'full') { rect(g, 9, hy2 + 7, 10, 4, bc2); rect(g, 11, hy2 + 7, 6, 1, shade(bc2, 0.1)); rect(g, 12, hy2 + 7, 4, 1, skin); rect(g, 12, hy2 + 8, 4, 1, shade(skin, -0.05)); if (bs === 'full') rect(g, 11, hy2 + 6, 6, 1, bc2); }
+    else if (bs === 'stubble') { for (let yy = hy2 + 7; yy < hy2 + 11; yy++) for (let xx = 9; xx < 19; xx++) if (hash2(xx, yy, 77) > 0.5) px(g, xx, yy, shade(skin, -0.28)); }
+    else if (bs === 'goatee') { rect(g, 12, hy2 + 8, 4, 3, bc2); rect(g, 11, hy2 + 7, 6, 1, bc2); }
+    else if (bs === 'mustache') { rect(g, 10, hy2 + 7, 8, 1, bc2); rect(g, 10, hy2 + 8, 2, 1, bc2); rect(g, 16, hy2 + 8, 2, 1, bc2); }
+    if (has(look, 'earrings')) { px(g, 8, hy2 + 7, c(0.95, 0.8, 0.3)); px(g, 19, hy2 + 7, c(0.95, 0.8, 0.3)); }
+    if (has(look, 'chain')) { const gc = c(0.95, 0.8, 0.3); for (const [x, y] of [[11, 0], [12, 1], [13, 2], [14, 2], [15, 1], [16, 0]]) px(g, x, ty + y + 1, gc); px(g, 13, ty + 3, c(1, 0.9, 0.5)); px(g, 14, ty + 3, c(1, 0.9, 0.5)); }
+    if (tat('neck')) { const ink = c(0.12, 0.2, 0.32); px(g, 13, hy2 + 11, ink); px(g, 14, hy2 + 11, ink); px(g, 13, hy2 + 12, ink); }
+  } else if (tat('neck')) { const ink = c(0.12, 0.2, 0.32); px(g, 13, hy2 + 11, ink); px(g, 14, hy2 + 11, ink); }
   hair(g, look.hair, hairC, front, hy2, skin);
-  if (look.acc === 'cap') { const cc = c(0.12, 0.17, 0.3); rect(g, 8, hy2 - 1, 12, 4, cc); rect(g, 8, hy2 - 1, 12, 1, shade(cc, 0.2)); if (front) { rect(g, 9, hy2 + 3, 10, 1, shade(cc, -0.3)); rect(g, 13, hy2, 2, 2, c(0.95, 0.8, 0.3)); } }
-  if (look.acc === 'beanie') { const bc = c(0.7, 0.18, 0.2); rect(g, 8, hy2 - 3, 12, 5, bc); rect(g, 8, hy2 + 1, 12, 2, shade(bc, -0.2)); rect(g, 12, hy2 - 5, 4, 2, bc); for (let k = 8; k < 20; k += 2) px(g, k, hy2 - 1, shade(bc, 0.2)); }
-  if (look.acc === 'shades' && front) { const sg = c(0.06, 0.06, 0.1); rect(g, 9, hy2 + 4, 10, 3, sg); px(g, 10, hy2 + 4, c(0.5, 0.6, 0.9)); px(g, 15, hy2 + 4, c(0.5, 0.6, 0.9)); }
+  const accC = look.acc_color ? (COLORS[look.acc_color] ?? c(0.12, 0.17, 0.3)) : c(0.12, 0.17, 0.3);
+  if (has(look, 'cap')) { const cc = accC; rect(g, 8, hy2 - 1, 12, 4, cc); rect(g, 8, hy2 - 1, 12, 1, shade(cc, 0.2)); if (front) { rect(g, 9, hy2 + 3, 10, 1, shade(cc, -0.3)); rect(g, 13, hy2, 2, 2, c(0.95, 0.8, 0.3)); } }
+  if (has(look, 'beanie')) { const bc = look.acc_color ? accC : c(0.7, 0.18, 0.2); rect(g, 8, hy2 - 3, 12, 5, bc); rect(g, 8, hy2 + 1, 12, 2, shade(bc, -0.2)); rect(g, 12, hy2 - 5, 4, 2, bc); for (let k = 8; k < 20; k += 2) px(g, k, hy2 - 1, shade(bc, 0.2)); }
+  if (has(look, 'shades') && front) { const sg = c(0.06, 0.06, 0.1); rect(g, 9, hy2 + 4, 10, 3, sg); px(g, 10, hy2 + 4, c(0.5, 0.6, 0.9)); px(g, 15, hy2 + 4, c(0.5, 0.6, 0.9)); }
+  if (has(look, 'bag')) { const bg = look.acc_color ? accC : c(0.45, 0.3, 0.2); if (front) { for (let k = 0; k < 11; k++) px(g, tx0 + Math.round((k / 11) * tw), ty + k, shade(bg, -0.1)); rect(g, tx0 + tw - 3, ty + 8, 5, 5, bg); rect(g, tx0 + tw - 3, ty + 8, 5, 1, shade(bg, 0.2)); } else { rect(g, tx0 + 1, ty + 6, tw - 2, 6, bg); rect(g, tx0 + 1, ty + 6, tw - 2, 1, shade(bg, 0.2)); } }
+  if (has(look, 'watch')) { const wr = tx0 - 3; rect(g, wr, ty + 9, 3, 1, c(0.85, 0.85, 0.9)); px(g, wr + 1, ty + 9, c(0.3, 0.8, 0.9)); }
+  if (tat('torso') && front && (look.top === 'tank')) { const ink = c(0.12, 0.2, 0.32); rect(g, 12, ty, 4, 2, ink); px(g, 13, ty + 2, ink); }
   crisp(cv); outline(cv); return cv;
 }
 function legs(g: CanvasRenderingContext2D, look: Look, sitting: boolean, fd: FrameDef, yoff: number, botC: C, botStyle: string, skin: C, shoeC: C) {
@@ -79,6 +98,7 @@ function legs(g: CanvasRenderingContext2D, look: Look, sitting: boolean, fd: Fra
     rect(g, x - 1, bodyEnd, w + 2, 2, shoeC); rect(g, x - 1, yEnd - 1, w + 2, 1, shade(shoeC, -0.38)); px(g, x, bodyEnd, shade(shoeC, 0.18));
   };
   leg(lx, lw, 44 - ll); leg(rx, rw, 44 - rl);
+  { const tl = tat('leg'); if (tl && split < 99) inkAt(g, lx, 39, tl.motif); }
   if (botStyle === 'skirt') { rect(g, 8, 31 + yoff, 12, 8, shade(botC, -0.02)); rect(g, 8, 37 + yoff, 12, 1, shade(botC, -0.2)); rect(g, 9, 32 + yoff, 1, 6, shade(botC, 0.08)); rect(g, 19, 32 + yoff, 1, 6, shade(botC, -0.18)); }
 }
 function topDetails(g: CanvasRenderingContext2D, style: string, col: C, front: boolean, tx0: number, tw: number, ty: number, skin: C) {
@@ -95,6 +115,8 @@ function topDetails(g: CanvasRenderingContext2D, style: string, col: C, front: b
     case 'flannel':
       for (let yy = ty; yy < ty + 12; yy += 3) rect(g, tx0, yy, tw, 1, shade(col, -0.22)); for (let xx = tx0; xx < tx0 + tw; xx += 3) rect(g, xx, ty, 1, 12, shade(col, 0.1));
       if (front) { rect(g, 13, ty, 2, 12, shade(col, -0.2)); rect(g, 12, ty, 4, 1, shade(skin, -0.1)); } break;
+    case 'shirt':
+      rect(g, tx0, ty, tw, 12, col); if (front) { rect(g, 13, ty, 2, 12, shade(col, -0.18)); for (const k of [2, 5, 8]) px(g, 14, ty + k, c(0.95, 0.95, 0.97)); rect(g, 11, ty, 2, 2, shade(col, 0.22)); rect(g, 15, ty, 2, 2, shade(col, 0.22)); px(g, 12, ty + 2, shade(col, 0.1)); px(g, 15, ty + 2, shade(col, 0.1)); } else { rect(g, 11, ty, 6, 1, shade(col, 0.2)); } break;
     case 'blazer':
       rect(g, tx0, ty, tw, 12, shade(col, -0.04)); if (front) { rect(g, 12, ty, 4, 12, c(0.95, 0.95, 0.97)); rect(g, 13, ty + 1, 2, 7, c(0.7, 0.14, 0.2)); rect(g, 11, ty, 1, 8, shade(col, -0.3)); rect(g, 16, ty, 1, 8, shade(col, -0.3)); px(g, 12, ty + 9, c(0.9, 0.8, 0.4)); px(g, tx0 + 1, ty + 4, shade(col, 0.2)); }
       else { rect(g, tx0, ty + 9, tw, 3, shade(col, -0.14)); rect(g, 13, ty + 2, 1, 9, shade(col, -0.25)); } break;
@@ -107,9 +129,13 @@ function topDetails(g: CanvasRenderingContext2D, style: string, col: C, front: b
     case 'tee': if (front) { rect(g, 12, ty, 4, 1, shade(skin, -0.1)); rect(g, 12, ty + 1, 4, 1, shade(col, -0.1)); } else rect(g, 12, ty, 4, 1, shade(col, -0.1)); break;
   }
 }
+const MOTIFS: string[][] = [['#.#', '.#.', '#.#'], ['.#.', '###', '.#.'], ['#..', '.#.', '..#', '.#.'], ['###', '#.#', '###']];
+function inkAt(g: CanvasRenderingContext2D, x: number, y: number, motif: number) { const m = MOTIFS[motif % MOTIFS.length]; m.forEach((row, ry) => [...row].forEach((ch, rx) => { if (ch === '#') px(g, x + rx, y + ry, c(0.12, 0.2, 0.32), 0.85); })); }
 function arm(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, sleeve: C, sleeveLen: number, skin: C, outerLeft: boolean) {
   for (let yy = 0; yy < h; yy++) { const col = yy < sleeveLen ? sleeve : skin; rect(g, x, y + yy, w, 1, col); px(g, outerLeft ? x : x + w - 1, y + yy, shade(col, -0.17)); }
   rect(g, x, y + h - 2, w, 2, shade(skin, -0.05));
+  const ta = tat('arm'); if (ta && h - sleeveLen >= 4) inkAt(g, x, y + Math.max(sleeveLen, h - 7) + 1, ta.motif);          // avant-bras (visible si manche courte)
+  const th = tat('hand'); if (th && h >= 5) { px(g, x, y + h - 2, c(0.12, 0.2, 0.32), 0.85); px(g, x + 2, y + h - 2, c(0.12, 0.2, 0.32), 0.85); px(g, x + 1, y + h - 1, c(0.12, 0.2, 0.32), 0.85); }
 }
 function arms(g: CanvasRenderingContext2D, _pose: string, fd: FrameDef, tx0: number, tw: number, ty: number, topC: C, topStyle: string, skin: C) {
   const st = topStyle === 'tee' || topStyle === 'tank' ? topStyle : 'long'; const slv = st === 'long' ? 12 : st === 'tee' ? 4 : 0;
@@ -143,6 +169,9 @@ function hair(g: CanvasRenderingContext2D, style: string, hc: C, front: boolean,
     if (style === 'messy') { for (const p of spikes) px(g, p[0], hy + p[1], hc); rect(g, 10, hy + 2, 3, 2, hc); rect(g, 15, hy + 2, 3, 1, hc); }
     if (style === 'bun') { rect(g, 12, hy - 6, 4, 3, hc); rect(g, 13, hy - 6, 2, 1, hl); px(g, 12, hy - 4, hd); }
     if (style === 'afro') { rect(g, 6, hy - 6, 16, 10, hc); rect(g, 7, hy - 7, 14, 1, hc); rect(g, 8, hy - 8, 12, 1, hc); rect(g, 7, hy + 4, 2, 5, hc); rect(g, 19, hy + 4, 2, 5, hc); for (const q of [[9, -6], [13, -7], [17, -5], [11, -3], [16, -2]]) px(g, q[0], hy + q[1], hl); for (const q of [[7, 0], [20, 1], [10, -4]]) px(g, q[0], hy + q[1], hd); }
+    if (style === 'curly') { rect(g, 7, hy - 4, 14, 8, hc); rect(g, 8, hy - 5, 12, 1, hc); for (const q of [[8, -3], [12, -5], [16, -3], [10, 0], [17, 1], [7, 3], [20, 2]]) { px(g, q[0], hy + q[1], hl); px(g, q[0] + 1, hy + q[1] + 1, hd); } rect(g, 7, hy + 4, 2, 3, hc); rect(g, 19, hy + 4, 2, 3, hc); }
+    if (style === 'buzz') { rect(g, 9, hy - 1, 10, 3, shade(hc, -0.05)); px(g, 9, hy + 2, hd); px(g, 18, hy + 2, hd); }
+    if (style === 'slick') { rect(g, 9, hy - 2, 10, 3, hc); rect(g, 9, hy - 3, 9, 1, hc); rect(g, 10, hy - 2, 5, 1, hl); rect(g, 9, hy + 1, 1, 3, hc); rect(g, 18, hy + 1, 1, 3, hc); px(g, 14, hy + 1, hd); px(g, 15, hy + 1, hd); }
     if (style === 'mohawk') { rect(g, 9, hy + 1, 10, 2, shade(hc, -0.3)); rect(g, 12, hy - 7, 4, 8, hc); rect(g, 13, hy - 8, 2, 1, hc); rect(g, 13, hy - 7, 1, 6, hl); }
     if (style === 'ponytail') { rect(g, 9, hy + 2, 1, 3, hc); rect(g, 18, hy + 2, 1, 3, hc); px(g, 11, hy + 2, hc); px(g, 16, hy + 2, hc); px(g, 12, hy + 2, hc); px(g, 20, hy + 2, hc); rect(g, 19, hy + 1, 2, 3, hd); rect(g, 20, hy + 4, 2, 8, hc); px(g, 20, hy + 3, c(0.9, 0.3, 0.3)); }
     if (lens[style]) {
@@ -155,6 +184,9 @@ function hair(g: CanvasRenderingContext2D, style: string, hc: C, front: boolean,
     if (['short', 'messy', 'bun'].includes(style)) rect(g, 11, hy + 9, 6, 2, skin);
     if (style === 'messy') for (const p of spikes) px(g, p[0], hy + p[1], hc);
     if (style === 'bun') { rect(g, 12, hy - 6, 4, 3, hc); rect(g, 13, hy - 6, 2, 1, hl); }
+    if (style === 'curly') { rect(g, 7, hy - 5, 14, 15, hc); rect(g, 8, hy - 6, 12, 1, hc); for (const q of [[9, -2], [13, 1], [16, 4], [11, 6]]) px(g, q[0], hy + q[1], hl); }
+    if (style === 'buzz') { rect(g, 9, hy - 1, 10, 6, shade(hc, -0.05)); rect(g, 11, hy + 8, 6, 2, skin); }
+    if (style === 'slick') { rect(g, 9, hy - 2, 10, 12, hc); rect(g, 10, hy - 3, 8, 1, hc); rect(g, 11, hy + 9, 6, 2, skin); }
     if (style === 'afro') { rect(g, 6, hy - 6, 16, 14, hc); rect(g, 7, hy - 7, 14, 1, hc); rect(g, 8, hy - 8, 12, 1, hc); rect(g, 10, hy + 8, 8, 1, hc); rect(g, 20, hy, 1, 8, hd); rect(g, 10, hy - 5, 4, 1, hl); }
     if (style === 'mohawk') { rect(g, 12, hy - 7, 4, 10, hc); rect(g, 13, hy - 8, 2, 1, hc); rect(g, 9, hy + 1, 10, 2, shade(hc, -0.3)); }
     if (style === 'ponytail') { rect(g, 12, hy + 3, 5, 5, hc); rect(g, 13, hy + 8, 3, 8, hc); rect(g, 13, hy + 8, 1, 8, hd); px(g, 14, hy + 3, c(0.9, 0.3, 0.3)); }
@@ -180,24 +212,49 @@ function lying(look: Look, blanket: C, f: number): HTMLCanvasElement {
 function face(look: Look, expr: string): HTMLCanvasElement {
   const cv = canvas(10, 8); const g = ctx2(cv); const hairC = HAIRS[look.hair_color] ?? c(0.1, 0.1, 0.1); const skin = skinOf(look);
   const ink = c(0.12, 0.09, 0.13), brow = look.hair !== 'bald' ? shade(hairC, -0.15) : shade(skin, -0.45), mouth = c(0.55, 0.22, 0.25);
+  const E = look.eyes ?? 0, Br = look.brows ?? 0;
+  const eyesBase = () => {
+    if (E === 1) { rect(g, 1, 3, 3, 1, ink); rect(g, 6, 3, 3, 1, ink); }                                                 // fins
+    else if (E === 2) { rect(g, 2, 2, 2, 2, ink); rect(g, 6, 2, 2, 2, ink); px(g, 2, 2, c(0.95, 0.95, 1)); px(g, 6, 2, c(0.95, 0.95, 1)); }  // grands
+    else if (E === 3) { px(g, 1, 3, ink); rect(g, 2, 2, 2, 2, ink); px(g, 8, 3, ink); rect(g, 6, 2, 2, 2, ink); }         // en amande
+    else if (E === 4) { rect(g, 1, 2, 3, 1, shade(skin, -0.25)); rect(g, 2, 3, 2, 1, ink); rect(g, 6, 2, 3, 1, shade(skin, -0.25)); rect(g, 6, 3, 2, 1, ink); } // paupières lourdes
+    else { rect(g, 2, 2, 1, 2, ink); rect(g, 7, 2, 1, 2, ink); }
+  };
+  const browsBase = () => {
+    if (Br === 1) { rect(g, 1, 1, 3, 2, brow); rect(g, 6, 1, 3, 2, brow); } else if (Br === 2) { rect(g, 2, 0, 2, 1, brow); rect(g, 6, 0, 2, 1, brow); }
+    else if (Br === 3) { for (const p of [[1, 2], [2, 1], [3, 1], [8, 2], [7, 1], [6, 1]]) px(g, p[0], p[1], brow); } else { rect(g, 1, 1, 3, 1, brow); rect(g, 6, 1, 3, 1, brow); }
+  };
   switch (expr) {
     case 'tired': rect(g, 1, 3, 3, 1, ink); rect(g, 6, 3, 3, 1, ink); rect(g, 1, 1, 3, 1, brow); rect(g, 6, 1, 3, 1, brow); break;
     case 'surprised': rect(g, 2, 2, 1, 3, ink); rect(g, 7, 2, 1, 3, ink); rect(g, 1, 0, 3, 1, brow); rect(g, 6, 0, 3, 1, brow); break;
     case 'angry': rect(g, 2, 2, 1, 2, ink); rect(g, 7, 2, 1, 2, ink); for (const p of [[1, 0], [2, 1], [3, 1], [8, 0], [7, 1], [6, 1]]) px(g, p[0], p[1], brow); break;
     case 'sad': rect(g, 2, 2, 1, 2, ink); rect(g, 7, 2, 1, 2, ink); for (const p of [[1, 1], [2, 0], [3, 0], [8, 1], [7, 0], [6, 0]]) px(g, p[0], p[1], brow); break;
-    default: rect(g, 2, 2, 1, 2, ink); rect(g, 7, 2, 1, 2, ink); rect(g, 1, 1, 3, 1, brow); rect(g, 6, 1, 3, 1, brow);
+    default: eyesBase(); browsBase();
   }
+  const N = look.nose ?? 0; const nc = shade(skin, -0.22); if (N === 1) px(g, 4, 5, nc); else if (N === 2) { px(g, 4, 5, nc); px(g, 5, 5, nc); } else if (N === 3) { px(g, 5, 4, nc); px(g, 5, 5, nc); }
+  const M = look.mouth ?? 0; const lip = c(0.78, 0.35, 0.4);
   switch (expr) {
     case 'happy': px(g, 3, 5, mouth); px(g, 6, 5, mouth); rect(g, 4, 6, 2, 1, mouth); px(g, 1, 5, c(0.95, 0.55, 0.55), 0.7); px(g, 8, 5, c(0.95, 0.55, 0.55), 0.7); break;
     case 'sad': rect(g, 4, 5, 2, 1, mouth); px(g, 3, 6, mouth); px(g, 6, 6, mouth); break;
     case 'angry': rect(g, 3, 6, 4, 1, mouth); break;
     case 'surprised': rect(g, 4, 5, 2, 2, mouth); break;
-    default: rect(g, 4, 6, 2, 1, mouth);
+    default: if (M === 1) { rect(g, 3, 6, 4, 1, lip); rect(g, 4, 7, 2, 1, shade(lip, -0.15)); } else if (M === 2) { rect(g, 3, 6, 4, 1, mouth); px(g, 3, 5, mouth); px(g, 6, 5, mouth); } else if (M === 3) { rect(g, 4, 6, 2, 1, mouth); } else rect(g, 4, 6, 2, 1, mouth);
   }
-  if (look.acc === 'glasses') { const gl = c(0.16, 0.13, 0.22); for (const gx of [0, 5]) { rect(g, gx, 1, 5, 1, gl); rect(g, gx, 4, 5, 1, gl); rect(g, gx, 1, 1, 4, gl); rect(g, gx + 4, 1, 1, 4, gl); } px(g, 5, 2, gl); px(g, 4, 2, gl); }
+  if (look.freckles) for (const p of [[1, 4], [2, 5], [3, 4], [6, 4], [7, 5], [8, 4]]) px(g, p[0], p[1], shade(skin, -0.28), 0.9);
+  for (const sc of look.scars ?? []) { const scc = c(0.86, 0.5, 0.5); if (sc === 1) { px(g, 7, 4, scc); px(g, 8, 5, scc); px(g, 8, 6, scc); } else if (sc === 2) { px(g, 2, 0, scc); px(g, 3, 1, scc); px(g, 3, 2, scc); } else if (sc === 3) { px(g, 6, 6, scc); px(g, 6, 7, scc); } }
+  if (has(look, 'piercing_nose')) px(g, 6, 5, c(0.95, 0.95, 1)); if (has(look, 'piercing_brow')) { px(g, 7, 0, c(0.95, 0.95, 1)); px(g, 8, 0, c(0.95, 0.95, 1)); }
+  if (tat('face')) { const t = tat('face')!; const ink2 = c(0.12, 0.2, 0.32); if (t.motif % 3 === 0) { px(g, 0, 3, ink2); px(g, 0, 4, ink2); px(g, 1, 5, ink2); } else if (t.motif % 3 === 1) { px(g, 9, 3, ink2); px(g, 8, 4, ink2); px(g, 9, 5, ink2); } else { px(g, 8, 6, ink2); px(g, 9, 6, ink2); px(g, 9, 7, ink2); } }
+  if (has(look, 'glasses')) { const gl = c(0.16, 0.13, 0.22); for (const gx of [0, 5]) { rect(g, gx, 1, 5, 1, gl); rect(g, gx, 4, 5, 1, gl); rect(g, gx, 1, 1, 4, gl); rect(g, gx + 4, 1, 1, 4, gl); } px(g, 5, 2, gl); px(g, 4, 2, gl); }
   return cv;
 }
 function portrait(look: Look): HTMLCanvasElement {
   const body = figure(look, true, 'stand', { bob: 0 }); const f = face(look, 'neutral'); const g = ctx2(body); g.drawImage(f, 9, 8 - look.height);
   const out = canvas(22, 26); ctx2(out).drawImage(body, 3, 0, 22, 26, 0, 0, 22, 26); return out;
+}
+
+/** Aperçu rapide d'un personnage (pose, vue, image) pour le créateur : mêmes fonctions de dessin que dans le monde. */
+export function previewFigure(look: Look, front: boolean, pose = 'stand', k = 0, expr = 'neutral'): HTMLCanvasElement {
+  const frames = POSES[pose] ?? POSES.stand; const fd = frames[k % frames.length]; const body = figure(look, front, pose, fd); const out = canvas(CW, CH); const g = ctx2(out); g.drawImage(body, 0, 0);
+  if (front) { const sitting = pose.startsWith('sit'); void sitting; g.drawImage(face(look, expr), 9, 8 - look.height + fd.bob + 0); }
+  return out;
 }

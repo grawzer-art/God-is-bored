@@ -1,5 +1,6 @@
 /** Interface mobile (iPhone, paysage) : barre compacte, croix directionnelle, boutons A/B, menu temporaire, carte rapide, invitation à tourner.
  *  Active uniquement sur écran tactile de petite taille (ou ?mobile=1) : la version Mac est inchangée. */
+import { openCreator } from '../start/creator';
 import type { GameScene } from '../view/scene';
 import type { Hud } from './hud';
 import * as God from '../sim/god';
@@ -157,7 +158,7 @@ export class MobileUi {
   }
   private bindBtns(sel: string, fn: (b: HTMLElement) => void) { this.el.msheet.querySelectorAll<HTMLElement>(sel).forEach((b) => (b.onclick = () => fn(b))); }
   openMenu() {
-    const god = this.g.mode === 'god'; const items: [string, string][] = god ? [['res', 'Habitants'], ['pow', 'Pouvoirs'], ['lieux', 'Lieux'], ['here', 'Descendre ici'], ['journal', 'Journal'], ['murs', 'Murs'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['trio', 'Démo vivante'], ['demo', 'Démo vol'], ['help', 'Aide']] : [['inv', 'Inventaire'], ['pow', 'Pouvoirs'], ['journal', 'Journal'], ['lieux', 'Lieux'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['trio', 'Démo vivante'], ['demo', 'Démo vol'], ['help', 'Aide']];
+    const god = this.g.mode === 'god'; const items: [string, string][] = god ? [['res', 'Habitants'], ['quetes', 'Quêtes'], ['look', 'Apparence'], ['pow', 'Pouvoirs'], ['lieux', 'Lieux'], ['here', 'Descendre ici'], ['journal', 'Chronique'], ['murs', 'Murs'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['trio', 'Démo vivante'], ['demo', 'Démo vol'], ['help', 'Aide']] : [['inv', 'Inventaire'], ['quetes', 'Quêtes'], ['look', 'Apparence'], ['pow', 'Pouvoirs'], ['journal', 'Chronique'], ['lieux', 'Lieux'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['trio', 'Démo vivante'], ['demo', 'Démo vol'], ['help', 'Aide']];
     this.show('Menu', `<div class="grid">${items.map(([k, l]) => `<button class="mbtn" data-k="${k}"${k === 'export' || k === 'import' ? ' data-native' : ''}>${l}</button>`).join('')}</div>`);
     this.bindBtns('[data-k]', (b) => this.menuAction(b.dataset.k!));
   }
@@ -167,7 +168,7 @@ export class MobileUi {
       case 'res': this.openResidents(); break; case 'pow': this.openPowers(); break; case 'lieux': this.openPlaces(); break; case 'journal': this.openJournal(); break;
       case 'murs': { const m = g.cycleWalls(); this.hud.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); this.closeSheet(); break; }
       case 'save': g.saveGame(); this.closeSheet(); break; case 'load': this.closeSheet(); g.loadGame(); break; case 'export': this.closeSheet(); g.exportGame(); break; case 'import': this.closeSheet(); g.importGame(); break; case 'here': this.closeSheet(); g.descendHere(); break; case 'fps': this.hud.toggleFps(); this.closeSheet(); break; case 'demo': this.closeSheet(); g.startDemo(); break; case 'trio': this.closeSheet(); g.startTrio(); break; case 'help': this.openHelp(); break;
-      case 'inv': this.closeSheet(); this.hud.toggleInventory(); break;
+      case 'inv': this.closeSheet(); this.hud.toggleInventory(); break; case 'quetes': this.closeSheet(); this.hud.journal.open(); break; case 'look': this.closeSheet(); openCreator(g, { mode: 'edit', onDone: () => {}, onCancel: () => {} }); break;
     }
   }
   openResidents() {
