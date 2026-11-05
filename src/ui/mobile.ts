@@ -156,7 +156,7 @@ export class MobileUi {
   }
   private bindBtns(sel: string, fn: (b: HTMLElement) => void) { this.el.msheet.querySelectorAll<HTMLElement>(sel).forEach((b) => (b.onclick = () => fn(b))); }
   openMenu() {
-    const god = this.g.mode === 'god'; const items: [string, string][] = god ? [['res', 'Habitants'], ['pow', 'Pouvoirs'], ['lieux', 'Lieux'], ['journal', 'Journal'], ['murs', 'Murs'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['help', 'Aide']] : [['inv', 'Inventaire'], ['journal', 'Journal'], ['lieux', 'Lieux'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['help', 'Aide']];
+    const god = this.g.mode === 'god'; const items: [string, string][] = god ? [['res', 'Habitants'], ['pow', 'Pouvoirs'], ['lieux', 'Lieux'], ['journal', 'Journal'], ['murs', 'Murs'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['demo', 'Démo NORIA'], ['help', 'Aide']] : [['inv', 'Inventaire'], ['journal', 'Journal'], ['lieux', 'Lieux'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['demo', 'Démo NORIA'], ['help', 'Aide']];
     this.show('Menu', `<div class="grid">${items.map(([k, l]) => `<button class="mbtn" data-k="${k}"${k === 'export' || k === 'import' ? ' data-native' : ''}>${l}</button>`).join('')}</div>`);
     this.bindBtns('[data-k]', (b) => this.menuAction(b.dataset.k!));
   }
@@ -165,7 +165,7 @@ export class MobileUi {
     switch (k) {
       case 'res': this.openResidents(); break; case 'pow': this.openPowers(); break; case 'lieux': this.openPlaces(); break; case 'journal': this.openJournal(); break;
       case 'murs': { const m = g.cycleWalls(); this.hud.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); this.closeSheet(); break; }
-      case 'save': g.saveGame(); this.closeSheet(); break; case 'load': this.closeSheet(); g.loadGame(); break; case 'export': this.closeSheet(); g.exportGame(); break; case 'import': this.closeSheet(); g.importGame(); break; case 'fps': this.hud.toggleFps(); this.closeSheet(); break; case 'help': this.openHelp(); break;
+      case 'save': g.saveGame(); this.closeSheet(); break; case 'load': this.closeSheet(); g.loadGame(); break; case 'export': this.closeSheet(); g.exportGame(); break; case 'import': this.closeSheet(); g.importGame(); break; case 'fps': this.hud.toggleFps(); this.closeSheet(); break; case 'demo': this.closeSheet(); g.startDemo(); break; case 'help': this.openHelp(); break;
       case 'inv': this.closeSheet(); this.hud.toggleInventory(); break;
     }
   }

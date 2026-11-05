@@ -35,6 +35,7 @@ export const ACT: Record<string, ActDef> = {
   pray: A('Prie', 'stand', { fun: 6 }, [4, 7], true),
   drink: A('Boit un verre', 'use', { fun: 16, social: 6 }, [6, 12], true),
   bartend: A('Sert au bar', 'use', {}, [9999, 9999], false),
+  search: A('Fouille discrètement', 'stand', {}, [4, 6], false),
   music: A('Choisit un morceau', 'use', { fun: 4 }, [2, 3], true),
 };
 export const actLabel = (a: string) => ACT[a]?.label ?? a;

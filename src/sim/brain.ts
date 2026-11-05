@@ -4,6 +4,7 @@ import { roomAt, buildingAt } from './layout';
 import type { SimChar, Step } from './simchar';
 import type { World } from './world';
 import * as Social from './social';
+import * as Life from './life';
 
 export function isNight(c: SimChar, tod: number): boolean {
   let bt = 23 * 60 + c.chrono * 150;
@@ -31,6 +32,7 @@ export function decide(w: World, c: SimChar) {
     const act = c.whisper_act; c.whisper_act = '';
     if (tryAct(w, c, act)) return;
   }
+  if (Life.decide(w, c)) { c.statAdd('life_decisions'); return; }
   if (w.feastActive() && c.needs.hunger < 96 && (c.stats.feast_day ?? -1) !== w.day()) {
     const plan = planFeast(w, c);
     if (plan.length) { c.stats.feast_day = w.day(); c.plan = plan; w.startNextStep(c); return; }
@@ -161,6 +163,7 @@ function pickSlot(w: World, c: SimChar, tag: string, social: boolean, near?: V2)
   for (const s of slots) {
     const st = { x: s.stand.x + 0.5, y: s.stand.y + 0.5 };
     let score = -Math.hypot(origin.x - st.x, origin.y - st.y) * 0.6 + w.rng.randf() * 2.5;
+    for (const o of w.chars) if (o.id !== c.id && !o.away && (c.avoid[o.id] ?? 0) > w.clock && Math.hypot(o.pos.x - st.x, o.pos.y - st.y) < 2.6) score -= 7; // habitudes modifiées : on évite le coin de quelqu'un avec qui on est brouillé
     if (social) for (const o of w.chars) {
       if (o.id === c.id || o.state !== 'use' || o.isAsleep()) continue;
       if (Math.hypot(o.pos.x - st.x, o.pos.y - st.y) <= 2.3) score += w.getRel(c.id, o.id).aff * 0.07 * (0.3 + ex) + (ex - 0.45) * 3;
@@ -221,9 +224,11 @@ export function onActStart(w: World, c: SimChar) {
     c.slept_min = 0; c.wake_target = c.wake_base + w.rng.range(-25, 25); c.statAdd('sleeps');
     if (w.tod() > 600 || w.tod() < 180) w.emitLog(`${c.first} va se coucher.`, 'info', c.id);
   } else if (c.use_act === 'cook') w.emitLog(`${c.first} se met aux fourneaux.`, 'info', c.id);
+  else if (c.use_act === 'drink') Life.onDrink(w, c);
 }
 export function onActEnd(w: World, c: SimChar, completed: boolean) {
   const act = c.use_act; c.statAdd((completed ? 'done_' : 'cut_') + act);
+  if (act === 'search') Life.onSearchEnd(w, c, completed);
   switch (act) {
     case 'sleep':
       if (completed) {

@@ -18,7 +18,9 @@
     "e2e:pwa": "node tools/e2e-pwa.cjs",
     "icons": "node tools/make-icons.mjs",
     "e2e:iphone": "node tools/e2e-iphone.cjs",
-    "e2e:freelife": "node tools/e2e-freelife.cjs"
+    "e2e:freelife": "node tools/e2e-freelife.cjs",
+    "e2e:living": "node tools/e2e-living.cjs",
+    "e2e:observe": "node tools/e2e-observe.cjs"
   },
   "dependencies": {
     "phaser": "3.90.0"

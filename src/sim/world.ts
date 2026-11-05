@@ -7,11 +7,15 @@ import { SimChar, type Step } from './simchar';
 import { AStar } from './astar';
 import * as Brain from './brain';
 import * as Social from './social';
+import * as Life from './life';
 import { lineClear, screenDirToGrid, smoothPath, stepBody } from './movement';
 
 export interface Furn { i: number; def: string; x: number; y: number; w: number; d: number; opts: L.FurnPlacement['opts']; id: string; users: number[]; on: boolean; water: number; slots: SlotDef[]; blocks: boolean; flat: boolean }
 export interface Mess { id: number; kind: string; pos: V2; elev: number; t: number }
-export interface Rel { aff: number; fam: number; att: number; ten: number; n: number }
+/** Relation orientée a -> b. aff = affection, trust = confiance, fear = peur, resp = respect, ten = tension ; l'hostilité se déduit de aff < 0 et ten. cd = date du dernier conflit (rancune). */
+export interface Rel { aff: number; fam: number; att: number; ten: number; n: number; trust: number; fear: number; resp: number; cd: number }
+/** Événement du monde persistant (vol, dispute, aide, emploi…). Les habitants n'en savent que ce qu'ils ont vécu ou appris (voir SimChar.known). */
+export interface WorldEvent { id: number; t: number; kind: string; actor: number; target: number; x: number; y: number; amount: number; sig: number; open: boolean }
 export interface LogEntry { t: number; text: string; kind: string; cid: number }
 export interface Session { id: number; a: number; b: number; left: number; total: number; ambient: boolean; line: boolean; emote: number; turn: number }
 
@@ -21,6 +25,8 @@ export class World {
   chars: SimChar[] = []; furn: Furn[] = []; furnById = new Map<string, number>(); cellFurn = new Map<number, number>();
   astar!: AStar;
   mess: Mess[] = []; nextMessId = 1;
+  /** Vie autonome : journal d'événements, minuteur, dernier vol, point d'attention du joueur (simulation détaillée près de lui). */
+  events: WorldEvent[] = []; nextEvent = 1; lifeAcc = 0; lastTheft = -99999; focus: V2 | null = null;
   rel = new Map<number, Rel>();
   sessions = new Map<number, Session>(); nextSession = 1;
   pot = 0; potCook = -1; potTime = 0; feastUntil = -1; musicUntil = -1; knownSecrets: number[] = [];
@@ -35,7 +41,7 @@ export class World {
 
   // ---------------------------------------------------------------- construction
   build() {
-    this.buildFurniture(); this.buildGrid(); this.buildChars(); this.buildExtras();
+    this.buildFurniture(); this.buildGrid(); this.buildChars(); this.buildExtras(); Life.init(this);
     for (const m of L.INITIAL_MESS) this.addMess(m[0], { x: m[1], y: m[2] }, 0);
     this.emitLog('Le jour se lève sur la maison. Huit habitants dorment encore.', 'info');
   }
@@ -107,7 +113,8 @@ export class World {
   getRel(a: number, b: number): Rel {
     const k = a * 100 + b;
     let r = this.rel.get(k);
-    if (!r) { r = { aff: 0, fam: 15, att: 0, ten: 0, n: 0 }; this.rel.set(k, r); }
+    if (!r) { r = { aff: 0, fam: 15, att: 0, ten: 0, n: 0, trust: 45, fear: 0, resp: 45, cd: 0 }; this.rel.set(k, r); }
+    else if (r.trust === undefined) { r.trust = Math.max(0, Math.min(100, 45 + r.aff * 0.4)); r.fear = 0; r.resp = Math.max(0, Math.min(100, 45 + r.aff * 0.1)); r.cd = 0; } // anciennes sauvegardes
     return r;
   }
   relLabel(a: number, b: number) {
@@ -183,6 +190,7 @@ export class World {
     if (this.day() !== this.lastDay) { this.lastDay = this.day(); this.emitLog(`Jour ${this.day()}.`, 'info'); this.chars.forEach((c) => (c.stats.days = this.day())); }
     this.updateWorld(dmin);
     for (const c of this.chars) this.updateChar(c, dt, dmin);
+    Life.tick(this, dmin);
     Social.updateSessions(this, dmin);
     Social.ambient(this, dmin);
   }
@@ -206,6 +214,7 @@ export class World {
     if (c.kind === 'staff') { this.updateStaff(c, dt, dmin); return; }
     if (c.kind === 'avatar') { this.updateAvatar(c, dt, dmin); return; }
     this.updateNeeds(c, dmin); this.updateMood(c, dt, dmin);
+    if (c.away) { Life.updateAway(this, c); return; } // hors de la carte (travail, recherche d'emploi) : simulation abstraite
     if (c.emote_t > 0) c.emote_t -= dt;
     c.decision_cooldown = Math.max(0, c.decision_cooldown - dt);
     switch (c.state) {
@@ -332,6 +341,7 @@ export class World {
         if (cell.x < 0) { this.abortPlan(c, 'no approach'); return; }
         this.beginWalk(c, cell); break;
       }
+      case 'depart': c.away = true; c.state = 'idle'; c.plan = []; c.step = null; c.pose = 'stand'; c.action_text = c.jobPhase === 'searching' ? 'Cherche du travail' : 'Au travail'; break;
       case 'use': this.beginUse(c, s); break;
       case 'wait':
         c.state = 'use'; c.use_act = s.act ?? 'idle'; c.use_left = s.dur ?? 5; c.pose = 'stand'; c.use_furn = -1; c.use_target = s.mess ?? -1; c.action_text = ACT[c.use_act]?.label ?? ''; break;
@@ -357,7 +367,7 @@ export class World {
       st.recheck = (st.recheck ?? 0) - dt;
       const t = this.chars[st.target!];
       if (!Social.canBeApproached(this, t) || this.clock - (st.t0 ?? 0) > 90) { this.abortPlan(c, 'target gone'); c.last_chat = this.clock - 30; return; }
-      if (dist(c.pos, t.pos) <= (t.kind === 'staff' ? 2.6 : 1.45) && (c.kind !== 'avatar' || lineClear(c.pos, t.pos))) { if (c.kind === 'avatar') { this.abortPlan(c, 'arrived'); c.facing = this.dirFrom({ x: t.pos.x - c.pos.x, y: t.pos.y - c.pos.y }, c.facing); this.onAvatarArrive?.(t); } else Social.beginChat(this, c, t); return; }
+      if (dist(c.pos, t.pos) <= (t.kind === 'staff' ? 2.6 : 1.45) && (c.kind !== 'avatar' || lineClear(c.pos, t.pos))) { if (c.kind === 'avatar') { this.abortPlan(c, 'arrived'); c.facing = this.dirFrom({ x: t.pos.x - c.pos.x, y: t.pos.y - c.pos.y }, c.facing); this.onAvatarArrive?.(t); } else if (!Life.onArrive(this, c, t)) Social.beginChat(this, c, t); return; }
       if (st.recheck! <= 0) {
         st.recheck = 0.7; const cell = Social.approachCell(this, c, t);
         if (cell.x >= 0 && (cell.x !== c.path_goal.x || cell.y !== c.path_goal.y)) {
@@ -395,7 +405,7 @@ export class World {
   private finishWalk(c: SimChar) {
     if (c.step && c.step.type === 'approach') {
       const t = this.chars[c.step.target!];
-      if (dist(c.pos, t.pos) <= (t.kind === 'staff' ? 2.6 : 1.9) && (c.kind !== 'avatar' || lineClear(c.pos, t.pos))) { if (c.kind === 'avatar') { this.abortPlan(c, 'arrived'); this.onAvatarArrive?.(t); } else Social.beginChat(this, c, t); } else this.abortPlan(c, 'approach failed');
+      if (dist(c.pos, t.pos) <= (t.kind === 'staff' ? 2.6 : 1.9) && (c.kind !== 'avatar' || lineClear(c.pos, t.pos))) { if (c.kind === 'avatar') { this.abortPlan(c, 'arrived'); this.onAvatarArrive?.(t); } else if (!Life.onArrive(this, c, t)) Social.beginChat(this, c, t); } else this.abortPlan(c, 'approach failed');
       return;
     }
     this.startNextStep(c);

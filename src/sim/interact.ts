@@ -5,6 +5,7 @@ import { roomAt } from './layout';
 import type { SimChar } from './simchar';
 import { dist, type World } from './world';
 import { lineClear, nearestWalkable } from './movement';
+import * as Life from './life';
 
 export const ITEMS: Record<string, { label: string; hunger?: number; fun?: number; gift: number; desc: string }> = {
   sandwich: { label: 'Sandwich', hunger: 35, gift: 2, desc: 'Un sandwich un peu écrasé.' },
@@ -43,7 +44,7 @@ export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: C
       { id: 'chat', label: 'Bavarder', enabled: !h }, { id: 'bye', label: 'Au revoir', enabled: true });
     return { line: greet, choices: ch };
   }
-  if (npc.isAsleep()) return { line: `${npc.first} dort profondément.`, choices: [{ id: 'wake', label: 'Réveiller', enabled: true, hint: 'mauvaise idée' }, { id: 'bye', label: 'Laisser dormir', enabled: true }] };
+  if (npc.isAsleep()) return { line: `${npc.first} dort profondément.`, choices: [{ id: 'wake', label: 'Réveiller', enabled: true, hint: 'mauvaise idée' }, { id: 'steal', label: 'Fouiller ses poches', enabled: npc.money >= 5, hint: 'risqué si on vous voit' }, { id: 'bye', label: 'Laisser dormir', enabled: true }] };
   const line = npc.anger > 40 ? 'Pas maintenant. Je suis furieux' + feel(npc, 'se', '') + '.' : r.aff >= 40 ? `Ah, c'est ${av.first === 'Vous' ? 'vous' : av.first} ! ${feel(npc, 'Contente', 'Content')} de vous voir.` : r.fam < 15 ? `Oui ? Je ne crois pas vous connaître…` : r.aff <= -20 ? 'Qu\'est-ce que vous voulez ?' : 'Oui ?';
   const dark = w.mess.length >= 6 || npc.anger > 25 || npc.mood < -25 || (w.hour() > 23 || w.hour() < 4);
   ch.push({ id: 'how', label: 'Comment ça va ?', enabled: true }, { id: 'chat', label: 'Bavarder', enabled: true },
@@ -52,7 +53,7 @@ export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: C
     { id: 'give', label: 'Donner 10 €', enabled: av.money >= 10 }, { id: 'ask_money', label: 'Emprunter 10 €', enabled: true, hint: r.aff >= 30 ? '' : 'peu probable' },
     { id: 'secret', label: 'Poser une question personnelle', enabled: true, hint: r.aff >= 45 && r.fam >= 40 ? '' : 'trop tôt ?' });
   if (inBar(w, npc) && w.barman && !w.barman.away) ch.push({ id: 'drink', label: 'Offrir un verre (4 €)', enabled: av.money >= 4 });
-  ch.push({ id: 'bye', label: 'Partir', enabled: true });
+  ch.push({ id: 'steal', label: 'Faire les poches', enabled: npc.money >= 5, hint: 'très risqué' }, { id: 'bye', label: 'Partir', enabled: true });
   return { line, choices: ch };
 }
 
@@ -75,6 +76,7 @@ export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
   const av = w.avatar; const r = rel(w, npc.id, av.id); w.stats.player_talks = (w.stats.player_talks ?? 0) + 1;
   switch (id) {
     case 'bye': return { line: npc.kind === 'staff' ? 'Bonne soirée.' : 'À plus tard.', close: true };
+    case 'steal': { const r = Life.playerSteal(w, av, npc); return { line: r.line, close: r.ok && npc.isAsleep() }; }
     case 'wake': {
       bump(w, npc, -6, 1, 15); npc.anger = clamp(npc.anger + 25, 0, 100); remember(npc, w, 'wake', 'Quelqu\'un m\'a réveillé en pleine nuit.', -0.6, 0.6); w.showEmote(npc, 'anger', 3);
       if (npc.state === 'use' && npc.use_act === 'sleep') w.endUse(npc, false); w.emitLog(`${npc.first} est réveillé${feel(npc, 'e', '')} de mauvaise humeur par ${av.first.toLowerCase()}.`, 'drama', npc.id);

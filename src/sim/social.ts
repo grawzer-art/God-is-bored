@@ -5,6 +5,8 @@ import { roomAt } from './layout';
 import type { SimChar } from './simchar';
 import type { World, Session } from './world';
 import { dist } from './world';
+import * as Life from './life';
+import { buildingAt } from './layout';
 
 const CHATTABLE = ['bartend', 'idle', 'tv', 'read', 'eat', 'feast', 'browse', 'tidy', 'water', 'dishes', 'cook', 'laundry', 'pray'];
 export const LINES_GREAT = [
@@ -26,6 +28,7 @@ export const LINES_ARGUE = [
 ];
 
 export function canBeApproached(w: World, t: SimChar): boolean {
+  if (t.away) return false; // hors de la carte (travail, recherche d'emploi)
   if (t.talking || t.isAsleep()) return false;
   if (t.state === 'idle') return true;
   if (t.state === 'chat') return false;
@@ -52,6 +55,7 @@ export function pickChatTarget(w: World, c: SimChar): SimChar | null {
   let best: SimChar | null = null; let bs = -1e9; const hostile = c.anger > 38;
   for (const o of w.chars) {
     if (o.id === c.id || o.kind !== 'resident' || !canBeApproached(w, o)) continue;
+    const hb = buildingAt(c.cell().x, c.cell().y)?.name; if (hb && buildingAt(o.cell().x, o.cell().y)?.name !== hb) continue; // pas de traversée de rue pour bavarder
     if ((c.avoid[o.id] ?? 0) > w.clock && !hostile) continue;
     const r = w.getRel(c.id, o.id);
     let score = hostile ? -r.aff * 0.5 + w.rng.randf() * 5
@@ -130,6 +134,7 @@ function quality(w: World, x: SimChar, y: SimChar): number {
   if (x.trait('extraversion') < 0.4 && x.needs.social > 80) q -= 0.1;
   q -= Math.max(0, 0.55 - Math.min(x.trait('agreeableness'), y.trait('agreeableness'))) * 0.35;
   if (w.mess.length >= 4) q -= 0.05 * x.trait('orderliness');
+  q -= Life.grudge(w, x, y); q -= Math.max(0, w.getRel(x.id, y.id).fear - 30) * 0.003; // rancune après une dispute, peur
   return q + w.rng.range(-0.2, 0.2);
 }
 export function resolve(w: World, a: SimChar, b: SimChar, strength: number, _ambient: boolean) {
@@ -138,6 +143,7 @@ export function resolve(w: World, a: SimChar, b: SimChar, strength: number, _amb
   if (q < 0.31) kind = 'argument'; else if (q < 0.47) kind = 'awkward'; else if (q >= 0.7) kind = 'great';
   apply(w, a, b, qa, kind, strength); apply(w, b, a, qb, kind, strength);
   for (const x of [a, b]) { x.statAdd('chats'); x.statAdd('chat_' + kind); }
+  if (strength >= 0.5 || kind === 'argument') Life.afterChat(w, a, b, kind); // rumeurs échangées / dispute enregistrée comme événement du monde
   w.stats.chats = (w.stats.chats ?? 0) + 1; w.stats['chat_' + kind] = (w.stats['chat_' + kind] ?? 0) + 1;
   if (strength >= 0.5 || kind === 'argument' || kind === 'great') {
     const pool = kind === 'great' ? LINES_GREAT : kind === 'pleasant' ? LINES_OK : kind === 'awkward' ? LINES_BAD : LINES_ARGUE;

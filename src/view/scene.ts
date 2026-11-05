@@ -13,6 +13,7 @@ import { texKey } from './texreg';
 import { Hud } from '../ui/hud';
 import { pickProp } from './picking';
 import { Doors } from './doors';
+import { setupNoriaDemo } from '../sim/demo';
 import * as Act from '../sim/interact';
 
 export const SPEEDS = [0, 1, 3, 8];
@@ -31,7 +32,7 @@ export class GameScene extends Phaser.Scene {
   floorSprite!: Phaser.GameObjects.Image; sunSprite!: Phaser.GameObjects.Image;
   mode: 'god' | 'human' = 'god'; wallMode = 1; speedIndex = 1; selectedId = -1; hoverId = -1; follow = false; autosave = 0; fxT = 0;
   tx = 0; ty = 0; tz = 1; cx = 0; cy = 0; cz = 1; minZoom = 0.35; maxZoom = 3.5; bounds = { x: 0, y: 0, w: 0, h: 0 };
-  doors!: Doors; analog = { x: 0, y: 0, mag: 0 }; dest: { x: number; y: number; t0: number; fade: number } | null = null;
+  doors!: Doors; demo = false; analog = { x: 0, y: 0, mag: 0 }; dest: { x: number; y: number; t0: number; fade: number } | null = null;
   keys = new Set<string>(); runLatch = false; params = new URLSearchParams(location.search);
   private pan = { down: false, moved: false, sx: 0, sy: 0, button: 0, t: 0 }; private pinch = 0; private lastClick = { t: 0, id: -1 };
 
@@ -43,6 +44,7 @@ export class GameScene extends Phaser.Scene {
     if (this.params.has('load')) w = Save.load();
     // Dev : l'état de la partie survit au rechargement automatique (hot reload)
     if (!w && import.meta.env.DEV && !this.params.has('fresh') && !this.params.has('simulate')) { try { hot = JSON.parse(localStorage.getItem('gib:hot') ?? 'null'); if (hot) w = Save.fromJSON(hot.world); } catch { hot = null; } }
+    if (this.params.get('demo') === 'noria') { w = new World(seed); w.build(); setupNoriaDemo(w); hot = null; this.demo = true; }
     if (!w) { w = new World(seed); w.build(); hot = null; }
     this.world = w;
     if (import.meta.hot) import.meta.hot.on('vite:beforeFullReload', () => { try { localStorage.setItem('gib:hot', JSON.stringify({ world: Save.toJSON(this.world), cam: { x: this.tx, y: this.ty, z: this.tz }, speed: this.speedIndex, walls: this.wallMode, sel: this.selectedId, mode: this.mode })); } catch { /* ignore */ } });
@@ -56,6 +58,7 @@ export class GameScene extends Phaser.Scene {
     if (hot) { this.tx = this.cx = hot.cam.x; this.ty = this.cy = hot.cam.y; this.tz = this.cz = hot.cam.z; this.wallMode = hot.walls; this.applyWalls(); this.setSpeed(hot.speed); if (hot.sel >= 0) this.selectChar(hot.sel); if (hot.mode === 'human') this.descend(false); }
     if (this.world.avatarControlled || this.params.has('human')) this.descend(false);
     if (this.params.has('walls')) { this.wallMode = Number(this.params.get('walls')); this.applyWalls(); }
+    if (this.demo) { this.setSpeed(2); this.focusZone('house'); }
     if (this.params.has('speed')) this.setSpeed(Number(this.params.get('speed')));
     if (this.params.has('zoom')) { this.tz = this.cz = Number(this.params.get('zoom')); }
     if (this.params.has('at')) { const [x, y] = this.params.get('at')!.split(',').map(Number); const p = toScreen(x, y); this.tx = this.cx = p.x; this.ty = this.cy = p.y; }
@@ -363,7 +366,12 @@ export class GameScene extends Phaser.Scene {
     this.replaceWorld(w); this.hud.toast('Partie importée');
   }
   restoreBackup() { const w = Save.restoreBackup(); if (!w) { this.hud.toast('Aucune copie de secours'); return; } this.replaceWorld(w); Save.save(w); this.hud.toast('Copie de secours restaurée'); }
-  loadGame() { const w = Save.load(); if (!w) { this.hud.toast('Aucune sauvegarde'); return false; } this.replaceWorld(w); this.hud.toast('Partie chargée'); return true; }
+  /** Démonstration LIVING NORIA : petite situation de départ (vol, témoin, rumeur, confrontation) puis vie autonome. N'écrase pas la sauvegarde : l'autosave est suspendue. */
+  startDemo() {
+    Save.save(this.world); const w = new World(1337); w.build(); setupNoriaDemo(w); this.demo = true; this.replaceWorld(w); this.setSpeed(2); this.focusZone('house');
+    this.hud.toast('Démo LIVING NORIA (x3) — votre partie est sauvegardée, l\'autosave est suspendue');
+  }
+  loadGame() { const w = Save.load(); if (!w) { this.hud.toast('Aucune sauvegarde'); return false; } this.demo = false; this.replaceWorld(w); this.hud.toast('Partie chargée'); return true; }
 
   // ------------------------------------------------------------------ boucle
   private lastNow = performance.now();
@@ -391,7 +399,8 @@ export class GameScene extends Phaser.Scene {
     for (const cv of this.chars) cv.update(dt, cv.sim.id === this.selectedId || (this.mode === 'human' && cv.sim.kind === 'avatar'), cv.sim.id === this.hoverId);
     this.lighting.update(dt); this.lighting.render(); this.sunSprite.setAlpha(this.lighting.daylight * 0.9);
     this.drawFx(dt); this.hud.update(dt);
-    this.autosave += dt; if (this.autosave > 120) { this.autosave = 0; Save.save(this.world); }
+    { const a = this.world.avatar; const f = this.mode === 'human' ? a.pos : toGrid(this.cx, this.cy); this.world.focus = { x: f.x, y: f.y }; } // simulation détaillée près du joueur
+    this.autosave += dt; if (this.autosave > 120) { this.autosave = 0; if (!this.demo) Save.save(this.world); }
   }
   private syncProps() {
     const alive = new Set<number>();

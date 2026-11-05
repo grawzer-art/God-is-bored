@@ -1,9 +1,16 @@
 import { NEEDS, type Need, type V2 } from './defs';
 import type { Look } from './roster';
 
-export interface Memory { t: number; kind: string; text: string; v: number; w: number; other: number }
+/** Provenance d'un souvenir : vécu personnellement, raconté par un autre habitant, ou simple soupçon sans preuve. */
+export type Source = 'lived' | 'told' | 'suspected';
+export interface Memory { t: number; kind: string; text: string; v: number; w: number; other: number; src?: Source; ev?: number; conf?: number; from?: number; subj?: number }
+/** Ce qu'un habitant sait d'un événement du monde. Absent = il l'ignore. `culprit` : -1 = auteur inconnu. */
+export interface Know { src: Source; conf: number; from: number; culprit: number; t: number }
+/** Intention en cours (aider, confronter, raconter, s'excuser, voler) : prioritaire sur l'emploi du temps ordinaire. */
+export interface Intent { kind: 'help' | 'confront' | 'tell' | 'apologize' | 'steal'; target: number; ev: number; until: number }
+export interface Shift { from: number; to: number; pay: number; place: string }
 export interface Goal { id: string; progress: number; done: boolean }
-export interface Step { type: 'goto' | 'approach' | 'use' | 'wait'; cell?: V2; target?: number; furn?: number; slot?: number; act?: string; stand?: V2; dur?: number; mess?: number; t0?: number; recheck?: number }
+export interface Step { type: 'goto' | 'approach' | 'use' | 'wait' | 'depart'; cell?: V2; target?: number; furn?: number; slot?: number; act?: string; stand?: V2; dur?: number; mess?: number; t0?: number; recheck?: number }
 
 /** État d'un habitant (aucune dépendance au rendu). */
 export class SimChar {
@@ -22,6 +29,9 @@ export class SimChar {
   whisper_act = ''; whisper_until = 0;
   talk_session = -1; talk_with = -1; talking = false;
   avoid: Record<number, number> = {}; pref: Record<string, number> = {};
+  /** Vie autonome : savoirs par événement, intention, emploi (horaires, paie), sortie en cours. */
+  known: Record<number, Know> = {}; intent: Intent | null = null; shift: Shift | null = null;
+  jobPhase: '' | 'working' | 'searching' = ''; jobUntil = 0; jobStart = 0; outing: '' | 'bar' = ''; outUntil = 0; lifeT = 0;
   memories: Memory[] = []; goal: Goal = { id: 'social', progress: 0, done: false }; goal_index = 0;
   emote = ''; emote_t = 0; action_text = ''; stats: Record<string, number> = {};
   /** resident = habitant autonome ; avatar = le dieu incarné (joueur) ; staff = employé (barman). */
@@ -36,8 +46,8 @@ export class SimChar {
   isAsleep() { return this.state === 'use' && this.use_act === 'sleep'; }
   need(k: Need) { return this.needs[k]; }
   addPref(act: string, v: number) { this.pref[act] = Math.max(-12, Math.min(12, (this.pref[act] ?? 0) + v)); }
-  addMemory(t: number, kind: string, text: string, v: number, w: number, other = -1) {
-    this.memories.push({ t, kind, text, v, w, other });
+  addMemory(t: number, kind: string, text: string, v: number, w: number, other = -1, extra: Partial<Memory> = {}) {
+    this.memories.push({ t, kind, text, v, w, other, ...extra });
     if (this.memories.length > 60) {
       let worst = 0, ws = 1e9;
       this.memories.forEach((m, i) => { const s = m.w * 100 + m.t * 0.001; if (s < ws) { ws = s; worst = i; } });

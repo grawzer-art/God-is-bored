@@ -11,6 +11,7 @@ import { iconCanvas } from '../art/core';
 import { HumanUi, HUMAN_CSS } from './human';
 import { MobileUi } from './mobile';
 import { relationLabelToPlayer } from '../sim/interact';
+import * as Life from '../sim/life';
 
 const CSS = `
 #ui .panel{pointer-events:auto}
@@ -72,7 +73,7 @@ export class Hud {
     const mk = (label: string, fn: () => void, tip = '') => { const b = document.createElement('button'); b.className = 'btn'; b.textContent = label; b.title = tip; b.onclick = fn; this.el.speeds.appendChild(b); };
     mk('Descendre (G)', () => g.toggleMode(), 'Incarner un humain / redevenir dieu'); this.modeBtn = this.el.speeds.lastElementChild as HTMLElement;
     mk('Maison', () => g.focusZone('house')); mk('Bar', () => g.focusZone('bar')); mk('Rue', () => g.focusZone('street'));
-    mk('Murs', () => { const m = g.cycleWalls(); this.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); }, 'V'); mk('Sauver', () => g.saveGame(), 'F5'); mk('Charger', () => g.loadGame(), 'F9'); mk('Exporter', () => g.exportGame(), 'Fichier JSON'); mk('Importer', () => g.importGame(), 'Fichier JSON');
+    mk('Murs', () => { const m = g.cycleWalls(); this.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); }, 'V'); mk('Sauver', () => g.saveGame(), 'F5'); mk('Charger', () => g.loadGame(), 'F9'); mk('Démo NORIA', () => g.startDemo(), 'Situation de départ : vol, témoin, rumeur, confrontation'); mk('Exporter', () => g.exportGame(), 'Fichier JSON'); mk('Importer', () => g.importGame(), 'Fichier JSON');
     for (const [id, d] of Object.entries(God.POWERS)) { const b = document.createElement('button'); b.className = 'btn'; b.style.flex = '1'; b.textContent = `${d.key} ${d.label} (${d.cost})`; b.title = d.desc; b.dataset.id = id; b.onclick = () => this.pickPower(id); this.el.pw.appendChild(b); }
     this.el.go.onclick = () => { this.el.help.style.display = 'none'; this.helpT = 1e9; };
     if (g.params.has('nohelp')) this.el.help.style.display = 'none';
@@ -166,6 +167,20 @@ export class Hud {
     if (t.neuroticism > 0.62) o.push('Anxieux(se)'); else if (t.neuroticism < 0.32) o.push('Serein(e)'); if (t.orderliness > 0.65) o.push('Ordonné(e)'); else if (t.orderliness < 0.32) o.push('Désordonné(e)');
     if (t.openness > 0.7) o.push('Curieux(se)'); if (c.chrono > 0.5) o.push('Oiseau de nuit'); else if (c.chrono < -0.5) o.push('Lève-tôt'); return o.join(' · ');
   }
+  /** Vie autonome (mode Dieu) : travail et argent, intention en cours, ce que l'habitant sait et d'où il le tient, relations détaillées. */
+  lifeHtml(c: SimChar) {
+    const w = this.w; const hh = (h: number) => `${Math.floor(h)} h${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+    const job = c.shift ? `${c.job} — ${hh(c.shift.from)}–${hh(c.shift.to)} (${c.shift.place}, ${c.shift.pay} €/jour)${c.away ? ' · <b class="gold">en ce moment : ' + (c.jobPhase === 'searching' ? "cherche du travail" : 'au travail') + '</b>' : ''}` : `${c.job} — pas d'emploi fixe${c.jobPhase === 'searching' ? ' · <b class="gold">cherche du travail</b>' : ''}`;
+    const I: Record<string, string> = { help: 'aider', confront: 'confronter', tell: 'raconter ce qu\'il sait à', apologize: "s'excuser auprès de", steal: 'voler' };
+    const it = c.intent ? `${I[c.intent.kind]} ${w.chars[c.intent.target]?.first ?? '?'}` : c.outing === 'bar' ? 'passe la soirée au bar' : '—';
+    const ks = Object.entries(c.known).map(([id, k]) => ({ ev: w.events.find((e) => e.id === Number(id)), k })).filter((x) => x.ev).sort((a, b) => b.k.t - a.k.t).slice(0, 5);
+    const nm = (i: number) => (i >= 0 ? (w.chars[i].kind === 'avatar' ? "l'étranger" : w.chars[i].first) : '?');
+    const rels = w.residents.filter((o) => o.id !== c.id).map((o) => ({ o, r: w.getRel(c.id, o.id) })).sort((a, b) => Life.hostility(b.r) - Life.hostility(a.r) || b.r.trust - a.r.trust);
+    const top = [...rels.slice(0, 2), ...rels.slice(-2)].filter((x, i, a) => a.findIndex((y) => y.o.id === x.o.id) === i);
+    return `<div class="sec">Vie</div><div class="small">Travail : ${job}<br>Argent : <b class="gold">${Math.round(c.money)} €</b><br>Intention : ${I ? it : ''}</div>
+      <div class="sec">Ce qu'il sait</div><div class="small">${ks.length ? ks.map(({ ev, k }) => `<div><span class="gold">[${Life.sourceFr(k.src)} ${Math.round(k.conf * 100)} %]</span> ${ev!.kind === 'theft' ? `vol de ${nm(ev!.target)}` : ev!.kind === 'dispute' ? `dispute ${nm(ev!.actor)}–${nm(ev!.target)}` : ev!.kind === 'help' ? `${nm(ev!.actor)} a aidé ${nm(ev!.target)}` : ev!.kind === 'job' ? `${nm(ev!.actor)} a trouvé du travail` : 'réconciliation'}${k.culprit >= 0 && ev!.kind === 'theft' ? ` — auteur : <b>${nm(k.culprit)}</b>` : ev!.kind === 'theft' ? ' — auteur inconnu' : ''}${k.from >= 0 ? ` <span class="dim">(par ${nm(k.from)})</span>` : ''}</div>`).join('') : '<span class="dim">Rien de marquant.</span>'}</div>
+      <div class="sec">Confiance · peur · respect · hostilité</div><div class="small">${top.map(({ o, r }) => `<div>${o.first} <span class="dim">conf.</span> ${Math.round(r.trust)} <span class="dim">peur</span> ${Math.round(r.fear)} <span class="dim">resp.</span> ${Math.round(r.resp)} <span class="dim">host.</span> <span style="color:${Life.hostility(r) > 40 ? '#ff8a8a' : '#c4cad8'}">${Math.round(Life.hostility(r))}</span></div>`).join('')}</div>`;
+  }
   renderPanel(c: SimChar) {
     const w = this.w; const bar = (v: number, col: string) => `<div class="bar" style="flex:1"><i style="width:${v}%;background:${col}"></i></div>`; const ico = emotionIcon(c.emotion);
     const prefs = Object.entries(c.pref); const likes = prefs.filter((p) => p[1] >= 3).sort((a, b) => b[1] - a[1]).slice(0, 3).map((p) => actLabel(p[0]).toLowerCase()); const dis = prefs.filter((p) => p[1] <= -3).sort((a, b) => a[1] - b[1]).slice(0, 3).map((p) => actLabel(p[0]).toLowerCase());
@@ -181,9 +196,10 @@ export class Hud {
       <div class="sec">Besoins</div>${NEEDS.map((n) => `<div class="need"><span>${NEED_LABEL[n]}</span>${bar(c.needs[n], needCol(c.needs[n]))}</div>`).join('')}
       <div class="need"><span>Humeur</span>${bar((c.mood + 100) / 2, moodCol(c.mood))}</div><div class="need"><span>Foi en Dieu</span>${bar(c.faith, '#fccd5c')}</div>
       <div class="sec">Objectif</div><div class="small">${c.goal.done ? '[Accompli] ' : ''}${esc(goalText(c))}</div>
+      ${this.lifeHtml(c)}
       <div class="sec">Relation avec vous</div><div class="small">Son avis sur vous : <b>${relationLabelToPlayer(w, c)}</b> <span class="dim">(${Math.round(w.getRel(c.id, w.avatar.id).aff)})</span></div>
       <div class="sec">Relations</div><div class="small">${rels.map(({ o, r }) => `<div><span style="color:${r.aff > 25 ? '#7fd99a' : r.aff < -15 ? '#ff8a8a' : '#c4cad8'}">${o.first}</span> ${o.kind === 'resident' ? w.relLabel(c.id, o.id) : o.kind === 'avatar' ? 'Son avis sur vous : ' + relationLabelToPlayer(w, c) : 'Barman'} <span class="dim">(${r.aff >= 0 ? '+' : ''}${Math.round(r.aff)})</span></div>`).join('')}</div>
-      <div class="sec">Souvenirs récents</div><div class="small">${mems.length ? mems.map((m) => { const t = Math.floor(m.t) % 1440; return `<div><span class="dim">J${Math.floor(m.t / 1440) + 1} ${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}</span> <span style="color:${m.v > 0.15 ? '#7fd99a' : m.v < -0.15 ? '#ff8a8a' : '#c4cad8'}">${esc(m.text)}</span></div>`; }).join('') : '<span class="dim">Rien de marquant pour l\'instant.</span>'}</div>`;
+      <div class="sec">Souvenirs récents</div><div class="small">${mems.length ? mems.map((m) => { const t = Math.floor(m.t) % 1440; const tag = m.src ? `<span class="gold">[${Life.sourceFr(m.src)}${m.conf !== undefined && m.conf < 1 ? ' ' + Math.round(m.conf * 100) + ' %' : ''}]</span> ` : ''; return `<div>${tag}<span class="dim">J${Math.floor(m.t / 1440) + 1} ${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}</span> <span style="color:${m.v > 0.15 ? '#7fd99a' : m.v < -0.15 ? '#ff8a8a' : '#c4cad8'}">${esc(m.text)}</span></div>`; }).join('') : '<span class="dim">Rien de marquant pour l\'instant.</span>'}</div>`;
     const partB = `<div class="sec">Secret</div><div class="small dim">${c.faith >= 55 ? esc(c.secret) : "Cet habitant ne vous fait pas encore assez confiance pour vous confier ses secrets. (Foi ≥ 55)"}</div>`;
     if (this.panelFor !== c.id || !this.el.charp.querySelector('#cpA')) { this.panelFor = c.id; this.el.charp.innerHTML = '<div id="cpA"></div><div class="sec">Décision <button class="btn" id="dgb" style="padding:1px 7px;min-height:20px;font-size:11px"></button></div><div id="cpD"></div><div id="cpB"></div>'; const d0 = this.el.charp.querySelector('#dgb') as HTMLElement; d0.onclick = () => { this.diagOpen = !this.diagOpen; this.acc = 1; }; }
     (this.el.charp.querySelector('#cpA') as HTMLElement).innerHTML = partA; (this.el.charp.querySelector('#cpD') as HTMLElement).innerHTML = this.diagOpen ? this.diagHtml(c) : ''; (this.el.charp.querySelector('#cpB') as HTMLElement).innerHTML = partB; (this.el.charp.querySelector('#dgb') as HTMLElement).textContent = this.diagOpen ? 'masquer' : 'pourquoi ?';

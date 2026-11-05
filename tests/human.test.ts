@@ -147,8 +147,10 @@ describe('persistance : mêmes données dans les deux modes', () => {
     expect(a2.money).toBe(123); expect(a2.inventory.chips).toBe(4); expect(Math.round(a2.drunk)).toBe(33); expect(w2.knownSecrets).toEqual([3]); expect(w2.getRel(0, a2.id).aff).toBe(41);
     expect(w2.barman!.away).toBe(w.barman!.away);
   });
-  it('les habitants ne sortent pas au hasard dans la rue ni au bar (Phase A)', () => {
-    const w = mk(3); let out = 0; for (let i = 0; i < 17280; i++) { w.tick(0.25); for (const c of w.residents) if (['s', 'r', 'g', 'B', 'R'].includes(w.roomOf(c.pos))) out++; } expect(out).toBe(0);
+  it('les habitants ne sortent que pour une raison (travail, sortie au bar, retour) : jamais de flânerie au hasard dans la rue (Phase A, mise à jour LIVING NORIA)', () => {
+    const w = mk(3); let strays = 0, outTicks = 0;
+    for (let i = 0; i < 17280; i++) { w.tick(0.25); for (const c of w.residents) if (!c.away && ['s', 'r', 'g', 'B', 'R'].includes(w.roomOf(c.pos))) { outTicks++; if (c.outing !== 'bar' && c.state === 'idle') strays++; } }
+    expect(strays).toBe(0); expect(outTicks).toBeGreaterThan(0); // ils sortent bien (trajets, bar), mais toujours motivés
   });
   it('le monde continue d\'évoluer, avatar contrôlé ou non (3 jours, aucun mur traversé)', () => {
     for (const ctrl of [false, true]) {
