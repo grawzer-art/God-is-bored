@@ -4,6 +4,7 @@ import { LINES_ARGUE, LINES_BAD, LINES_GREAT, LINES_OK } from './social';
 import { roomAt } from './layout';
 import type { SimChar } from './simchar';
 import { dist, type World } from './world';
+import { lineClear, nearestWalkable } from './movement';
 
 export const ITEMS: Record<string, { label: string; hunger?: number; fun?: number; gift: number; desc: string }> = {
   sandwich: { label: 'Sandwich', hunger: 35, gift: 2, desc: 'Un sandwich un peu écrasé.' },
@@ -177,13 +178,13 @@ const FURN_LABELS: Record<string, string> = { snack: 'Fouiller dans le frigo', c
 /** Tout ce que l'avatar peut faire autour de lui, avec distance. */
 export function nearby(w: World, av: SimChar, reach = 1.9): Interactable[] {
   const out: Interactable[] = [];
-  for (const o of w.chars) { if (o.id === av.id || o.away) continue; const d = dist(o.pos, av.pos); if (d <= reach + (o.kind === 'staff' ? 0.9 : 0.4)) out.push({ kind: 'npc', label: `Parler à ${o.first}`, d, npc: o }); }
+  for (const o of w.chars) { if (o.id === av.id || o.away) continue; const d = dist(o.pos, av.pos); if (d <= reach + (o.kind === 'staff' ? 0.9 : 0.4) && lineClear(av.pos, o.pos)) out.push({ kind: 'npc', label: `Parler à ${o.first}`, d, npc: o }); }
   for (const f of w.furn) f.slots.forEach((slot, si) => {
     if (f.users[si] !== -1) return;
     for (const tag of slot.tags) {
       const act = FURN_ACTS[tag]; if (!act || !ACT[act]) continue;
       const st = slot.stands.map((s) => ({ x: f.x + s[0], y: f.y + s[1] })).find((c) => w.isWalkable(c)); if (!st) continue;
-      const d = dist({ x: st.x + 0.5, y: st.y + 0.5 }, av.pos); if (d > reach) continue;
+      const d = dist({ x: st.x + 0.5, y: st.y + 0.5 }, av.pos); if (d > reach || !lineClear(av.pos, { x: st.x + 0.5, y: st.y + 0.5 })) continue;
       if (act === 'drink' && f.def !== 'stool') continue;
       out.push({ kind: 'furn', label: FURN_LABELS[tag] ?? ACT[act].label, d, furn: f.i, slot: si, act, stand: st }); break;
     }
@@ -201,3 +202,53 @@ export function useFurniture(w: World, av: SimChar, it: Interactable) {
 export function walkToNpc(w: World, av: SimChar, npc: SimChar) { if (av.state !== 'idle') w.abortPlan(av, 'new'); av.plan = [{ type: 'approach', target: npc.id }]; w.startNextStep(av); }
 export function describeLocation(w: World, c: SimChar) { const r = roomAt(Math.floor(c.pos.x), Math.floor(c.pos.y)); return r; }
 export { NEEDS };
+
+// ---------------------------------------------------------------------------
+// Interaction par toucher : on décrit CE QUI est touché (PNJ, meuble, case), l'interface n'a qu'à exécuter le plan renvoyé.
+// Pensé pour être réutilisé tel quel avec d'autres cibles (bâtiments, véhicules, pouvoirs divins) : il suffit d'ajouter un `kind`.
+export type TapTarget = { npc?: number; furn?: number; cell?: V2 };
+export type TapPlan =
+  | { kind: 'none'; msg: string }
+  | { kind: 'walk'; cell: V2 }
+  | { kind: 'talk'; npc: SimChar }
+  | { kind: 'approach'; npc: SimChar }
+  | { kind: 'use'; item: Interactable }
+  | { kind: 'menu'; items: Interactable[] };
+
+/** Toutes les actions réellement implémentées pour un meuble donné, où que se trouve le joueur (la marche est gérée par le plan). */
+export function furnitureOptions(w: World, furnIdx: number): Interactable[] {
+  const f = w.furn[furnIdx]; const out: Interactable[] = []; if (!f) return out;
+  f.slots.forEach((slot, si) => {
+    if (f.users[si] !== -1) return;
+    for (const tag of slot.tags) {
+      const act = FURN_ACTS[tag]; if (!act || !ACT[act]) continue;
+      if (act === 'drink' && f.def !== 'stool') continue;
+      const st = slot.stands.map((s) => ({ x: f.x + s[0], y: f.y + s[1] })).find((c) => w.isWalkable(c)); if (!st) continue;
+      out.push({ kind: 'furn', label: FURN_LABELS[tag] ?? ACT[act].label, d: 0, furn: f.i, slot: si, act, stand: st });
+    }
+  });
+  return out;
+}
+/** Décide quoi faire d'un toucher dans le monde. Aucune interaction n'est déclenchée à distance ni à travers un mur. */
+export function planTap(w: World, av: SimChar, t: TapTarget): TapPlan {
+  if (t.npc !== undefined && t.npc !== av.id) {
+    const npc = w.chars[t.npc]; if (!npc || npc.away) return { kind: 'none', msg: 'Personne ici.' };
+    const near = dist(npc.pos, av.pos) <= (npc.kind === 'staff' ? 2.6 : 1.9) && lineClear(av.pos, npc.pos);
+    if (near) return { kind: 'talk', npc };
+    return { kind: 'approach', npc };
+  }
+  if (t.furn !== undefined) {
+    const opts = furnitureOptions(w, t.furn);
+    if (opts.length === 0) return { kind: 'none', msg: w.furn[t.furn]?.def ? 'Rien à faire avec ça.' : '' };
+    const reachable = opts.filter((o) => w.pathTo(av.pos, o.stand!).length > 0 || (Math.floor(av.pos.x) === o.stand!.x && Math.floor(av.pos.y) === o.stand!.y));
+    if (reachable.length === 0) return { kind: 'none', msg: "Impossible d'y accéder." };
+    return reachable.length === 1 ? { kind: 'use', item: reachable[0] } : { kind: 'menu', items: reachable };
+  }
+  if (t.cell) {
+    let c = t.cell; if (!w.isWalkable(c)) c = nearestWalkable(w, c, 2);
+    if (c.x < 0) return { kind: 'none', msg: '' };
+    if (w.pathTo(av.pos, c).length === 0 && !(Math.floor(av.pos.x) === c.x && Math.floor(av.pos.y) === c.y)) return { kind: 'none', msg: "Impossible d'y aller." };
+    return { kind: 'walk', cell: c };
+  }
+  return { kind: 'none', msg: '' };
+}

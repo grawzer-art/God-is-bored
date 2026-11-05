@@ -7,6 +7,7 @@ import { SimChar, type Step } from './simchar';
 import { AStar } from './astar';
 import * as Brain from './brain';
 import * as Social from './social';
+import { lineClear, screenDirToGrid, smoothPath, stepBody } from './movement';
 
 export interface Furn { i: number; def: string; x: number; y: number; w: number; d: number; opts: L.FurnPlacement['opts']; id: string; users: number[]; on: boolean; water: number; slots: SlotDef[]; blocks: boolean; flat: boolean }
 export interface Mess { id: number; kind: string; pos: V2; elev: number; t: number }
@@ -26,7 +27,7 @@ export class World {
   godEnergy = 60; ennui = 30;
   journal: LogEntry[] = []; stats: Record<string, number> = {}; lastDay = 1; ambTimer = 0;
   /** Entrées du joueur (mode humain) : direction -1..1, course. Posées par l'interface à chaque image. */
-  input = { dx: 0, dy: 0, run: false }; avatarControlled = false;
+  input: { dx: number; dy: number; run: boolean; mag?: number } = { dx: 0, dy: 0, run: false }; avatarControlled = false;
   onAvatarArrive: ((npc: SimChar) => void) | null = null;
   listeners: { log: ((e: LogEntry) => void)[]; emote: ((cid: number, icon: string) => void)[] } = { log: [], emote: [] };
 
@@ -282,18 +283,18 @@ export class World {
       case 'idle': break;
     }
   }
-  /** Déplacement libre au clavier avec collisions (glisse le long des murs). */
+  /** Déplacement libre (clavier ou joystick analogique `input.mag` 0..1) avec collisions : glisse le long des murs, ne chevauche pas les autres personnages. */
   moveAvatar(c: SimChar, dt: number) {
-    let { dx, dy } = this.input; const n = Math.hypot(dx, dy); if (n === 0) return;
-    // l'écran est isométrique : haut = (-1,-1) en grille, droite = (+1,-1)
-    const gx = (dx + dy) / n, gy = (dy - dx) / n; const g2 = Math.hypot(gx, gy) || 1;
-    let sp = (this.input.run ? 3.1 : 2.1) * (c.drunk > 40 ? 0.8 : 1); const wob = c.drunk > 35 ? Math.sin(this.clock * 4) * 0.35 * (c.drunk / 100) : 0;
-    const vx = (gx / g2) * sp * dt, vy = (gy / g2) * sp * dt; const px = vx - vy * wob, py = vy + vx * wob;
-    const free = (x: number, y: number) => { const r = 0.2; for (const [ox, oy] of [[-r, -r], [r, -r], [-r, r], [r, r]]) if (!this.isWalkable({ x: Math.floor(x + ox), y: Math.floor(y + oy) })) return false; return true; };
-    const nx = c.pos.x + px, ny = c.pos.y + py;
-    if (free(nx, ny)) c.pos = { x: nx, y: ny }; else if (free(nx, c.pos.y)) c.pos = { x: nx, y: c.pos.y }; else if (free(c.pos.x, ny)) c.pos = { x: c.pos.x, y: ny };
+    const { dx, dy } = this.input; const n = Math.hypot(dx, dy); if (n === 0) return;
+    const g = screenDirToGrid(dx, dy); const mag = Math.max(0.25, Math.min(1, this.input.mag ?? 1));
+    const sp = this.avatarSpeed() * mag; const wob = c.drunk > 35 ? Math.sin(this.clock * 4) * 0.35 * (c.drunk / 100) : 0;
+    const vx = g.x * sp * dt, vy = g.y * sp * dt; const px = vx - vy * wob, py = vy + vx * wob;
+    const others = this.chars.filter((o) => o.id !== c.id && !o.away && o.state !== 'enter').map((o) => o.pos);
+    c.pos = stepBody(this, c.pos, px, py, others);
     c.facing = this.dirFrom({ x: px, y: py }, c.facing); c.pose = 'walk'; c.action_text = 'Se déplace';
   }
+  /** Vitesse de marche du joueur (case/s) : marche, course, ivresse. Identique au joystick et au déplacement automatique. */
+  avatarSpeed() { const av = this.avatar; return (this.input.run ? 3.1 : 2.1) * (av.drunk > 40 ? 0.8 : 1); }
   // ---------------------------------------------------------------- employé (barman)
   private updateStaff(c: SimChar, dt: number, dmin: number) {
     const open = this.barOpen(); const post = { x: 36, y: 10 };
@@ -347,7 +348,7 @@ export class World {
     const p = this.pathTo(c.pos, cell);
     if (p.length === 0) { this.stats.path_fail = (this.stats.path_fail ?? 0) + 1; this.abortPlan(c, 'no path'); return; }
     if (p.length > 1) p.shift();
-    c.path = p; c.path_i = 0; c.path_goal = cell; c.state = 'walk'; c.stuck_t = 0;
+    c.path = c.kind === 'avatar' ? smoothPath(this, c.pos, p) : p; c.path_i = 0; c.path_goal = cell; c.state = 'walk'; c.stuck_t = 0;
   }
   private doWalk(c: SimChar, dt: number) {
     c.pose = 'walk';
@@ -356,7 +357,7 @@ export class World {
       st.recheck = (st.recheck ?? 0) - dt;
       const t = this.chars[st.target!];
       if (!Social.canBeApproached(this, t) || this.clock - (st.t0 ?? 0) > 90) { this.abortPlan(c, 'target gone'); c.last_chat = this.clock - 30; return; }
-      if (dist(c.pos, t.pos) <= (t.kind === 'staff' ? 2.6 : 1.45)) { if (c.kind === 'avatar') { this.abortPlan(c, 'arrived'); c.facing = this.dirFrom({ x: t.pos.x - c.pos.x, y: t.pos.y - c.pos.y }, c.facing); this.onAvatarArrive?.(t); } else Social.beginChat(this, c, t); return; }
+      if (dist(c.pos, t.pos) <= (t.kind === 'staff' ? 2.6 : 1.45) && (c.kind !== 'avatar' || lineClear(c.pos, t.pos))) { if (c.kind === 'avatar') { this.abortPlan(c, 'arrived'); c.facing = this.dirFrom({ x: t.pos.x - c.pos.x, y: t.pos.y - c.pos.y }, c.facing); this.onAvatarArrive?.(t); } else Social.beginChat(this, c, t); return; }
       if (st.recheck! <= 0) {
         st.recheck = 0.7; const cell = Social.approachCell(this, c, t);
         if (cell.x >= 0 && (cell.x !== c.path_goal.x || cell.y !== c.path_goal.y)) {
@@ -367,7 +368,7 @@ export class World {
     }
     if (c.path_i >= c.path.length) { this.finishWalk(c); return; }
     const target = c.path[c.path_i];
-    const d = { x: target.x - c.pos.x, y: target.y - c.pos.y }; const dd = Math.hypot(d.x, d.y); const move = c.speed * dt;
+    const d = { x: target.x - c.pos.x, y: target.y - c.pos.y }; const dd = Math.hypot(d.x, d.y); const move = (c.kind === 'avatar' ? this.avatarSpeed() : c.speed) * dt;
     if (dd > 0.001) c.facing = this.dirFrom(d, c.facing);
     const k = Math.min(dd, 0.6) / Math.max(dd, 0.001);
     const ahead = { x: c.pos.x + d.x * k, y: c.pos.y + d.y * k };
@@ -394,7 +395,7 @@ export class World {
   private finishWalk(c: SimChar) {
     if (c.step && c.step.type === 'approach') {
       const t = this.chars[c.step.target!];
-      if (dist(c.pos, t.pos) <= (t.kind === 'staff' ? 2.6 : 1.9)) { if (c.kind === 'avatar') { this.abortPlan(c, 'arrived'); this.onAvatarArrive?.(t); } else Social.beginChat(this, c, t); } else this.abortPlan(c, 'approach failed');
+      if (dist(c.pos, t.pos) <= (t.kind === 'staff' ? 2.6 : 1.9) && (c.kind !== 'avatar' || lineClear(c.pos, t.pos))) { if (c.kind === 'avatar') { this.abortPlan(c, 'arrived'); this.onAvatarArrive?.(t); } else Social.beginChat(this, c, t); } else this.abortPlan(c, 'approach failed');
       return;
     }
     this.startNextStep(c);

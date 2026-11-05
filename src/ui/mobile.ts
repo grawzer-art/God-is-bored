@@ -3,6 +3,7 @@
 import type { GameScene } from '../view/scene';
 import type { Hud } from './hud';
 import * as God from '../sim/god';
+import * as Act from '../sim/interact';
 import { EMOTIONS, ROOM_NAMES } from '../sim/defs';
 import { emotionIcon } from '../sim/world';
 import { iconCanvas } from '../art/core';
@@ -24,15 +25,18 @@ const CSS = `
 #mtr{right:calc(var(--sr) + 8px);top:calc(var(--st) + 6px);display:flex;gap:6px}
 #mtr .mbtn.mode{min-width:72px;font-weight:600;letter-spacing:.04em}
 #mtr .mbtn.mode.human{background:rgba(250,205,92,.3);border-color:#fccd5c;color:#fff}
-#dpad{left:calc(var(--sl) + 18px);bottom:calc(var(--sb) + 14px);width:132px;height:132px}
-#dpad::before{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,rgba(12,14,22,.35) 0 38%,rgba(12,14,22,.12) 70%,transparent 72%);pointer-events:none}
-#dpad i{position:absolute;width:44px;height:44px;border-radius:10px;background:rgba(12,14,22,.72);border:1px solid rgba(255,255,255,.2);display:grid;place-items:center;pointer-events:none}
-#dpad i::after{content:"";border:7px solid transparent;border-bottom:11px solid #e6e9f2;border-top:0;display:block}
-#dpad i.u{left:44px;top:0} #dpad i.d{left:44px;bottom:0;transform:rotate(180deg)} #dpad i.l{left:0;top:44px;transform:rotate(-90deg)} #dpad i.r{right:0;top:44px;transform:rotate(90deg)}
-#dpad i.on{background:rgba(250,205,92,.5);border-color:#fccd5c;transform-origin:center}
-#dpad i.on.d{transform:rotate(180deg) scale(.94)} #dpad i.on.l{transform:rotate(-90deg) scale(.94)} #dpad i.on.r{transform:rotate(90deg) scale(.94)} #dpad i.on.u{transform:scale(.94)}
+#dpad{left:calc(var(--sl) + 22px);bottom:calc(var(--sb) + 16px);width:128px;height:128px;opacity:.62;transition:opacity .15s;touch-action:none}
+#dpad.on{opacity:.95}
+#dpad .jbase{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,rgba(12,14,22,.28) 0 55%,rgba(12,14,22,.5) 100%);border:2px solid rgba(255,255,255,.26);pointer-events:none}
+#dpad .jbase::before,#dpad .jbase::after{content:"";position:absolute;left:50%;top:50%;background:rgba(255,255,255,.14);transform:translate(-50%,-50%)}
+#dpad .jbase::before{width:2px;height:70%} #dpad .jbase::after{width:70%;height:2px}
+#dpad .jknob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:radial-gradient(circle at 40% 35%,rgba(255,255,255,.7),rgba(190,200,225,.45));border:2px solid rgba(255,255,255,.55);pointer-events:none;will-change:transform}
+#dpad.on .jknob{background:radial-gradient(circle at 40% 35%,rgba(255,236,170,.9),rgba(250,205,92,.6));border-color:#fccd5c}
 #abtn,#bbtn{width:64px;height:64px;border-radius:50%;font-size:24px;font-weight:700;display:grid;place-items:center;color:#fff;background:rgba(12,14,22,.78);border:2px solid rgba(255,255,255,.28);touch-action:none}
 #abtn{right:calc(var(--sr) + 18px);bottom:calc(var(--sb) + 40px);border-color:#fccd5c;color:#fccd5c} #bbtn{right:calc(var(--sr) + 92px);bottom:calc(var(--sb) + 14px)}
+#abtn.rdy{box-shadow:0 0 0 3px rgba(250,205,92,.35),0 0 14px rgba(250,205,92,.5)}
+#abtn,#bbtn{opacity:.78} #abtn.on,#bbtn.on{opacity:1}
+#ui.human #mspeed{display:none}
 #abtn.on,#bbtn.on{background:rgba(250,205,92,.55);transform:scale(.92);color:#10131c}
 #abtn small,#bbtn small{position:absolute;bottom:-15px;font-size:10px;font-weight:600;color:#e6e9f2;text-shadow:0 0 3px #000,0 0 3px #000;white-space:nowrap;letter-spacing:.03em}
 #qcard{left:50%;transform:translateX(-50%);top:calc(var(--st) + 6px);display:none;align-items:center;gap:8px;padding:5px 8px;max-width:min(430px,calc(100vw - 260px))}
@@ -65,14 +69,14 @@ const later = (() => { const ch = new MessageChannel(); const q: (() => void)[] 
 const SPEEDS_LABEL = ['II', '1x', '3x', '8x'];
 
 export class MobileUi {
-  active = false; el: Record<string, HTMLElement> = {}; ptrDirs = new Map<number, Set<string>>(); lastDirs = new Set<string>(); sheet = ''; acc = 0; lastPower = '';
+  active = false; el: Record<string, HTMLElement> = {}; sheet = ''; acc = 0; lastPower = '';
   constructor(public g: GameScene, public hud: Hud) {
     const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
     const p = g.params.get('safe'); if (p) { const [l, t, r, b] = p.split(',').map(Number); const s = document.documentElement.style; s.setProperty('--safe-l', (l || 0) + 'px'); s.setProperty('--safe-t', (t || 0) + 'px'); s.setProperty('--safe-r', (r || 0) + 'px'); s.setProperty('--safe-b', (b || 0) + 'px'); }
     const root = hud.root; const add = (id: string, cls: string, html = '') => { const d = document.createElement('div'); d.id = id; d.className = cls; d.innerHTML = html; root.appendChild(d); this.el[id] = d; return d; };
     add('mtl', 'mob pill', '<b id="mclock">J1 07:00</b><button class="mbtn" id="mspeed">1x</button>');
     add('mtr', 'mob', '<button class="mbtn mode" id="mmode">DIEU</button><button class="mbtn" id="mmenu" aria-label="Menu">Menu</button>');
-    add('dpad', 'mob', '<i class="u"></i><i class="d"></i><i class="l"></i><i class="r"></i>');
+    add('dpad', 'mob', '<div class="jbase"></div><div class="jknob"></div>');
     add('abtn', 'mob', 'A<small id="alab"></small>'); add('bbtn', 'mob', 'B<small id="blab"></small>');
     add('qcard', 'mob pill'); add('msheet', 'mob panel scroll'); add('fclose', 'mob', '<button class="mbtn" id="fx">Fermer</button>'); add('mhud', 'mob pill');
     const rot = document.createElement('div'); rot.id = 'rotate'; rot.innerHTML = '<div class="ph"></div><b style="font-size:18px;color:#fccd5c">Tournez votre iPhone</b><div class="dim" style="font-size:13px;max-width:280px">GOD IS BORED se joue en paysage. Verrouillez la rotation de l\'écran dans le centre de contrôle si elle ne suit pas.</div>'; root.appendChild(rot);
@@ -114,18 +118,19 @@ export class MobileUi {
     if (this.active && !was) { this.g.fitCamera(); try { (screen.orientation as any)?.lock?.('landscape').catch(() => {}); } catch { /* Safari : verrouillage non garanti */ } }
     if (this.active) { this.updateLabels(); this.hud.onMode(this.g.mode); }
   }
-  // ---- croix directionnelle (glisser le pouce possible ; plusieurs doigts = directions cumulées)
+  // ---- joystick virtuel analogique (toutes directions, vitesse proportionnelle à l'inclinaison ; un seul doigt, les autres boutons restent libres)
   private bindDpad() {
-    const pad = this.el.dpad; const arms: Record<string, HTMLElement> = { up: pad.querySelector('.u')!, down: pad.querySelector('.d')!, left: pad.querySelector('.l')!, right: pad.querySelector('.r')! };
-    const dirsAt = (e: PointerEvent) => { const rc = pad.getBoundingClientRect(); const vx = (e.clientX - rc.left - rc.width / 2) / (rc.width / 2), vy = (e.clientY - rc.top - rc.height / 2) / (rc.height / 2); const s = new Set<string>(); if (vy < -0.32) s.add('up'); if (vy > 0.32) s.add('down'); if (vx < -0.32) s.add('left'); if (vx > 0.32) s.add('right'); return s; };
-    const apply = () => {
-      const all = new Set<string>(); this.ptrDirs.forEach((s) => s.forEach((d) => all.add(d)));
-      for (const d of ['up', 'down', 'left', 'right']) { const was = this.lastDirs.has(d), now = all.has(d); if (was !== now) this.g.setVirtualKey('arrow' + d, now); arms[d].classList.toggle('on', now); }
-      this.lastDirs = all;
+    const pad = this.el.dpad; const knob = pad.querySelector<HTMLElement>('.jknob')!; let id = -1; const DEAD = 0.12;
+    const upd = (e: PointerEvent) => {
+      const rc = pad.getBoundingClientRect(); const R = rc.width / 2; let vx = (e.clientX - rc.left - R) / R, vy = (e.clientY - rc.top - R) / R; const len = Math.hypot(vx, vy);
+      if (len > 1) { vx /= len; vy /= len; }
+      const m = Math.min(1, len); const mag = m < DEAD ? 0 : (m - DEAD) / (1 - DEAD);
+      knob.style.transform = `translate(${vx * R * 0.62}px,${vy * R * 0.62}px)`;
+      if (mag === 0) this.g.setAnalog(0, 0, 0); else { const l = Math.hypot(vx, vy) || 1; this.g.setAnalog(vx / l, vy / l, mag); }
     };
-    pad.addEventListener('pointerdown', (e) => { e.preventDefault(); pad.setPointerCapture(e.pointerId); this.ptrDirs.set(e.pointerId, dirsAt(e)); apply(); });
-    pad.addEventListener('pointermove', (e) => { if (this.ptrDirs.has(e.pointerId)) { this.ptrDirs.set(e.pointerId, dirsAt(e)); apply(); } });
-    const end = (e: PointerEvent) => { if (this.ptrDirs.delete(e.pointerId)) apply(); };
+    const end = (e: PointerEvent) => { if (e.pointerId !== id) return; id = -1; pad.classList.remove('on'); knob.style.transform = ''; this.g.setAnalog(0, 0, 0); };
+    pad.addEventListener('pointerdown', (e) => { if (id >= 0) return; e.preventDefault(); id = e.pointerId; pad.setPointerCapture(id); pad.classList.add('on'); upd(e); });
+    pad.addEventListener('pointermove', (e) => { if (e.pointerId === id) upd(e); });
     pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end); pad.addEventListener('lostpointercapture', end);
   }
   // ---- boutons A / B : appui court et appui long
@@ -192,7 +197,8 @@ export class MobileUi {
   // ---- mise à jour périodique
   updateLabels() {
     const human = this.g.mode === 'human'; const mm = document.getElementById('mmode')!; mm.textContent = human ? 'HUMAIN' : 'DIEU'; mm.classList.toggle('human', human);
-    document.getElementById('alab')!.textContent = human ? 'agir' : 'choisir'; document.getElementById('blab')!.textContent = human ? 'inventaire' : 'pouvoirs';
+    let alab = human ? 'agir' : 'choisir'; if (human && !this.g.hud.dialogueOpen()) { const n = Act.nearby(this.g.world, this.g.world.avatar)[0]; if (n) alab = n.kind === 'npc' ? 'parler' : 'utiliser'; }
+    this.el.abtn.classList.toggle('rdy', human && alab !== 'agir'); document.getElementById('alab')!.textContent = alab; document.getElementById('blab')!.textContent = human ? 'inventaire' : 'pouvoirs';
     document.getElementById('mspeed')!.textContent = SPEEDS_LABEL[this.g.speedIndex];
   }
   update(dt: number) {

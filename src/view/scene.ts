@@ -11,6 +11,7 @@ import { Lighting } from './lighting';
 import { cellKey, toGrid, toScreen, zOf } from './iso';
 import { texKey } from './texreg';
 import { Hud } from '../ui/hud';
+import { pickProp } from './picking';
 import * as Act from '../sim/interact';
 
 export const SPEEDS = [0, 1, 3, 8];
@@ -29,6 +30,7 @@ export class GameScene extends Phaser.Scene {
   floorSprite!: Phaser.GameObjects.Image; sunSprite!: Phaser.GameObjects.Image;
   mode: 'god' | 'human' = 'god'; wallMode = 1; speedIndex = 1; selectedId = -1; hoverId = -1; follow = false; autosave = 0; fxT = 0;
   tx = 0; ty = 0; tz = 1; cx = 0; cy = 0; cz = 1; minZoom = 0.35; maxZoom = 3.5; bounds = { x: 0, y: 0, w: 0, h: 0 };
+  analog = { x: 0, y: 0, mag: 0 }; dest: { x: number; y: number; t0: number; fade: number } | null = null;
   keys = new Set<string>(); runLatch = false; params = new URLSearchParams(location.search);
   private pan = { down: false, moved: false, sx: 0, sy: 0, button: 0, t: 0 }; private pinch = 0; private lastClick = { t: 0, id: -1 };
 
@@ -183,11 +185,21 @@ export class GameScene extends Phaser.Scene {
     this.tx = this.cx = r.x + r.w / 2; this.ty = this.cy = r.y + r.h / 2;
     this.cameras.main.setZoom(this.cz).centerOn(this.cx, this.cy);
   }
+  /** Limites du centre de la caméra : la vue reste dans le monde (à une petite marge près) ; si le monde est plus petit que l'écran, la vue est centrée. */
+  camLimits() {
+    const m = this.mapRect(); const hw = this.scale.width / (2 * this.cz), hh = this.scale.height / (2 * this.cz); const mg = 48 / this.cz;
+    let x0 = m.x + hw - mg, x1 = m.x + m.w - hw + mg, y0 = m.y + hh - mg, y1 = m.y + m.h - hh + mg;
+    if (x0 > x1) x0 = x1 = m.x + m.w / 2; if (y0 > y1) y0 = y1 = m.y + m.h / 2;
+    return { x0, x1, y0, y1 };
+  }
+  private clampCam() { const c = this.camLimits(); this.tx = Math.max(c.x0, Math.min(c.x1, this.tx)); this.ty = Math.max(c.y0, Math.min(c.y1, this.ty)); }
   zoomBy(f: number, mx?: number, my?: number) {
     const old = this.tz; this.tz = Math.max(this.minZoom, Math.min(this.maxZoom, this.tz * f));
     if (mx !== undefined && my !== undefined) { const ox = mx - this.scale.width / 2, oy = my - this.scale.height / 2; this.tx += ox * (1 / old - 1 / this.tz); this.ty += oy * (1 / old - 1 / this.tz); }
   }
   screenToWorld(sx: number, sy: number) { const cam = this.cameras.main; return { x: cam.worldView.x + sx / cam.zoom, y: cam.worldView.y + sy / cam.zoom }; }
+  /** Position écran (px) du centre d'une case de la grille (utile aux tests et aux repères d'interface). */
+  cellToScreen(gx: number, gy: number) { const p = toScreen(gx, gy); return this.worldToScreen(p.x, p.y); }
   worldToScreen(wx: number, wy: number) { const cam = this.cameras.main; return { x: (wx - cam.worldView.x) * cam.zoom, y: (wy - cam.worldView.y) * cam.zoom }; }
   focusChar(id: number) { const cv = this.chars[id]; this.tx = cv.x; this.ty = cv.y - 20; this.tz = Math.max(this.tz, 1.4); }
 
@@ -210,7 +222,7 @@ export class GameScene extends Phaser.Scene {
       if (was.moved || was.button !== 0) return;
       const wp = this.screenToWorld(p.x, p.y); const id = this.charAt(wp.x, wp.y); const now = performance.now();
       const dbl = id >= 0 && this.lastClick.id === id && now - this.lastClick.t < 350; this.lastClick = { t: now, id };
-      if (this.mode === 'human') { if (this.hud.dialogueOpen()) return; const av = this.world.avatar.id; if (id >= 0 && id !== av) { const npc = this.world.chars[id]; if (Math.hypot(npc.pos.x - this.world.avatar.pos.x, npc.pos.y - this.world.avatar.pos.y) < 2.0) this.doInteract({ kind: 'npc', label: '', d: 0, npc }); else Act.walkToNpc(this.world, this.world.avatar, npc); } else if (id < 0) this.groundClick(wp.x, wp.y); return; }
+      if (this.mode === 'human') { this.humanTap(wp.x, wp.y); return; }
       this.hud.onWorldClick(id, p.x, p.y); if (dbl && id >= 0) this.selectChar(id, true);
     });
     this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
@@ -243,6 +255,8 @@ export class GameScene extends Phaser.Scene {
     }
   }
   /** Touches virtuelles (croix directionnelle tactile) : mêmes effets que le clavier, appuis simultanés cumulés. */
+  /** Joystick virtuel : vecteur écran (x droite, y bas) de longueur 0..1. Appliqué immédiatement (sans attendre l'image suivante). */
+  setAnalog(x: number, y: number, mag: number) { this.analog = { x, y, mag }; this.syncInput(); }
   setVirtualKey(k: string, down: boolean) { if (down) this.keys.add(k); else this.keys.delete(k); this.syncInput(); }
   /** Bouton A : action principale. Humain : interagir. Dieu : choisir le personnage visé (puis fiche / pouvoir armé). */
   actionA() {
@@ -275,7 +289,8 @@ export class GameScene extends Phaser.Scene {
   syncInput() {
     if (this.mode !== 'human') return; const K = this.keys;
     const ix = (K.has('d') || K.has('arrowright') ? 1 : 0) - (K.has('a') || K.has('q') || K.has('arrowleft') ? 1 : 0); const iy = (K.has('s') || K.has('arrowdown') ? 1 : 0) - (K.has('w') || K.has('z') || K.has('arrowup') ? 1 : 0);
-    this.world.input = this.hud.dialogueOpen() ? { dx: 0, dy: 0, run: false } : { dx: ix, dy: iy, run: K.has('shift') || this.runLatch };
+    const an = this.analog; const useAn = !ix && !iy && an.mag > 0;
+    this.world.input = this.hud.dialogueOpen() ? { dx: 0, dy: 0, run: false } : useAn ? { dx: an.x, dy: an.y, run: this.runLatch, mag: an.mag } : { dx: ix, dy: iy, run: K.has('shift') || this.runLatch, mag: 1 };
   }
   charAt(wx: number, wy: number): number {
     let best = -1, bd = 1e9;
@@ -305,10 +320,31 @@ export class GameScene extends Phaser.Scene {
     const av = this.world.avatar; this.hud.hideContext();
     if (it.kind === 'npc') { av.facing = this.world.dirFrom({ x: it.npc!.pos.x - av.pos.x, y: it.npc!.pos.y - av.pos.y }, av.facing); this.hud.openDialogue(it.npc!); } else Act.useFurniture(this.world, av, it);
   }
-  groundClick(wx: number, wy: number) {
-    const w = this.world; const g = toGrid(wx, wy); const cell = { x: Math.floor(g.x), y: Math.floor(g.y) }; if (!w.isWalkable(cell)) return;
-    const av = w.avatar; if (av.state !== 'idle') w.abortPlan(av, 'click'); av.plan = [{ type: 'goto', cell }]; w.startNextStep(av);
+  /** Toucher en mode humain : PNJ, meuble ou sol. La décision est prise par la simulation (Act.planTap) ; ici on ne fait qu'exécuter. */
+  humanTap(wx: number, wy: number) {
+    if (this.hud.dialogueOpen()) return; this.hud.hideContext();
+    const w = this.world, av = w.avatar; const id = this.charAt(wx, wy); let target: Act.TapTarget;
+    if (id >= 0 && id !== av.id) target = { npc: id };
+    else { const hit = pickProp(this, wx, wy); if (hit.furn !== undefined) target = { furn: hit.furn }; else { const g = toGrid(wx, wy); target = { cell: { x: Math.floor(g.x), y: Math.floor(g.y) } }; } }
+    this.runPlan(Act.planTap(w, av, target));
   }
+  runPlan(plan: Act.TapPlan) {
+    const w = this.world, av = w.avatar;
+    switch (plan.kind) {
+      case 'none': if (plan.msg) this.hud.toast(plan.msg); break;
+      case 'walk': this.walkTo(plan.cell); break;
+      case 'talk': this.doInteract({ kind: 'npc', label: '', d: 0, npc: plan.npc }); break;
+      case 'approach': this.dest = null; Act.walkToNpc(w, av, plan.npc); break;
+      case 'use': this.markDest(plan.item.stand!); this.doInteract(plan.item); break;
+      case 'menu': this.hud.showContext(plan.items); break;
+    }
+  }
+  /** Déplacement automatique vers une case (chemin A*, lissé) avec repère de destination. */
+  walkTo(cell: { x: number; y: number }) {
+    const w = this.world; const av = w.avatar; if (av.state !== 'idle') w.abortPlan(av, 'tap'); av.plan = [{ type: 'goto', cell }]; w.startNextStep(av); this.markDest(cell);
+  }
+  groundClick(wx: number, wy: number) { const g = toGrid(wx, wy); this.runPlan(Act.planTap(this.world, this.world.avatar, { cell: { x: Math.floor(g.x), y: Math.floor(g.y) } })); }
+  markDest(cell: { x: number; y: number }) { this.dest = { x: cell.x + 0.5, y: cell.y + 0.5, t0: this.fxT, fade: 0 }; }
   toggleFollow() { this.follow = !this.follow; this.hud.toast('Caméra : ' + (this.follow ? 'suit le personnage' : 'libre')); }
   setSpeed(i: number) { this.speedIndex = Math.max(0, Math.min(SPEEDS.length - 1, i)); this.hud?.onSpeed(this.speedIndex); }
   saveGame() { const ok = Save.save(this.world); this.hud.toast(ok ? 'Partie sauvegardée' : 'Échec de la sauvegarde'); return ok; }
@@ -338,12 +374,13 @@ export class GameScene extends Phaser.Scene {
       this.syncInput();
     }
     let vx = 0, vy = 0; if (this.mode === 'god') { if (K.has('a') || K.has('q') || K.has('arrowleft')) vx -= 1; if (K.has('d') || K.has('arrowright')) vx += 1; if (K.has('w') || K.has('z') || K.has('arrowup')) vy -= 1; if (K.has('s') || K.has('arrowdown')) vy += 1; }
-    if (vx || vy) { this.follow = false; const n = Math.hypot(vx, vy); this.tx += (vx / n) * 620 * dt / this.cz; this.ty += (vy / n) * 620 * dt / this.cz; }
+    if (this.mode === 'god' && !vx && !vy && this.analog.mag > 0) { vx = this.analog.x * this.analog.mag; vy = this.analog.y * this.analog.mag; }
+    if (vx || vy) { this.follow = false; const n = Math.max(1, Math.hypot(vx, vy)); this.tx += (vx / n) * 620 * dt / this.cz; this.ty += (vy / n) * 620 * dt / this.cz; }
     if (K.has('-')) this.zoomBy(1 - 1.4 * dt); if (K.has('=') || K.has('+') || K.has('e')) this.zoomBy(1 + 1.4 * dt);
     if (this.mode === 'human') { const cv = this.chars[this.world.avatar.id]; this.tx = cv.x; this.ty = cv.y - 24; }
     else if (this.follow && this.selectedId >= 0) { const cv = this.chars[this.selectedId]; this.tx = cv.x; this.ty = cv.y - 20; }
-    this.tx = Math.max(this.bounds.x, Math.min(this.bounds.x + this.bounds.w, this.tx)); this.ty = Math.max(this.bounds.y, Math.min(this.bounds.y + this.bounds.h, this.ty));
-    const k = 1 - Math.exp(-dt * 9); this.cx += (this.tx - this.cx) * k; this.cy += (this.ty - this.cy) * k; this.cz += (this.tz - this.cz) * k;
+    this.clampCam(); const k = 1 - Math.exp(-dt * (this.mode === 'human' ? 8 : 9)); this.cx += (this.tx - this.cx) * k; this.cy += (this.ty - this.cy) * k; this.cz += (this.tz - this.cz) * k;
+    { const c = this.camLimits(); this.cx = Math.max(c.x0, Math.min(c.x1, this.cx)); this.cy = Math.max(c.y0, Math.min(c.y1, this.cy)); }
     const cam = this.cameras.main; cam.setZoom(this.cz); cam.centerOn(Math.round(this.cx * this.cz) / this.cz, Math.round(this.cy * this.cz) / this.cz);
     // vue
     this.syncProps(); this.syncFeast(); this.syncPlants();
@@ -376,6 +413,12 @@ export class GameScene extends Phaser.Scene {
   }
   private drawFx(dt: number) {
     this.fxT += dt; const g = this.fx; g.clear(); const t = this.fxT;
+    { const d = this.dest; // repère de destination : anneau discret qui pulse pendant le trajet, s'efface à l'arrivée ou à l'annulation
+      if (d) {
+        const av = this.world.avatar; const going = av.state === 'walk' || av.plan.length > 0 || (av.state === 'enter');
+        if (!going) d.fade += dt / 0.35; if (d.fade >= 1 || this.mode !== 'human') this.dest = null;
+        else { const p = toScreen(d.x, d.y); const pul = 1 + 0.12 * Math.sin((t - d.t0) * 7); const a = (1 - d.fade) * 0.9; g.lineStyle(2, 0xfccd5c, a); g.strokeEllipse(p.x, p.y, 30 * pul, 15 * pul); g.lineStyle(1, 0xffffff, a * 0.6); g.strokeEllipse(p.x, p.y, 14 * pul, 7 * pul); g.fillStyle(0xfccd5c, a * 0.9); g.fillCircle(p.x, p.y, 2); }
+      } }
     for (const f of this.world.furn) {
       if (f.users.length && f.users[0] === -1) continue;
       if (f.def === 'shower') {
