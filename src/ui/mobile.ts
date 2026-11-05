@@ -60,6 +60,8 @@ const CSS = `
 #ui.mobile .btn{min-height:44px;transition:none}
 `;
 const esc = (s: string) => s.replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } as Record<string, string>)[ch]);
+/** Exécute fn dès la fin de l'événement en cours (tâche immédiate, sans le délai minimal de setTimeout). */
+const later = (() => { const ch = new MessageChannel(); const q: (() => void)[] = []; ch.port1.onmessage = () => q.shift()?.(); return (fn: () => void) => { q.push(fn); ch.port2.postMessage(0); }; })();
 const SPEEDS_LABEL = ['II', '1x', '3x', '8x'];
 
 export class MobileUi {
@@ -97,7 +99,7 @@ export class MobileUi {
     document.addEventListener('pointerup', (e) => {
       const d = down; clear(); if (!d || e.pointerId !== d.id) return;
       if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 24 || d.el.closest('[data-native]') || !d.el.isConnected) return; // data-native : export/import (le sélecteur de fichier exige un vrai « click »)
-      suppress = performance.now() + 700; d.el.click();
+      suppress = performance.now() + 700; later(() => d.el.click()); // après tous les écouteurs de ce pointerup (sinon la scène le recevrait avec l'interface déjà changée)
     }, true);
     document.addEventListener('pointercancel', clear, true);
     document.addEventListener('click', (e) => { if (this.active && e.isTrusted && performance.now() < suppress) { e.stopPropagation(); e.preventDefault(); } }, true);
