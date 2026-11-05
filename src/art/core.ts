@@ -192,6 +192,14 @@ const ART: Record<string, string[]> = {
   sweat: ['....cc....', '...cccc...', '..cwcccc..', '..ccccbc..', '..cccbbc..', '...cbbc...', '....cc....', '..........', '..........', '..........'],
   bubbles: ['..cc......', '.cwcc.cc..', '.cccc.cwc.', '..cc..ccc.', '......cc..', '..cc......', '.cwcc.....', '.cccc.....', '..cc......', '..........'],
   pray: ['....yy....', '...yyyy...', '....yy....', '...wwww...', '..wwwwww..', '..wwwwww..', '...wwww...', '..........', '..........', '..........'],
+  // icônes d'activité (au-dessus de la tête des habitants)
+  tv: ['..........', '.kkkkkkkk.', '.kbbbbbbk.', '.kbcbbbbk.', '.kbbbbbbk.', '.kbbbbbbk.', '.kkkkkkkk.', '...kddk...', '..kkkkkk..', '..........'],
+  book: ['..........', '.nnnnnnn..', '.nrrrrrn..', '.nrwwwrn..', '.nrrrrrn..', '.nrwwwrn..', '.nrrrrrn..', '.nnnnnnn..', '..........', '..........'],
+  pan: ['..........', '..ssss....', '.sddddss..', '.sddddsnnn', '.sddddsnnn', '..ssss....', '..........', '..........', '..........', '..........'],
+  broom: ['......n...', '.....n....', '....n.....', '...n......', '..yyy.....', '.yyyyy....', '.yyyyy....', '.yyyyy....', '..........', '..........'],
+  case: ['..........', '...nnnn...', '..n....n..', '.nnnnnnnn.', '.nnnnnnnn.', '.nnnyynnn.', '.nnnnnnnn.', '.nnnnnnnn.', '..........', '..........'],
+  beer: ['..wwwww...', '.wwwwwww..', '.yyyyyyyy.', '.yyyyyyy.y', '.yyyyyyy.y', '.yyyyyyyy.', '.yyyyyyy..', '.yyyyyyy..', '..........', '..........'],
+  alert: ['....rr....', '....rr....', '....rr....', '....rr....', '....rr....', '..........', '....rr....', '....rr....', '..........', '..........'],
 };
 export const ICON_NAMES = Object.keys(ART);
 const iconCache = new Map<string, HTMLCanvasElement>();

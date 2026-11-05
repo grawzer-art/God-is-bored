@@ -78,7 +78,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const sm = await E(() => window.__gib.world.avatar.money); await tap('#mmenu'); await tap('#msheet [data-k="save"]'); ok(await E(() => localStorage.getItem('god-is-bored:slot1') !== null), 'Menu → Sauvegarder'); const ck = await E(() => window.__gib.world.clock); await E(() => window.__gib.setSpeed(3)); await sleep(1500); await E(() => window.__gib.setSpeed(1));
   await tap('#mmenu'); await tap('#msheet [data-k="load"]'); await sleep(900); ok(Math.abs((await E(() => window.__gib.world.clock)) - ck) < 12 && (await E(() => window.__gib.world.avatar.money)) === sm, 'Menu → Charger : partie restaurée');
   ok(await E(() => document.getElementById('msheet').style.display !== 'block'), 'les feuilles temporaires se referment');
-  await tap('#mspeed'); ok((await E(() => window.__gib.speedIndex)) === 2, 'bouton vitesse compact : 3x');
+  await tap('#mspeed'); ok((await E(() => window.__gib.speedIndex)) === 2, 'bouton vitesse compact : 2x');
   console.log('\n== Erreurs de console'); ok(errs.length === 0, `aucune erreur JS (${errs.length})`); errs.slice(0, 4).forEach((e) => console.log('   ', e));
   await pg.screenshot({ path: 'docs/shots/m_test_end.png' });
   console.log(`\n${n} vérifications, ${fails} échec(s)`); await b.close(); process.exit(fails ? 1 : 0);

@@ -335,7 +335,18 @@ function economy(w: World) {
   }
 }
 /** Une intention importante interrompt l'activité en cours (si elle est interruptible) dès que la cible est disponible : on n'attend pas la fin d'un repas de deux heures pour prévenir un ami. */
+/** L'heure du travail est venue : on quitte une activité interruptible (télé, lecture…) pour partir à l'heure — routine régulière et visible. */
+function workDue(w: World, c: SimChar): boolean {
+  const s = c.shift; if (!s || c.jobPhase !== '' || c.away || c.isAsleep()) return false; const h = w.hour();
+  return (c.stats.worked_day ?? -1) !== w.day() && h >= s.from - 0.4 && h < s.to - 3 && c.needs.energy >= 25 && inBuilding(c, 'house');
+}
 function interrupt(w: World, c: SimChar) {
+  if (workDue(w, c)) {
+    if (c.state === 'use' && ACT[c.use_act]?.interrupt && c.use_act !== 'sleep') { w.endUse(c, false); c.decision_cooldown = 0; }
+    else if (c.state === 'walk' && c.step?.type !== 'approach' && !c.plan.some((x) => x.type === 'depart')) { w.abortPlan(c, 'work'); c.decision_cooldown = 0; }
+    else if (c.state === 'idle') c.decision_cooldown = 0;
+    return;
+  }
   const it = c.intent; if (!it || it.kind === 'steal') return; const t = w.chars[it.target];
   if (!t || t.away || t.isAsleep() || c.needs.hunger < 10 || c.needs.bladder < 10) return;
   if (L.buildingAt(t.cell().x, t.cell().y)?.name !== L.buildingAt(c.cell().x, c.cell().y)?.name) return;
@@ -425,7 +436,8 @@ export function updateAway(w: World, c: SimChar) {
   if (w.clock < c.jobUntil) return;
   c.away = false; const st = w.nearestFreeCell(STREET_IN, 3); c.pos = { x: (st.x >= 0 ? st.x : STREET_IN.x) + 0.5, y: (st.y >= 0 ? st.y : STREET_IN.y) + 0.5 };
   c.state = 'idle'; c.plan = []; c.step = null; c.pose = 'stand'; c.decision_cooldown = 0.3;
-  if (c.jobPhase === 'working' && c.shift) {
+  if (c.jobPhase === 'out') { c.addMemory(w.clock, 'work', 'Journée dehors.', 0, 0.1, -1); }
+  else if (c.jobPhase === 'working' && c.shift) {
     const hours = Math.max(0, (w.clock - c.jobStart) / 60); const pay = Math.round(c.shift.pay * Math.min(1, hours / (c.shift.to - c.shift.from)));
     c.money += pay; c.statAdd('shifts'); c.needs.energy = Math.max(0, c.needs.energy - 6); c.needs.social = Math.min(100, c.needs.social + 15); c.needs.hunger = Math.min(100, c.needs.hunger + 25); // déjeune sur place
     c.addMemory(w.clock, 'work', `Journée de travail à ${c.shift.place} : +${pay} €.`, 0.1, 0.2, -1);

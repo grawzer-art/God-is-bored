@@ -54,13 +54,13 @@ const ok = (c, m) => { n++; if (!c) fails++; console.log(c ? '  [OK]   ' : '  [F
   const tp2 = await G(() => { const g = window.__gib; return g.worldToScreen(g.chars[5].x, g.chars[5].y - 20); }); await pg.touchscreen.tap(tp2.x, tp2.y); await pg.waitForTimeout(400);
   ok((await G(() => window.__gib.selectedId)) === 5, 'toucher un habitant le sélectionne'); void tp;
   console.log('\n== Simulation vivante (30 s à 8x)');
-  await G(() => window.__gib.setSpeed(3)); await pg.waitForTimeout(30000);
+  await G(() => window.__gib.setSpeed(4)); await pg.waitForTimeout(30000);
   const st = await G(() => { const w = window.__gib.world; return { day: w.clock, chats: w.stats.chats || 0, meals: w.chars.reduce((s, c) => s + (c.stats.done_eat || 0) + (c.stats.done_snack || 0), 0), moved: w.chars.filter((c) => (c.stats.act_idle || 0) + (c.stats.act_eat || 0) > 0).length }; });
   ok(st.meals >= 4 && st.chats >= 3, `les habitants vivent (${st.meals} repas, ${st.chats} conversations)`);
   await G(() => window.__gib.setSpeed(1));
   console.log('\n== Sauvegarde / chargement');
   await pg.keyboard.press('F5'); const saved = await G(() => window.__gib.world.clock); ok(await G(() => localStorage.getItem('god-is-bored:slot1') !== null), 'F5 : sauvegarde écrite');
-  await G(() => window.__gib.setSpeed(3)); await pg.waitForTimeout(2500); await G(() => window.__gib.setSpeed(1));
+  await G(() => window.__gib.setSpeed(4)); await pg.waitForTimeout(2500); await G(() => window.__gib.setSpeed(1));
   await pg.keyboard.press('F9'); await pg.waitForTimeout(800); const back = await G(() => window.__gib.world.clock); ok(Math.abs(back - saved) < 10, `F9 : partie rechargée (${back.toFixed(0)} ≈ ${saved.toFixed(0)})`);
   await pg.waitForTimeout(1500); ok((await G(() => window.__gib.world.clock)) > back, 'le jeu continue après chargement');
   await pg.screenshot({ path: 'docs/shots/w03_e2e_end.png' });

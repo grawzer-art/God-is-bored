@@ -70,7 +70,7 @@ describe('2-3. toucher pour se déplacer : traverser une rue, contourner un bât
     expect(Math.hypot(av.pos.x - 20.5, av.pos.y - 19.5)).toBeLessThan(0.6);
   });
   it('aucun calcul de chemin à chaque image', () => {
-    const w = mk(); const av = w.avatar; put(w, av, 4.5, 20.5); let calls = 0; const orig = w.pathTo.bind(w); w.pathTo = (a: any, b: any) => { calls++; return orig(a, b); };
+    const w = mk(); const av = w.avatar; for (const r of w.residents) freeze(r); put(w, av, 4.5, 20.5); let calls = 0; const orig = w.pathTo.bind(w); w.pathTo = (a: any, b: any) => { if (Math.abs(a.x - av.pos.x) < 1e-9 && Math.abs(a.y - av.pos.y) < 1e-9) calls++; return orig(a, b); }; // seuls les calculs partis de la position du joueur comptent
     walkPlan(w, { x: 40, y: 21 }); tick(w, 15); expect(calls).toBeLessThanOrEqual(3);
     w.input = { dx: 1, dy: 0, run: false, mag: 1 }; calls = 0; tick(w, 5); expect(calls).toBe(0);
   });

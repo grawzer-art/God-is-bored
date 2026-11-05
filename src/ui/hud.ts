@@ -10,8 +10,10 @@ import type { SimChar } from '../sim/simchar';
 import { iconCanvas } from '../art/core';
 import { HumanUi, HUMAN_CSS } from './human';
 import { MobileUi } from './mobile';
+import { DemoGuide } from './demoguide';
 import { relationLabelToPlayer } from '../sim/interact';
 import * as Life from '../sim/life';
+import { brief } from '../sim/observe';
 
 const CSS = `
 #ui .panel{pointer-events:auto}
@@ -51,7 +53,7 @@ const needCol = (v: number) => (v > 60 ? '#73cc8c' : v > 30 ? '#f2c761' : '#eb61
 const moodCol = (m: number) => (m > 20 ? '#73d18c' : m > -20 ? '#f2cc66' : '#eb6666');
 
 export class Hud {
-  root = document.getElementById('ui')!; el: Record<string, HTMLElement> = {}; human!: HumanUi; mobile!: MobileUi; modeBtn!: HTMLElement; powerMode = ''; powerFirst = -1; acc = 0; toastT = 0; helpT = 14; selected = -1; feed: { t: number; text: string; kind: string }[] = [];
+  root = document.getElementById('ui')!; el: Record<string, HTMLElement> = {}; demoGuide!: DemoGuide; human!: HumanUi; mobile!: MobileUi; modeBtn!: HTMLElement; powerMode = ''; powerFirst = -1; acc = 0; toastT = 0; helpT = 14; selected = -1; feed: { t: number; text: string; kind: string }[] = [];
   constructor(public g: GameScene) {
     const st = document.createElement('style'); st.textContent = CSS + HUMAN_CSS; document.head.appendChild(st);
     this.root.innerHTML = `
@@ -69,15 +71,15 @@ export class Hud {
         <div style="margin:10px 0;line-height:1.7;font-size:13px"><span class="dim">CAMÉRA</span> molette / pincement : zoom · ZQSD, flèches ou glisser : déplacer · F : suivre<br><span class="dim">SÉLECTION</span> clic sur un habitant ou son portrait · Tab : suivant · double-clic : centrer<br><span class="dim">TEMPS</span> Espace : pause · [ ] : vitesse · V : murs bas / coupés / hauts<br><span class="dim">POUVOIRS</span> 1 Bénédiction · 2 Murmure · 3 Coup du destin (2 clics) · 4 Festin céleste · Échap annule<br><span class="dim">SAUVEGARDE</span> F5 sauvegarder · F9 charger (auto toutes les 2 min)</div>
         <div class="gold" style="font-size:13px">La simulation tourne seule. Votre énergie divine se régénère plus vite quand ils croient en vous — ou prient.</div><div class="row" style="margin-top:12px"><button class="btn" id="go">Commencer</button><span class="dim small">H ou F1 : aide · F3 : performances</span></div></div>`;
     for (const id of ['clock', 'god', 'feed', 'portraits', 'powers', 'charp', 'toast', 'pause', 'fps', 'tag', 'menu', 'help', 'ck', 'ph', 'speeds', 'ge', 'gb', 'fa', 'eb', 'hint', 'pw', 'go']) this.el[id] = document.getElementById(id)!;
-    ['II', '1x', '3x', '8x'].forEach((l, i) => { const b = document.createElement('button'); b.className = 'btn'; b.textContent = l; b.onclick = () => g.setSpeed(i); this.el.speeds.appendChild(b); });
+    ['II', '1x', '2x', '3x', '8x'].forEach((l, i) => { const b = document.createElement('button'); b.className = 'btn'; b.textContent = l; b.onclick = () => g.setSpeed(i); this.el.speeds.appendChild(b); });
     const mk = (label: string, fn: () => void, tip = '') => { const b = document.createElement('button'); b.className = 'btn'; b.textContent = label; b.title = tip; b.onclick = fn; this.el.speeds.appendChild(b); };
     mk('Descendre (G)', () => g.toggleMode(), 'Incarner un humain / redevenir dieu'); this.modeBtn = this.el.speeds.lastElementChild as HTMLElement;
     mk('Maison', () => g.focusZone('house')); mk('Bar', () => g.focusZone('bar')); mk('Rue', () => g.focusZone('street'));
-    mk('Murs', () => { const m = g.cycleWalls(); this.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); }, 'V'); mk('Sauver', () => g.saveGame(), 'F5'); mk('Charger', () => g.loadGame(), 'F9'); mk('Démo NORIA', () => g.startDemo(), 'Situation de départ : vol, témoin, rumeur, confrontation'); mk('Exporter', () => g.exportGame(), 'Fichier JSON'); mk('Importer', () => g.importGame(), 'Fichier JSON');
+    mk('Murs', () => { const m = g.cycleWalls(); this.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); }, 'V'); mk('Sauver', () => g.saveGame(), 'F5'); mk('Charger', () => g.loadGame(), 'F9'); mk('Démo vivante', () => g.startTrio(), 'Trois habitants : routine, besoin urgent, interaction spontanée'); mk('Démo vol', () => g.startDemo(), 'Situation de départ : vol, témoin, rumeur, confrontation'); mk('Exporter', () => g.exportGame(), 'Fichier JSON'); mk('Importer', () => g.importGame(), 'Fichier JSON');
     for (const [id, d] of Object.entries(God.POWERS)) { const b = document.createElement('button'); b.className = 'btn'; b.style.flex = '1'; b.textContent = `${d.key} ${d.label} (${d.cost})`; b.title = d.desc; b.dataset.id = id; b.onclick = () => this.pickPower(id); this.el.pw.appendChild(b); }
     this.el.go.onclick = () => { this.el.help.style.display = 'none'; this.helpT = 1e9; };
     if (g.params.has('nohelp')) this.el.help.style.display = 'none';
-    this.buildPortraits(); this.human = new HumanUi(g, this.root); this.mobile = new MobileUi(g, this); if (this.mobile.active) { this.el.help.style.display = 'none'; this.helpT = 1e9; this.toast('Croix : caméra · A : choisir · B : pouvoirs · Menu : le reste'); } this.rebind(); this.onSpeed(g.speedIndex);
+    this.buildPortraits(); this.demoGuide = new DemoGuide(g, this.root); this.human = new HumanUi(g, this.root); this.mobile = new MobileUi(g, this); if (this.mobile.active) { this.el.help.style.display = 'none'; this.helpT = 1e9; this.toast('Croix : caméra · A : choisir · B : pouvoirs · Menu : le reste'); } this.rebind(); this.onSpeed(g.speedIndex);
     document.addEventListener('pointerdown', (e) => { if (!(e.target as HTMLElement).closest('#menu')) this.el.menu.style.display = 'none'; });
   }
   get w() { return this.g.world; }
@@ -102,7 +104,7 @@ export class Hud {
     this.el.feed.innerHTML = this.feed.map((e) => { const t = Math.floor(e.t) % 1440; const hh = String(Math.floor(t / 60)).padStart(2, '0'), mm = String(t % 60).padStart(2, '0'); const col = KIND[e.kind] ?? '#9aa3b5'; return `<div><span style="color:#6f7890">${hh}:${mm}</span> <span style="color:${col};${e.kind === 'talk' ? 'font-style:italic' : ''}">${esc(e.text)}</span></div>`; }).join('');
   }
   toast(msg: string) { this.el.toast.textContent = msg; this.el.toast.style.opacity = '1'; this.toastT = 2.6; }
-  onSpeed(i: number) { [...this.el.speeds.children].slice(0, 4).forEach((b, k) => b.classList.toggle('on', k === i)); }
+  onSpeed(i: number) { [...this.el.speeds.children].slice(0, 5).forEach((b, k) => b.classList.toggle('on', k === i)); }
   onSelect(id: number) {
     this.selected = id; this.el.charp.style.display = id >= 0 && !this.mobile?.active ? 'block' : 'none'; this.mobile?.onSelect(id);
     [...this.el.portraits.children].forEach((b, k) => b.classList.toggle('sel', k === id)); this.acc = 1;
@@ -116,6 +118,8 @@ export class Hud {
   }
   escape() { if (this.powerMode) { this.powerMode = ''; this.powerFirst = -1; this.syncPowers(); } else if (this.el.help.style.display !== 'none') this.el.help.style.display = 'none'; else this.g.selectChar(-1); this.el.menu.style.display = 'none'; }
   toggleHelp() { if (this.mobile?.active) { this.mobile.sheet === 'Aide' ? this.mobile.closeSheet() : this.mobile.openHelp(); return; } this.el.help.style.display = this.el.help.style.display === 'none' ? 'block' : 'none'; this.helpT = 1e9; }
+  /** Appelé quand le suivi de caméra change : met à jour les boutons « Suivre ». */
+  onFollow?: () => void;
   toggleFps() { this.el.fps.style.display = this.el.fps.style.display === 'block' ? 'none' : 'block'; }
   syncPowers() {
     [...this.el.pw.children].forEach((b) => { const el = b as HTMLButtonElement; const id = el.dataset.id!; el.classList.toggle('on', this.powerMode === id); el.disabled = !God.canAfford(this.w, id) && this.powerMode !== id; });
@@ -139,7 +143,7 @@ export class Hud {
     this.syncPowers();
   }
   update(dt: number) {
-    this.human.update(dt); this.mobile.update(dt); this.el.pause.style.display = this.g.speedIndex === 0 && !this.human.dialogueOpen() ? 'block' : 'none';
+    this.human.update(dt); this.mobile.update(dt); this.demoGuide.update(dt); this.el.pause.style.display = this.g.speedIndex === 0 && !this.human.dialogueOpen() ? 'block' : 'none';
     this.acc += dt;
     if (this.toastT > 0) { this.toastT -= dt; if (this.toastT < 0.5) this.el.toast.style.opacity = String(Math.max(0, this.toastT * 2)); }
     if (this.helpT < 1e8) { this.helpT -= dt; if (this.helpT < 0) { this.el.help.style.display = 'none'; this.helpT = 1e9; } }
@@ -185,12 +189,14 @@ export class Hud {
     const w = this.w; const bar = (v: number, col: string) => `<div class="bar" style="flex:1"><i style="width:${v}%;background:${col}"></i></div>`; const ico = emotionIcon(c.emotion);
     const prefs = Object.entries(c.pref); const likes = prefs.filter((p) => p[1] >= 3).sort((a, b) => b[1] - a[1]).slice(0, 3).map((p) => actLabel(p[0]).toLowerCase()); const dis = prefs.filter((p) => p[1] <= -3).sort((a, b) => a[1] - b[1]).slice(0, 3).map((p) => actLabel(p[0]).toLowerCase());
     const rels = w.chars.filter((o) => o.id !== c.id && !o.away).map((o) => ({ o, r: w.getRel(c.id, o.id) })).sort((a, b) => Math.abs(b.r.aff) - Math.abs(a.r.aff)).slice(0, 5);
-    const mems = [...c.memories].sort((a, b) => b.t - a.t).slice(0, 5);
-    const info = GOALS[c.goal.id];
+    const mems = [...c.memories].sort((a, b) => (b.w * 100 - (w.clock - b.t) * 0.01) - (a.w * 100 - (w.clock - a.t) * 0.01)).slice(0, 5); // les plus marquants (poids, puis récence)
+    const info = GOALS[c.goal.id]; const b0 = brief(w, c);
     const partA = `<div class="row" style="align-items:flex-start;gap:10px"><img src="${this.g.chars[c.id].assets.portrait.toDataURL()}" style="width:66px;height:78px;image-rendering:pixelated;object-fit:contain">
       <div style="flex:1"><h3>${c.name}</h3><div class="dim small">${c.age} ans · ${c.job} · ${c.gender === 'F' ? 'Femme' : 'Homme'}</div>
       <div class="row gold" style="margin-top:3px">${ico ? `<img src="${iconUrl(ico)}" width="18" height="18" style="image-rendering:pixelated">` : ''}<span>${EMOTIONS[c.emotion] ?? c.emotion}</span></div>
-      <div class="small">${esc(c.action_text)} — ${ROOM_NAMES[w.roomOf(c.pos)] ?? ''}</div></div></div>
+      <div class="small">${esc(b0.activity)} — ${c.away ? 'hors de la carte' : ROOM_NAMES[w.roomOf(c.pos)] ?? ''}</div>
+      <div class="small dim">Destination : ${esc(b0.dest)}</div><div class="small">Besoin prioritaire : <b style="color:${b0.urgent ? '#ff8a8a' : '#fccd5c'}">${b0.need} ${Math.round(b0.needValue)} %</b></div>
+      <button class="btn" id="followBtn" style="margin-top:5px;padding:2px 9px;min-height:26px">${this.g.follow && this.g.selectedId === c.id ? 'Ne plus suivre' : 'Suivre avec la caméra'}</button></div></div>
       <div class="dim small" style="margin-top:8px">${esc(c.bio)}</div><div class="gold small" style="margin-top:4px">${this.traits(c)}</div>
       <div class="small" style="margin-top:6px">Plat préféré : ${c.fav_food}${likes.length ? `<br>Prend goût à : ${likes.join(', ')}` : ''}${dis.length ? `<br>Évite de plus en plus : ${dis.join(', ')}` : ''}</div>
       <div class="sec">Besoins</div>${NEEDS.map((n) => `<div class="need"><span>${NEED_LABEL[n]}</span>${bar(c.needs[n], needCol(c.needs[n]))}</div>`).join('')}
@@ -199,10 +205,10 @@ export class Hud {
       ${this.lifeHtml(c)}
       <div class="sec">Relation avec vous</div><div class="small">Son avis sur vous : <b>${relationLabelToPlayer(w, c)}</b> <span class="dim">(${Math.round(w.getRel(c.id, w.avatar.id).aff)})</span></div>
       <div class="sec">Relations</div><div class="small">${rels.map(({ o, r }) => `<div><span style="color:${r.aff > 25 ? '#7fd99a' : r.aff < -15 ? '#ff8a8a' : '#c4cad8'}">${o.first}</span> ${o.kind === 'resident' ? w.relLabel(c.id, o.id) : o.kind === 'avatar' ? 'Son avis sur vous : ' + relationLabelToPlayer(w, c) : 'Barman'} <span class="dim">(${r.aff >= 0 ? '+' : ''}${Math.round(r.aff)})</span></div>`).join('')}</div>
-      <div class="sec">Souvenirs récents</div><div class="small">${mems.length ? mems.map((m) => { const t = Math.floor(m.t) % 1440; const tag = m.src ? `<span class="gold">[${Life.sourceFr(m.src)}${m.conf !== undefined && m.conf < 1 ? ' ' + Math.round(m.conf * 100) + ' %' : ''}]</span> ` : ''; return `<div>${tag}<span class="dim">J${Math.floor(m.t / 1440) + 1} ${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}</span> <span style="color:${m.v > 0.15 ? '#7fd99a' : m.v < -0.15 ? '#ff8a8a' : '#c4cad8'}">${esc(m.text)}</span></div>`; }).join('') : '<span class="dim">Rien de marquant pour l\'instant.</span>'}</div>`;
+      <div class="sec">Souvenirs marquants</div><div class="small">${mems.length ? mems.map((m) => { const t = Math.floor(m.t) % 1440; const tag = m.src ? `<span class="gold">[${Life.sourceFr(m.src)}${m.conf !== undefined && m.conf < 1 ? ' ' + Math.round(m.conf * 100) + ' %' : ''}]</span> ` : ''; return `<div>${tag}<span class="dim">J${Math.floor(m.t / 1440) + 1} ${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}</span> <span style="color:${m.v > 0.15 ? '#7fd99a' : m.v < -0.15 ? '#ff8a8a' : '#c4cad8'}">${esc(m.text)}</span></div>`; }).join('') : '<span class="dim">Rien de marquant pour l\'instant.</span>'}</div>`;
     const partB = `<div class="sec">Secret</div><div class="small dim">${c.faith >= 55 ? esc(c.secret) : "Cet habitant ne vous fait pas encore assez confiance pour vous confier ses secrets. (Foi ≥ 55)"}</div>`;
     if (this.panelFor !== c.id || !this.el.charp.querySelector('#cpA')) { this.panelFor = c.id; this.el.charp.innerHTML = '<div id="cpA"></div><div class="sec">Décision <button class="btn" id="dgb" style="padding:1px 7px;min-height:20px;font-size:11px"></button></div><div id="cpD"></div><div id="cpB"></div>'; const d0 = this.el.charp.querySelector('#dgb') as HTMLElement; d0.onclick = () => { this.diagOpen = !this.diagOpen; this.acc = 1; }; }
-    (this.el.charp.querySelector('#cpA') as HTMLElement).innerHTML = partA; (this.el.charp.querySelector('#cpD') as HTMLElement).innerHTML = this.diagOpen ? this.diagHtml(c) : ''; (this.el.charp.querySelector('#cpB') as HTMLElement).innerHTML = partB; (this.el.charp.querySelector('#dgb') as HTMLElement).textContent = this.diagOpen ? 'masquer' : 'pourquoi ?';
+    (this.el.charp.querySelector('#cpA') as HTMLElement).innerHTML = partA; (this.el.charp.querySelector('#followBtn') as HTMLElement).onclick = () => this.g.followSelected(); (this.el.charp.querySelector('#cpD') as HTMLElement).innerHTML = this.diagOpen ? this.diagHtml(c) : ''; (this.el.charp.querySelector('#cpB') as HTMLElement).innerHTML = partB; (this.el.charp.querySelector('#dgb') as HTMLElement).textContent = this.diagOpen ? 'masquer' : 'pourquoi ?';
     void info; void SPEEDS;
   }
 }

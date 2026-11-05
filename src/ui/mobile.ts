@@ -4,6 +4,7 @@ import type { GameScene } from '../view/scene';
 import type { Hud } from './hud';
 import * as God from '../sim/god';
 import * as Act from '../sim/interact';
+import { brief } from '../sim/observe';
 import { EMOTIONS, ROOM_NAMES } from '../sim/defs';
 import { emotionIcon } from '../sim/world';
 import { iconCanvas } from '../art/core';
@@ -67,7 +68,7 @@ const CSS = `
 const esc = (s: string) => s.replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } as Record<string, string>)[ch]);
 /** Exécute fn dès la fin de l'événement en cours (tâche immédiate, sans le délai minimal de setTimeout). */
 const later = (() => { const ch = new MessageChannel(); const q: (() => void)[] = []; ch.port1.onmessage = () => q.shift()?.(); return (fn: () => void) => { q.push(fn); ch.port2.postMessage(0); }; })();
-const SPEEDS_LABEL = ['II', '1x', '3x', '8x'];
+const SPEEDS_LABEL = ['II', '1x', '2x', '3x', '8x'];
 
 export class MobileUi {
   active = false; el: Record<string, HTMLElement> = {}; sheet = ''; acc = 0; lastPower = '';
@@ -145,7 +146,7 @@ export class MobileUi {
     mk(this.el.abtn, () => this.g.actionA(), () => this.g.actionAHold()); mk(this.el.bbtn, () => this.g.actionB(), () => this.g.actionBHold());
   }
   private bindTop() {
-    document.getElementById('mspeed')!.onclick = () => { this.g.setSpeed(this.g.speedIndex === 0 ? 1 : this.g.speedIndex === 1 ? 2 : this.g.speedIndex === 2 ? 3 : 0); };
+    document.getElementById('mspeed')!.onclick = () => { this.g.setSpeed((this.g.speedIndex + 1) % SPEEDS_LABEL.length); };
     document.getElementById('mmode')!.onclick = () => this.g.toggleMode();
     document.getElementById('mmenu')!.onclick = () => (this.sheet ? this.closeSheet() : this.openMenu());
   }
@@ -156,7 +157,7 @@ export class MobileUi {
   }
   private bindBtns(sel: string, fn: (b: HTMLElement) => void) { this.el.msheet.querySelectorAll<HTMLElement>(sel).forEach((b) => (b.onclick = () => fn(b))); }
   openMenu() {
-    const god = this.g.mode === 'god'; const items: [string, string][] = god ? [['res', 'Habitants'], ['pow', 'Pouvoirs'], ['lieux', 'Lieux'], ['journal', 'Journal'], ['murs', 'Murs'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['demo', 'Démo NORIA'], ['help', 'Aide']] : [['inv', 'Inventaire'], ['journal', 'Journal'], ['lieux', 'Lieux'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['demo', 'Démo NORIA'], ['help', 'Aide']];
+    const god = this.g.mode === 'god'; const items: [string, string][] = god ? [['res', 'Habitants'], ['pow', 'Pouvoirs'], ['lieux', 'Lieux'], ['journal', 'Journal'], ['murs', 'Murs'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['trio', 'Démo vivante'], ['demo', 'Démo vol'], ['help', 'Aide']] : [['inv', 'Inventaire'], ['journal', 'Journal'], ['lieux', 'Lieux'], ['save', 'Sauvegarder'], ['load', 'Charger'], ['export', 'Exporter'], ['import', 'Importer'], ['fps', 'Performances'], ['trio', 'Démo vivante'], ['demo', 'Démo vol'], ['help', 'Aide']];
     this.show('Menu', `<div class="grid">${items.map(([k, l]) => `<button class="mbtn" data-k="${k}"${k === 'export' || k === 'import' ? ' data-native' : ''}>${l}</button>`).join('')}</div>`);
     this.bindBtns('[data-k]', (b) => this.menuAction(b.dataset.k!));
   }
@@ -165,7 +166,7 @@ export class MobileUi {
     switch (k) {
       case 'res': this.openResidents(); break; case 'pow': this.openPowers(); break; case 'lieux': this.openPlaces(); break; case 'journal': this.openJournal(); break;
       case 'murs': { const m = g.cycleWalls(); this.hud.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); this.closeSheet(); break; }
-      case 'save': g.saveGame(); this.closeSheet(); break; case 'load': this.closeSheet(); g.loadGame(); break; case 'export': this.closeSheet(); g.exportGame(); break; case 'import': this.closeSheet(); g.importGame(); break; case 'fps': this.hud.toggleFps(); this.closeSheet(); break; case 'demo': this.closeSheet(); g.startDemo(); break; case 'help': this.openHelp(); break;
+      case 'save': g.saveGame(); this.closeSheet(); break; case 'load': this.closeSheet(); g.loadGame(); break; case 'export': this.closeSheet(); g.exportGame(); break; case 'import': this.closeSheet(); g.importGame(); break; case 'fps': this.hud.toggleFps(); this.closeSheet(); break; case 'demo': this.closeSheet(); g.startDemo(); break; case 'trio': this.closeSheet(); g.startTrio(); break; case 'help': this.openHelp(); break;
       case 'inv': this.closeSheet(); this.hud.toggleInventory(); break;
     }
   }
@@ -191,9 +192,9 @@ export class MobileUi {
     q.style.display = 'flex'; this.renderCard();
   }
   private renderCard() {
-    const id = this.g.selectedId; if (id < 0) return; const c = this.g.world.chars[id]; const ico = emotionIcon(c.emotion);
-    this.el.qcard.innerHTML = `<img class="p" src="${this.g.chars[id].assets.portrait.toDataURL()}"><div class="t"><b>${esc(c.first)}</b><span>${ico ? `<img src="${iconCanvas(ico).toDataURL()}" width="11" height="11" style="image-rendering:pixelated;vertical-align:-1px"> ` : ''}${EMOTIONS[c.emotion] ?? ''} · ${esc(c.isAsleep() ? 'dort' : c.action_text)}</span><span>${esc(ROOM_NAMES[this.g.world.roomOf(c.pos)] ?? '')}</span></div><button class="mbtn" id="qf">Fiche</button><button class="mbtn" id="qp">Pouvoirs</button><button class="mbtn" id="qx" aria-label="Fermer">×</button>`;
-    document.getElementById('qf')!.onclick = () => this.openFiche(); document.getElementById('qp')!.onclick = () => this.openPowers(); document.getElementById('qx')!.onclick = () => this.g.selectChar(-1);
+    const id = this.g.selectedId; if (id < 0) return; const c = this.g.world.chars[id]; const ico = emotionIcon(c.emotion); const bf = brief(this.g.world, c);
+    this.el.qcard.innerHTML = `<img class="p" src="${this.g.chars[id].assets.portrait.toDataURL()}"><div class="t"><b>${esc(c.first)}</b><span>${ico ? `<img src="${iconCanvas(ico).toDataURL()}" width="11" height="11" style="image-rendering:pixelated;vertical-align:-1px"> ` : ''}${EMOTIONS[c.emotion] ?? ''} · ${esc(bf.activity)}</span><span>${esc(bf.dest)}</span><span class="dim">${esc(bf.need)} ${Math.round(bf.needValue)} %</span></div><button class="mbtn" id="qf">Fiche</button><button class="mbtn${this.g.follow ? ' on' : ''}" id="qs">Suivre</button><button class="mbtn" id="qp">Pouvoirs</button><button class="mbtn" id="qx" aria-label="Fermer">×</button>`;
+    document.getElementById('qf')!.onclick = () => this.openFiche(); document.getElementById('qs')!.onclick = () => this.g.followSelected(); document.getElementById('qp')!.onclick = () => this.openPowers(); document.getElementById('qx')!.onclick = () => this.g.selectChar(-1);
   }
   // ---- mise à jour périodique
   updateLabels() {

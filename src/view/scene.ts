@@ -13,10 +13,12 @@ import { texKey } from './texreg';
 import { Hud } from '../ui/hud';
 import { pickProp } from './picking';
 import { Doors } from './doors';
-import { setupNoriaDemo } from '../sim/demo';
+import { setupNoriaDemo, setupTrioDemo } from '../sim/demo';
+import { brief } from '../sim/observe';
 import * as Act from '../sim/interact';
 
-export const SPEEDS = [0, 1, 3, 8];
+/** Vitesses : pause, ×1, ×2, ×3, ×8. La simulation (décisions, routines, trajets, conséquences) avance à ce rythme, pas seulement l'horloge. */
+export const SPEEDS = [0, 1, 2, 3, 8];
 export const WALL_FULL = 96, WALL_LOW = 24;
 const BRICK = c(0.55, 0.27, 0.25);
 const BAR_WINDOWS = [33, 35, 40, 43, 46, 48];
@@ -32,8 +34,8 @@ export class GameScene extends Phaser.Scene {
   floorSprite!: Phaser.GameObjects.Image; sunSprite!: Phaser.GameObjects.Image;
   mode: 'god' | 'human' = 'god'; wallMode = 1; speedIndex = 1; selectedId = -1; hoverId = -1; follow = false; autosave = 0; fxT = 0;
   tx = 0; ty = 0; tz = 1; cx = 0; cy = 0; cz = 1; minZoom = 0.35; maxZoom = 3.5; bounds = { x: 0, y: 0, w: 0, h: 0 };
-  doors!: Doors; demo = false; analog = { x: 0, y: 0, mag: 0 }; dest: { x: number; y: number; t0: number; fade: number } | null = null;
-  keys = new Set<string>(); runLatch = false; params = new URLSearchParams(location.search);
+  doors!: Doors; demo = false; demoKind: '' | 'theft' | 'trio' = ''; analog = { x: 0, y: 0, mag: 0 }; dest: { x: number; y: number; t0: number; fade: number } | null = null;
+  trailDots = 0; keys = new Set<string>(); runLatch = false; params = new URLSearchParams(location.search);
   private pan = { down: false, moved: false, sx: 0, sy: 0, button: 0, t: 0 }; private pinch = 0; private lastClick = { t: 0, id: -1 };
 
   constructor() { super('game'); }
@@ -41,14 +43,17 @@ export class GameScene extends Phaser.Scene {
   create() {
     const seed = Number(this.params.get('seed') ?? 1337);
     let w: World | null = null; let hot: any = null;
-    if (this.params.has('load')) w = Save.load();
+    let loaded = false; if (this.params.has('load')) { w = Save.load(); loaded = !!w; }
     // Dev : l'état de la partie survit au rechargement automatique (hot reload)
     if (!w && import.meta.env.DEV && !this.params.has('fresh') && !this.params.has('simulate')) { try { hot = JSON.parse(localStorage.getItem('gib:hot') ?? 'null'); if (hot) w = Save.fromJSON(hot.world); } catch { hot = null; } }
-    if (this.params.get('demo') === 'noria') { w = new World(seed); w.build(); setupNoriaDemo(w); hot = null; this.demo = true; }
+    if (this.params.get('demo') === 'noria') { w = new World(seed); w.build(); setupNoriaDemo(w); hot = null; this.demo = true; this.demoKind = 'theft'; }
+    if (this.params.get('demo') === 'trio') { w = new World(seed); w.build(); setupTrioDemo(w); hot = null; this.demo = true; this.demoKind = 'trio'; }
     if (!w) { w = new World(seed); w.build(); hot = null; }
     this.world = w;
     if (import.meta.hot) import.meta.hot.on('vite:beforeFullReload', () => { try { localStorage.setItem('gib:hot', JSON.stringify({ world: Save.toJSON(this.world), cam: { x: this.tx, y: this.ty, z: this.tz }, speed: this.speedIndex, walls: this.wallMode, sel: this.selectedId, mode: this.mode })); } catch { /* ignore */ } });
-    const sim = Number(this.params.get('simulate') ?? 0); for (let i = 0; i < Math.floor(sim / 0.1); i++) this.world.tick(0.1);
+    // Nouvelle partie ordinaire : on démarre vers 8 h 30, la maison déjà réveillée (au lieu de 6 h 52 : tout le monde dort et rien ne bouge pendant une heure).
+    const fresh = !this.params.has('simulate') && !this.params.has('fresh') && !this.params.has('load') && !this.params.has('human') && !this.demo && !hot && !loaded;
+    const sim = fresh ? 48 : Number(this.params.get('simulate') ?? 0); for (let i = 0; i < Math.floor(sim / 0.1); i++) this.world.tick(0.1);
     if (this.params.has('feast')) { this.world.godEnergy = 100; import('../sim/god').then((G) => { G.feast(this.world); for (let i = 0; i < Number(this.params.get('feast')) * 10; i++) this.world.tick(0.1); }); }
     this.buildView();
     this.hud = new Hud(this);
@@ -58,7 +63,7 @@ export class GameScene extends Phaser.Scene {
     if (hot) { this.tx = this.cx = hot.cam.x; this.ty = this.cy = hot.cam.y; this.tz = this.cz = hot.cam.z; this.wallMode = hot.walls; this.applyWalls(); this.setSpeed(hot.speed); if (hot.sel >= 0) this.selectChar(hot.sel); if (hot.mode === 'human') this.descend(false); }
     if (this.world.avatarControlled || this.params.has('human')) this.descend(false);
     if (this.params.has('walls')) { this.wallMode = Number(this.params.get('walls')); this.applyWalls(); }
-    if (this.demo) { this.setSpeed(2); this.focusZone('house'); }
+    if (this.demoKind === 'trio') { this.setSpeed(2); this.focusTrio(); } else if (this.demo) { this.setSpeed(3); this.focusZone('house'); }
     if (this.params.has('speed')) this.setSpeed(Number(this.params.get('speed')));
     if (this.params.has('zoom')) { this.tz = this.cz = Number(this.params.get('zoom')); }
     if (this.params.has('at')) { const [x, y] = this.params.get('at')!.split(',').map(Number); const p = toScreen(x, y); this.tx = this.cx = p.x; this.ty = this.cy = p.y; }
@@ -352,6 +357,8 @@ export class GameScene extends Phaser.Scene {
   }
   groundClick(wx: number, wy: number) { const g = toGrid(wx, wy); this.runPlan(Act.planTap(this.world, this.world.avatar, { cell: { x: Math.floor(g.x), y: Math.floor(g.y) } })); }
   markDest(cell: { x: number; y: number }) { this.dest = { x: cell.x + 0.5, y: cell.y + 0.5, t0: this.fxT, fade: 0 }; }
+  /** Suivre (ou ne plus suivre) avec la caméra l'habitant sélectionné. */
+  followSelected() { if (this.selectedId < 0) { this.hud.toast('Choisissez d\'abord un habitant'); return; } this.follow = !this.follow; this.hud.toast(this.follow ? `Caméra : suit ${this.world.chars[this.selectedId].first}` : 'Caméra : libre'); this.hud.onFollow?.(); }
   toggleFollow() { this.follow = !this.follow; this.hud.toast('Caméra : ' + (this.follow ? 'suit le personnage' : 'libre')); }
   setSpeed(i: number) { this.speedIndex = Math.max(0, Math.min(SPEEDS.length - 1, i)); this.hud?.onSpeed(this.speedIndex); }
   saveGame() { const ok = Save.save(this.world); this.hud.toast(ok ? 'Partie sauvegardée' : 'Échec de la sauvegarde'); return ok; }
@@ -368,10 +375,16 @@ export class GameScene extends Phaser.Scene {
   restoreBackup() { const w = Save.restoreBackup(); if (!w) { this.hud.toast('Aucune copie de secours'); return; } this.replaceWorld(w); Save.save(w); this.hud.toast('Copie de secours restaurée'); }
   /** Démonstration LIVING NORIA : petite situation de départ (vol, témoin, rumeur, confrontation) puis vie autonome. N'écrase pas la sauvegarde : l'autosave est suspendue. */
   startDemo() {
-    Save.save(this.world); const w = new World(1337); w.build(); setupNoriaDemo(w); this.demo = true; this.replaceWorld(w); this.setSpeed(2); this.focusZone('house');
+    Save.save(this.world); const w = new World(1337); w.build(); setupNoriaDemo(w); this.demo = true; this.demoKind = 'theft'; this.replaceWorld(w); this.setSpeed(3); this.focusZone('house');
     this.hud.toast('Démo LIVING NORIA (x3) — votre partie est sauvegardée, l\'autosave est suspendue');
   }
-  loadGame() { const w = Save.load(); if (!w) { this.hud.toast('Aucune sauvegarde'); return false; } this.demo = false; this.replaceWorld(w); this.hud.toast('Partie chargée'); return true; }
+  /** Démo vivante (A routine, B besoin urgent, C interaction spontanée). N'écrase pas la sauvegarde : l'autosave est suspendue. */
+  startTrio() {
+    Save.save(this.world); const w = new World(1337); w.build(); setupTrioDemo(w); this.demo = true; this.demoKind = 'trio'; this.replaceWorld(w); this.setSpeed(2); this.focusTrio(); this.hud.demoGuide.reset();
+    this.hud.toast('Démo vivante (x2) — touchez A, B ou C pour suivre un habitant. Votre partie est sauvegardée.');
+  }
+  focusTrio() { this.follow = false; const p = toScreen(10.5, 14); this.tx = this.cx = p.x; this.ty = this.cy = p.y; this.tz = this.cz = 0.95; this.selectChar(-1); }
+  loadGame() { const w = Save.load(); if (!w) { this.hud.toast('Aucune sauvegarde'); return false; } this.demo = false; this.demoKind = ''; this.replaceWorld(w); this.hud.toast('Partie chargée'); return true; }
 
   // ------------------------------------------------------------------ boucle
   private lastNow = performance.now();
@@ -396,7 +409,7 @@ export class GameScene extends Phaser.Scene {
     const cam = this.cameras.main; cam.setZoom(this.cz); cam.centerOn(Math.round(this.cx * this.cz) / this.cz, Math.round(this.cy * this.cz) / this.cz);
     // vue
     this.syncProps(); this.syncFeast(); this.syncPlants(); this.doors.update(dt);
-    for (const cv of this.chars) cv.update(dt, cv.sim.id === this.selectedId || (this.mode === 'human' && cv.sim.kind === 'avatar'), cv.sim.id === this.hoverId);
+    for (const cv of this.chars) cv.update(dt, cv.sim.id === this.selectedId || (this.mode === 'human' && cv.sim.kind === 'avatar'), cv.sim.id === this.hoverId, Math.max(1, Math.min(SPEEDS[this.speedIndex], 3)));
     this.lighting.update(dt); this.lighting.render(); this.sunSprite.setAlpha(this.lighting.daylight * 0.9);
     this.drawFx(dt); this.hud.update(dt);
     { const a = this.world.avatar; const f = this.mode === 'human' ? a.pos : toGrid(this.cx, this.cy); this.world.focus = { x: f.x, y: f.y }; } // simulation détaillée près du joueur
@@ -432,6 +445,18 @@ export class GameScene extends Phaser.Scene {
         if (!going) d.fade += dt / 0.35; if (d.fade >= 1 || this.mode !== 'human') this.dest = null;
         else { const p = toScreen(d.x, d.y); const pul = 1 + 0.12 * Math.sin((t - d.t0) * 7); const a = (1 - d.fade) * 0.9; g.lineStyle(2, 0xfccd5c, a); g.strokeEllipse(p.x, p.y, 30 * pul, 15 * pul); g.lineStyle(1, 0xffffff, a * 0.6); g.strokeEllipse(p.x, p.y, 14 * pul, 7 * pul); g.fillStyle(0xfccd5c, a * 0.9); g.fillCircle(p.x, p.y, 2); }
       } }
+    { // trajet de l'habitant observé : pointillés animés jusqu'à sa destination (ce qu'il va faire, d'après son plan réel)
+      const c = this.selectedId >= 0 ? this.world.chars[this.selectedId] : null;
+      if (!(c && !c.away && c.state === 'walk' && c.path.length > c.path_i)) this.trailDots = 0;
+      if (c && !c.away && c.state === 'walk' && c.path.length > c.path_i) {
+        const pts = [{ x: c.pos.x, y: c.pos.y }, ...c.path.slice(c.path_i)]; const ph = (t * 14) % 9; this.trailDots = 0;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const a = toScreen(pts[i].x, pts[i].y), b = toScreen(pts[i + 1].x, pts[i + 1].y); const len = Math.hypot(b.x - a.x, b.y - a.y); if (len < 1) continue;
+          for (let d = (i === 0 ? ph : 0); d < len; d += 9) { g.fillStyle(0x7fd9ff, 0.8); g.fillCircle(a.x + ((b.x - a.x) * d) / len, a.y + ((b.y - a.y) * d) / len, 1.7); this.trailDots++; }
+        }
+        const e = toScreen(pts[pts.length - 1].x, pts[pts.length - 1].y); const pul = 1 + 0.1 * Math.sin(t * 6); g.lineStyle(2, 0x7fd9ff, 0.95); g.strokeEllipse(e.x, e.y, 26 * pul, 13 * pul); g.fillStyle(0x7fd9ff, 0.9); g.fillCircle(e.x, e.y, 2.2);
+      }
+    }
     for (const f of this.world.furn) {
       if (f.users.length && f.users[0] === -1) continue;
       if (f.def === 'shower') {

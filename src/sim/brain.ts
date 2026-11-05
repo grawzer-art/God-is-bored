@@ -210,12 +210,17 @@ function planTidy(w: World, c: SimChar): Step[] {
   const cell = w.nearestFreeCell({ x: Math.floor(best.pos.x), y: Math.floor(best.pos.y) }, 3); if (cell.x < 0) return [];
   return [{ type: 'goto', cell }, { type: 'wait', act: 'tidy', dur: w.rng.range(5, 9), mess: best.id }];
 }
+/** Quand rien ne presse, on ne tourne pas au hasard : on va à un point d'intérêt de la pièce (plantes, bibliothèque, frigo, plan de travail) et on y reste un moment. */
+const POI = ['plant', 'bookshelf', 'fridge', 'counter', 'counter_w', 'console', 'sink_k', 'coffee_table'];
 function planIdle(w: World, c: SimChar): Step[] {
-  const base = c.cell();
-  for (let i = 0; i < 8; i++) {
-    const cell = { x: base.x + w.rng.int(-5, 5), y: base.y + w.rng.int(-4, 4) };
-    if (w.isWalkable(cell) && !w.nearDoor(cell) && roomAt(cell.x, cell.y) !== '' && roomAt(cell.x, cell.y) === roomAt(base.x, base.y)) return [{ type: 'goto', cell }, { type: 'wait', act: 'idle', dur: w.rng.range(3, 8) }];
+  const base = c.cell(); const room = roomAt(base.x, base.y); let best: { cell: V2; d: number } | null = null;
+  for (const f of w.furn) {
+    if (!POI.includes(f.def) || roomAt(f.x, f.y) !== room) continue;
+    const cell = w.nearestFreeCell({ x: f.x, y: f.y + 1 }, 2, true); if (cell.x < 0 || roomAt(cell.x, cell.y) !== room) continue;
+    const d = Math.hypot(cell.x + 0.5 - c.pos.x, cell.y + 0.5 - c.pos.y); if (d < 1 || d > 12) continue;
+    const score = d + w.rng.randf() * 6; if (!best || score < best.d) best = { cell, d: score };
   }
+  if (best) return [{ type: 'goto', cell: best.cell }, { type: 'wait', act: 'look', dur: w.rng.range(5, 11) }];
   return [{ type: 'wait', act: 'idle', dur: 4 }];
 }
 

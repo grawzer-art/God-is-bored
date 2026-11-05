@@ -11,7 +11,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const E = (f, a) => pg.evaluate(f, a); const ready = () => pg.waitForFunction(() => window.__gib && window.__gib.world, null, { timeout: 60000 });
   console.log('\n== Démonstration lancée par ?demo=noria'); await pg.goto(URL + '?demo=noria&nohelp&mobile=0'); await ready(); await pg.waitForTimeout(1500);
   ok(await E(() => window.__gib.demo && window.__gib.world.events.length === 0 && window.__gib.world.chars[5].money === 3), 'situation de départ : Lucas sans argent, Théo au travail, aucun événement encore');
-  ok(await E(() => window.__gib.speedIndex === 2), 'vitesse x3 pour observer');
+  ok(await E(() => window.__gib.speedIndex === 3), 'vitesse x3 pour observer');
   console.log('\n== Vie autonome pendant plusieurs heures de jeu (sans aucun ordre du joueur)');
   await E(() => { const w = window.__gib.world; for (let i = 0; i < 4 * 60 * 3; i++) w.tick(0.25); }); // ~6 h de jeu
   const s1 = await E(() => { const w = window.__gib.world; const ev = w.events.find((e) => e.kind === 'theft'); return { ev: !!ev, mar: ev && w.chars[6].known[ev.id]?.src, cam: ev && !!w.chars[0].known[ev.id], theo: ev && !!w.chars[3].known[ev.id], away: w.residents.filter((c) => c.away).map((c) => c.first), log: w.journal.filter((e) => e.t >= 540).length }; });
@@ -35,7 +35,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const cdp = await c2.newCDPSession(p2); await p2.goto(URL + '?fresh&nohelp'); await p2.waitForFunction(() => window.__gib && window.__gib.world, null, { timeout: 60000 }); await p2.waitForTimeout(1200);
   const tap = async (sel) => { const r = await p2.evaluate((s) => { const q = document.querySelector(s).getBoundingClientRect(); return { x: (q.left + q.right) / 2, y: (q.top + q.bottom) / 2 }; }, sel); await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: r.x, y: r.y, id: 1 }] }); await sleep(50); await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await sleep(300); };
   await tap('#mmenu'); await tap('#msheet [data-k="demo"]'); await p2.waitForTimeout(600);
-  ok(await p2.evaluate(() => window.__gib.demo && window.__gib.world.chars[5].money === 3 && window.__gib.speedIndex === 2), 'la démo démarre depuis le menu iPhone (x3, partie existante sauvegardée avant)');
+  ok(await p2.evaluate(() => window.__gib.demo && window.__gib.world.chars[5].money === 3 && window.__gib.speedIndex === 3), 'la démo démarre depuis le menu iPhone (x3, partie existante sauvegardée avant)');
   ok(await p2.evaluate(() => { const g = window.__gib; g.autosave = 999; g.update(); return true; }), 'l\'autosave est suspendue pendant la démo');
   // ---- performance de la couche de vie
   const perf = await p2.evaluate(() => { const w = window.__gib.world; const t = performance.now(); let n = 0; for (let i = 0; i < 4 * 60 * 6; i++) { w.tick(0.25); n++; } return (performance.now() - t) / n; });

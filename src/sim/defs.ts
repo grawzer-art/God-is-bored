@@ -3,7 +3,7 @@ export type V2 = { x: number; y: number };
 export const NEEDS = ['hunger', 'energy', 'bladder', 'hygiene', 'social', 'fun'] as const;
 export type Need = (typeof NEEDS)[number];
 export const NEED_LABEL: Record<Need, string> = { hunger: 'Faim', energy: 'Énergie', bladder: 'Vessie', hygiene: 'Hygiène', social: 'Social', fun: 'Loisirs' };
-export const NEED_DECAY: Record<Need, number> = { hunger: 6.5, energy: 4.4, bladder: 6.0, hygiene: 3.0, social: 3.0, fun: 4.2 };
+export const NEED_DECAY: Record<Need, number> = { hunger: 6.5, energy: 4.4, bladder: 6.0, hygiene: 3.0, social: 4.4, fun: 4.2 };
 /** Minutes de jeu par seconde réelle (vitesse 1x) : 1 jour = 12 minutes réelles. */
 export const MIN_PER_SEC = 2.0;
 /** 0=SE(+x) 1=SW(+y) 2=NW(-x) 3=NE(-y) */
@@ -35,6 +35,7 @@ export const ACT: Record<string, ActDef> = {
   pray: A('Prie', 'stand', { fun: 6 }, [4, 7], true),
   drink: A('Boit un verre', 'use', { fun: 16, social: 6 }, [6, 12], true),
   bartend: A('Sert au bar', 'use', {}, [9999, 9999], false),
+  look: A('Observe la pièce', 'stand', { fun: 1 }, [4, 9], true),
   search: A('Fouille discrètement', 'stand', {}, [4, 6], false),
   music: A('Choisit un morceau', 'use', { fun: 4 }, [2, 3], true),
 };
