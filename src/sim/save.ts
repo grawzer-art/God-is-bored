@@ -1,3 +1,4 @@
+import { FURN } from './defs';
 /** Sauvegarde JSON versionnée dans localStorage. */
 import { World } from './world';
 import { NEEDS } from './defs';
@@ -13,7 +14,7 @@ export function toJSON(w: World) {
     feastUntil: w.feastUntil, musicUntil: w.musicUntil, knownSecrets: w.knownSecrets, avatarControlled: w.avatarControlled, nextMessId: w.nextMessId, rng: w.rng.state, stats: w.stats,
     rel: [...w.rel.entries()], furn: w.furn.map((f) => ({ water: f.water })), mess: w.mess.map((m) => ({ ...m })),
     events: w.events, nextEvent: w.nextEvent, lastTheft: w.lastTheft, lifeAcc: w.lifeAcc,
-    crime: { wanted: w.wanted, record: w.record_, dispatches: w.dispatches, reports: w.reports, nextDispatch: w.nextDispatch, wantedNpcs: w.wantedNpcs, jail: w.jail },
+    crime: { wanted: w.wanted, record: w.record_, dispatches: w.dispatches, reports: w.reports, nextDispatch: w.nextDispatch, wantedNpcs: w.wantedNpcs, jail: w.jail, till: w.till }, divine: w.divine, freePowers: w.freePowers, home: { stash: w.stash, furn: w.furn.filter((f) => f.i >= w.baseFurn || f.gone || f.x !== f.ox || f.y !== f.oy).map((f) => ({ i: f.i, def: f.def, x: f.x, y: f.y, gone: !!f.gone, style: f.opts.style ?? 0 })) },
     journal: w.journal.slice(-60),
     chars: w.chars.map((c) => ({
       id: c.id, pos: c.pos, facing: c.facing, needs: c.needs, joy: c.joy, stress: c.stress, anger: c.anger, faith: c.faith, wake_target: c.wake_target,
@@ -33,7 +34,9 @@ export function fromJSON(d: any): World | null {
   w.rel = new Map(d.rel);
   d.furn.forEach((f: any, i: number) => { if (w.furn[i]) w.furn[i].water = f.water; });
   w.mess = d.mess.map((m: any) => ({ ...m }));
-  if (d.crime) { w.wanted = { ...w.wanted, ...d.crime.wanted }; w.record_ = { ...w.record_, ...d.crime.record }; w.dispatches = d.crime.dispatches ?? []; w.reports = d.crime.reports ?? []; w.nextDispatch = d.crime.nextDispatch ?? 1; w.wantedNpcs = d.crime.wantedNpcs ?? {}; w.jail = d.crime.jail ?? null; }
+  if (Array.isArray(d.divine)) w.divine = d.divine; if (typeof d.freePowers === 'boolean') w.freePowers = d.freePowers;
+  if (d.home) { w.stash = d.home.stash ?? {}; for (const e of [...(d.home.furn ?? [])].sort((a: any, b: any) => a.i - b.i)) { let f = w.furn[e.i]; if (!f && FURN[e.def]) { while (w.furn.length < e.i) w.addFurn('bin', -50, -50).gone = true; f = w.addFurn(e.def, e.x, e.y, e.style); } if (f && f.def === e.def) { f.x = e.x; f.y = e.y; f.gone = !!e.gone; } } w.reindexFurniture(); }
+  if (d.crime) { if (typeof d.crime.till === 'number') w.till = d.crime.till; w.wanted = { ...w.wanted, ...d.crime.wanted }; w.record_ = { ...w.record_, ...d.crime.record }; w.dispatches = d.crime.dispatches ?? []; w.reports = d.crime.reports ?? []; w.nextDispatch = d.crime.nextDispatch ?? 1; w.wantedNpcs = d.crime.wantedNpcs ?? {}; w.jail = d.crime.jail ?? null; }
   w.events = (d.events ?? []).map((e: any) => ({ ...e })); w.nextEvent = d.nextEvent ?? (w.events.reduce((m: number, e: any) => Math.max(m, e.id), 0) + 1); w.lastTheft = d.lastTheft ?? -99999; w.lifeAcc = d.lifeAcc ?? 0;
   for (const f of w.furn) f.users = f.users.map(() => -1);
   for (const cd of d.chars) {

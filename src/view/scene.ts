@@ -18,6 +18,7 @@ import { setupNoriaDemo, setupTrioDemo } from '../sim/demo';
 import { brief } from '../sim/observe';
 import { roofCanvas, signCanvas, type RoofStyle } from '../art/city';
 import * as Act from '../sim/interact';
+import * as Home from '../sim/home';
 
 /** Vitesses : pause, ×1, ×2, ×3, ×8. La simulation (décisions, routines, trajets, conséquences) avance à ce rythme, pas seulement l'horloge. */
 export const SPEEDS = [0, 1, 2, 3, 8];
@@ -231,9 +232,12 @@ export class GameScene extends Phaser.Scene {
     }
   }
   cycleWalls() { this.wallMode = (this.wallMode + 1) % 3; this.applyWalls(); return this.wallMode; }
+  /** Redessine les meubles quand l'aménagement change (déplacement, rangement, achat). */
+  furnSeen = 0;
+  private refreshFurniture() { for (const nodes of this.furnNodes.values()) nodes.forEach((n) => n.destroy()); this.furnNodes.clear(); this.buildFurniture(); this.furnSeen = this.world.furnVersion; }
   private buildFurniture() {
     for (const f of this.world.furn) {
-      if (f.flat) continue; const nodes: Phaser.GameObjects.Image[] = []; const style = f.opts.style ?? 0; let maxKey = 0;
+      if (f.flat || f.gone) continue; const nodes: Phaser.GameObjects.Image[] = []; const style = f.opts.style ?? 0; let maxKey = 0;
       for (let j = 0; j < f.d; j++) for (let i = 0; i < f.w; i++) maxKey = Math.max(maxKey, cellKey(f.x + i, f.y + j));
       for (let j = 0; j < f.d; j++) for (let i = 0; i < f.w; i++) {
         const spr = furnSprite(f.def, style, i, j, f.w, f.d); const p = toScreen(f.x + i, f.y + j);
@@ -482,15 +486,25 @@ export class GameScene extends Phaser.Scene {
   }
   doInteract(it: Act.Interactable) {
     const av = this.world.avatar; this.hud.hideContext();
+    if (it.kind === 'home') {
+      if (it.act === 'stash') { const r = Home.stash(this.world, it.furn!); this.hud.toast(r.msg); } else { this.world.homeEdit = { mode: 'move', furn: it.furn! }; this.hud.toast(`Touchez la case où poser : ${Home.label(this.world.furn[it.furn!].def)} (Échap : annuler)`); }
+      return;
+    }
     if (it.kind === 'npc') { av.facing = this.world.dirFrom({ x: it.npc!.pos.x - av.pos.x, y: it.npc!.pos.y - av.pos.y }, av.facing); this.hud.openDialogue(it.npc!); } else Act.useFurniture(this.world, av, it);
   }
   /** Toucher en mode humain : PNJ, meuble ou sol. La décision est prise par la simulation (Act.planTap) ; ici on ne fait qu'exécuter. */
   humanTap(wx: number, wy: number) {
     if (this.hud.dialogueOpen()) return; this.hud.hideContext();
+    if (this.world.homeEdit) { this.applyHomeEdit(wx, wy); return; }
     const w = this.world, av = w.avatar; const id = this.charAt(wx, wy); let target: Act.TapTarget;
     if (id >= 0 && id !== av.id) target = { npc: id };
     else { const hit = pickProp(this, wx, wy); if (hit.furn !== undefined && Act.furnitureOptions(w, hit.furn).length > 0) target = { furn: hit.furn }; else { if (hit.furn !== undefined) this.hud.toast('Rien à faire avec ça.'); const g = toGrid(wx, wy); target = { cell: { x: Math.floor(g.x), y: Math.floor(g.y) } }; } }
     this.runPlan(Act.planTap(w, av, target));
+  }
+  /** Mode aménagement : le prochain toucher sur le sol pose (ou déplace) le meuble choisi. */
+  private applyHomeEdit(wx: number, wy: number) {
+    const w = this.world, e = w.homeEdit!; const g = toGrid(wx, wy); const cx = Math.floor(g.x), cy = Math.floor(g.y);
+    const r = e.mode === 'move' ? Home.moveFurn(w, e.furn, cx, cy) : Home.place(w, e.def, cx, cy); this.hud.toast(r.msg); if (r.ok) w.homeEdit = null;
   }
   runPlan(plan: Act.TapPlan) {
     const w = this.world, av = w.avatar;
@@ -560,7 +574,7 @@ export class GameScene extends Phaser.Scene {
     { const c = this.camLimits(); this.cx = Math.max(c.x0, Math.min(c.x1, this.cx)); this.cy = Math.max(c.y0, Math.min(c.y1, this.cy)); }
     const cam = this.cameras.main; cam.setZoom(this.cz); cam.centerOn(Math.round(this.cx * this.cz) / this.cz, Math.round(this.cy * this.cz) / this.cz);
     // vue
-    this.syncProps(); this.syncFeast(); this.syncPlants(); this.doors.update(dt); this.updateCity(dt); this.syncCars();
+    this.syncProps(); this.syncFeast(); this.syncPlants(); this.doors.update(dt); this.updateCity(dt); this.syncCars(); if (this.furnSeen !== this.world.furnVersion) this.refreshFurniture();
     for (const cv of this.chars) cv.update(dt, cv.sim.id === this.selectedId || (this.mode === 'human' && cv.sim.kind === 'avatar'), cv.sim.id === this.hoverId, Math.max(1, Math.min(SPEEDS[this.speedIndex], 3)));
     this.lighting.update(dt); this.lighting.render(); this.sunSprite.setAlpha(this.lighting.daylight * 0.9);
     this.drawFx(dt); this.hud.update(dt);

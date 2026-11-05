@@ -77,7 +77,7 @@ export class Hud {
     mk('Descendre (G)', () => g.toggleMode(), 'Incarner un humain / redevenir dieu'); this.modeBtn = this.el.speeds.lastElementChild as HTMLElement;
     mk('Maison', () => g.focusZone('house')); mk('Bar', () => g.focusZone('bar')); mk('Rue', () => g.focusZone('street')); mk('Descendre ici', () => g.descendHere(), 'Apparaître au centre de la vue'); mk('Centre-ville', () => g.focusZone('downtown'));
     mk('Murs', () => { const m = g.cycleWalls(); this.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); }, 'V'); mk('Sauver', () => g.saveGame(), 'F5'); mk('Charger', () => g.loadGame(), 'F9'); mk('Démo vivante', () => g.startTrio(), 'Trois habitants : routine, besoin urgent, interaction spontanée'); mk('Démo vol', () => g.startDemo(), 'Situation de départ : vol, témoin, rumeur, confrontation'); mk('Exporter', () => g.exportGame(), 'Fichier JSON'); mk('Importer', () => g.importGame(), 'Fichier JSON');
-    for (const [id, d] of Object.entries(God.POWERS)) { const b = document.createElement('button'); b.className = 'btn'; b.style.flex = '1'; b.textContent = `${d.key} ${d.label} (${d.cost})`; b.title = d.desc; b.dataset.id = id; b.onclick = () => this.pickPower(id); this.el.pw.appendChild(b); }
+    for (const [id, d] of Object.entries(God.POWERS)) { const b = document.createElement('button'); b.className = 'btn'; b.style.flex = '1'; b.textContent = this.w.freePowers ? `${d.key} ${d.label}` : `${d.key} ${d.label} (${d.cost})`; b.title = d.desc; b.dataset.id = id; b.onclick = () => this.pickPower(id); this.el.pw.appendChild(b); }
     this.el.go.onclick = () => { this.el.help.style.display = 'none'; this.helpT = 1e9; };
     if (g.params.has('nohelp')) this.el.help.style.display = 'none';
     this.buildPortraits(); this.demoGuide = new DemoGuide(g, this.root); this.cityHud = new CityHud(g, this.root); this.human = new HumanUi(g, this.root); this.mobile = new MobileUi(g, this); if (this.mobile.active) { this.el.help.style.display = 'none'; this.helpT = 1e9; this.toast('Croix : caméra · A : choisir · B : pouvoirs · Menu : le reste'); } this.rebind(); this.onSpeed(g.speedIndex);
@@ -113,11 +113,13 @@ export class Hud {
   pickPower(id: string) {
     if (!God.POWERS[id]) return;
     if (!God.canAfford(this.w, id)) { this.toast(`Pas assez d'énergie divine (${God.cost(id)} requis)`); return; }
-    if (God.POWERS[id].target === 'none') { if (id === 'feast' && God.feast(this.w)) this.toast('Un festin céleste apparaît !'); this.powerMode = ''; }
+    if (id === 'forget') { const n = God.doForget(this.w, this.w.avatar); this.toast(n ? `${n} témoin(s) ont tout oublié` : 'Personne à proximité n\'a rien à oublier'); this.powerMode = ''; }
+    else if (id === 'teleport') { const m = this.el.menu; m.innerHTML = ''; Object.entries(God.PLACES).forEach(([k, p]) => { const d = document.createElement('div'); d.textContent = p.label; d.onclick = () => { const ok = God.teleport(this.w, this.w.avatar, k); this.toast(ok ? `Vous apparaissez : ${p.label}` : 'Impossible'); m.style.display = 'none'; }; m.appendChild(d); }); m.style.left = '40%'; m.style.top = '30%'; m.style.display = 'block'; this.powerMode = ''; }
+    else if (God.POWERS[id].target === 'none') { if (id === 'feast' && God.feast(this.w)) this.toast('Un festin céleste apparaît !'); this.powerMode = ''; }
     else { this.powerMode = this.powerMode === id ? '' : id; this.powerFirst = -1; }
     this.syncPowers();
   }
-  escape() { if (this.powerMode) { this.powerMode = ''; this.powerFirst = -1; this.syncPowers(); } else if (this.el.help.style.display !== 'none') this.el.help.style.display = 'none'; else this.g.selectChar(-1); this.el.menu.style.display = 'none'; }
+  escape() { if (this.w.homeEdit) { this.w.homeEdit = null; this.toast('Aménagement annulé'); return; } if (this.powerMode) { this.powerMode = ''; this.powerFirst = -1; this.syncPowers(); } else if (this.el.help.style.display !== 'none') this.el.help.style.display = 'none'; else this.g.selectChar(-1); this.el.menu.style.display = 'none'; }
   toggleHelp() { if (this.mobile?.active) { this.mobile.sheet === 'Aide' ? this.mobile.closeSheet() : this.mobile.openHelp(); return; } this.el.help.style.display = this.el.help.style.display === 'none' ? 'block' : 'none'; this.helpT = 1e9; }
   /** Appelé quand le suivi de caméra change : met à jour les boutons « Suivre ». */
   onFollow?: () => void;

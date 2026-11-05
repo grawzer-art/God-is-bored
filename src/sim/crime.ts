@@ -31,19 +31,19 @@ export function viewers(w: World, p: V2, except: number[], radius = 8): SimChar[
 }
 
 /** Un délit vient d'être commis. `victim` : -1 si aucune personne précise (commerce). Les témoins réagissent ; certains préviennent la police. */
-export function onCrime(w: World, perp: SimChar, kind: 'theft' | 'shoplift' | 'assault', victim: number, pos: V2, sev: number, amount = 0) {
+export function onCrime(w: World, perp: SimChar, kind: 'theft' | 'shoplift' | 'assault' | 'robbery', victim: number, pos: V2, sev: number, amount = 0) {
   w.record_.crimes += perp.kind === 'avatar' ? 1 : 0; perp.statAdd('crimes');
-  const wits = viewers(w, pos, [perp.id], kind === 'shoplift' ? 14 : 8);
-  const ev = addEvent(w, { kind: kind === 'shoplift' ? 'shoplift' : kind, actor: perp.id, target: victim >= 0 ? victim : (w.clerk?.id ?? -1), x: pos.x, y: pos.y, amount, sig: 0.8 });
+  const wits = viewers(w, pos, [perp.id], kind === 'shoplift' ? 14 : kind === 'robbery' ? 12 : 8);
+  const ev = addEvent(w, { kind, actor: perp.id, target: victim >= 0 ? victim : (w.clerk?.id ?? -1), x: pos.x, y: pos.y, amount, sig: 0.8 });
   for (const o of wits) {
-    w.showEmote(o, 'alert', 2.6); o.addMemory(w.clock, 'crime', kind === 'shoplift' ? `J'ai vu ${nm(perp)} partir sans payer.` : `J'ai vu ${nm(perp)} commettre un vol.`, -0.6, 0.9, perp.id, { src: 'lived', ev: ev.id, conf: 1, subj: perp.id });
+    w.showEmote(o, 'alert', 2.6); o.addMemory(w.clock, 'crime', kind === 'shoplift' ? `J'ai vu ${nm(perp)} partir sans payer.` : kind === 'robbery' ? `J'ai vu ${nm(perp)} braquer l'épicerie.` : `J'ai vu ${nm(perp)} commettre un vol.`, kind === 'robbery' ? -0.9 : -0.6, kind === 'robbery' ? 1 : 0.9, perp.id, { src: 'lived', ev: ev.id, conf: 1, subj: perp.id });
     if (o.kind === 'resident') learn(w, o, ev, 'lived', 1, -1, perp.id);
     if (o.kind === 'police') { alertOfficer(w, o, perp); continue; }
     const rel = w.getRel(o.id, perp.id); let p = o.kind === 'clerk' ? 0.97 : 0.2 + 0.5 * moral(o) + (o.id === victim ? 0.35 : 0);
     if (rel.aff > 40) p *= 0.3; if (o.trait('neuroticism') > 0.7 && rel.fear > 30) p *= 0.5;
     if (w.rng.randf() < Math.min(0.98, p)) w.reports.push({ due: w.clock + w.rng.range(3, 10), pos: { ...pos }, perp: perp.id, sev, kind, by: o.id });
   }
-  w.emitLog(`${nm(perp)} ${kind === 'shoplift' ? 'quitte la boutique sans payer' : 'commet un vol'}${wits.length ? ` — vu par ${wits.map((o) => o.first).join(', ')}` : ' — personne ne semble avoir vu'}.`, 'drama', perp.id);
+  w.emitLog(`${nm(perp)} ${kind === 'shoplift' ? 'quitte la boutique sans payer' : kind === 'robbery' ? 'braque l\'épicerie' : 'commet un vol'}${wits.length ? ` — vu par ${wits.map((o) => o.first).join(', ')}` : ' — personne ne semble avoir vu'}.`, 'drama', perp.id);
   return ev;
 }
 /** Un témoin (résident, qui connaît le coupable) prévient la police après coup. */
@@ -65,6 +65,7 @@ const busy = (o: SimChar) => o.task?.kind === 'pursue' || (o.task?.kind === 'res
 
 /** Traite les appels, affecte l'agent disponible le plus proche, entretient le niveau de recherche et la garde à vue. Appelé à chaque pas. */
 export function tick(w: World, _dt: number, _dmin: number) {
+  holdupTick(w); if (w.till < 220) w.till = Math.min(220, w.till + _dmin * 0.15);
   if (w.reports.length) {
     const due = w.reports.filter((r) => w.clock >= r.due); w.reports = w.reports.filter((r) => w.clock < r.due);
     for (const r of due) {
@@ -145,3 +146,46 @@ export function arrest(w: World, o: SimChar, s: SimChar, surrender = false) {
   }
 }
 void L;
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Braquage : une situation physique en trois temps (menace → réaction du commerçant → butin / alarme), pas un bouton.
+export interface Holdup { clerk: number; perp: number; t0: number; outcome: 'comply' | 'resist' | 'flee'; done: boolean }
+const PANIC_FLEE = { x: 0, y: 0 };
+/** Menace le commerçant. Son caractère décide : obéir (la plupart), résister (courageux, peu amène) ou s'enfuir donner l'alerte. */
+export function startHoldup(w: World, perp: SimChar): { ok: boolean; line: string } {
+  const clerk = w.clerk; if (!clerk || clerk.away) return { ok: false, line: 'Il n\'y a personne à menacer.' }; if (w.holdup) return { ok: false, line: 'Une scène est déjà en cours.' };
+  const courage = 0.55 * (1 - clerk.trait('neuroticism')) + 0.45 * (1 - clerk.trait('agreeableness'));
+  const roll = w.rng.randf(); const outcome: Holdup['outcome'] = roll < courage * 0.55 ? 'resist' : roll > 0.88 ? 'flee' : 'comply';
+  w.holdup = { clerk: clerk.id, perp: perp.id, t0: w.clock, outcome, done: false };
+  clerk.decision_cooldown = 99; if (clerk.state === 'use') w.endUse(clerk, false); w.showEmote(clerk, 'alert', 4);
+  const d = L.BUILDINGS.find((b) => b.name === 'store')!.door!; const out = { x: d[0], y: d[1] + 1 };
+  // les clients voient la scène : ils s'affolent et sortent
+  for (const o of viewers(w, perp.pos, [perp.id, clerk.id], 12)) {
+    if (o.kind === 'police') continue; w.showEmote(o, 'alert', 4); w.abortPlan(o, 'panic'); o.plan = [{ type: 'goto', cell: out } as any]; w.startNextStep(o); o.decision_cooldown = 6;
+  }
+  w.emitLog(`${nm(perp)} menace ${clerk.first} à la caisse.`, 'drama', perp.id);
+  return { ok: true, line: `Vous menacez ${clerk.first} : « La caisse. Maintenant. »` };
+}
+/** Fait avancer le braquage : dénouement quelques secondes après la menace. */
+export function holdupTick(w: World) {
+  const h = w.holdup; if (!h || h.done) { if (h && w.clock - h.t0 > 12) w.holdup = null; return; }
+  if (w.clock - h.t0 < 0.5) return; h.done = true; const perp = w.chars[h.perp], clerk = w.chars[h.clerk]; const pos = { x: clerk.pos.x, y: clerk.pos.y };
+  clerk.decision_cooldown = 1;
+  const near = dist(perp.pos, clerk.pos) <= 4.5;
+  if (!near) { w.emitLog(`${nm(perp)} s'éloigne : la menace tourne court.`, 'info', perp.id); w.holdup = null; return; }
+  const ev = onCrime(w, perp, 'robbery', clerk.id, pos, 3, 0);
+  const rel = w.getRel(clerk.id, perp.id); rel.fear = Math.min(100, rel.fear + 50); rel.aff -= 40;
+  clerk.addMemory(w.clock, 'crime', `${nm(perp)} m'a braqué à la caisse.`, -1, 1, perp.id, { src: 'lived', ev: ev.id, conf: 1, subj: perp.id });
+  if (h.outcome === 'comply') {
+    const loot = Math.min(w.till, Math.round(70 + w.rng.randf() * 90)); w.till -= loot; perp.money += loot; w.stats.holdup_loot = (w.stats.holdup_loot ?? 0) + loot; if (perp.kind === 'avatar') w.record_.crimes++;
+    w.showEmote(clerk, 'sweat', 3); w.emitLog(`${clerk.first} vide la caisse en tremblant : ${loot} € pour ${nm(perp)}.`, 'drama', clerk.id);
+    w.reports.push({ due: w.clock + 1.2, pos, perp: perp.id, sev: 3, kind: 'robbery', by: clerk.id });
+  } else if (h.outcome === 'resist') {
+    w.showEmote(clerk, 'anger', 3); w.emitLog(`${clerk.first} refuse et déclenche l'alarme : « Vous n'aurez rien ! »`, 'drama', clerk.id);
+    w.reports.push({ due: w.clock + 0.1, pos, perp: perp.id, sev: 3, kind: 'robbery', by: clerk.id });
+  } else {
+    w.showEmote(clerk, 'sweat', 3); w.emitLog(`${clerk.first} se jette derrière le comptoir et appelle la police.`, 'drama', clerk.id);
+    w.reports.push({ due: w.clock + 0.2, pos, perp: perp.id, sev: 3, kind: 'robbery', by: clerk.id });
+  }
+  void PANIC_FLEE; w.holdup = null;
+}

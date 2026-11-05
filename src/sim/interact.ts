@@ -6,6 +6,7 @@ import type { SimChar } from './simchar';
 import { dist, type World } from './world';
 import { lineClear, nearestWalkable } from './movement';
 import * as Life from './life';
+import * as Home from './home';
 import * as Shop from './shop';
 import * as Crime from './crime';
 
@@ -50,6 +51,7 @@ export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: C
     const due = Shop.owed(av); const open = !npc.away;
     return { line: due > 0 ? `${npc.first} regarde vos articles : « Ça fait ${due} €. »` : r.fam < 20 ? "Bonjour. Je vous laisse regarder, hein." : 'Tiens, un habitué.', choices: [
       { id: 'pay', label: due > 0 ? `Payer mes articles (${due} €)` : 'Payer', enabled: open && due > 0 && av.money >= due, hint: due > 0 && av.money < due ? 'pas assez d\'argent' : due > 0 ? '' : 'rien à payer' },
+      { id: 'holdup', label: 'Menacer : « La caisse ! »', enabled: open && !w.holdup, hint: 'braquage : témoins, police, conséquences' },
       { id: 'chat', label: 'Bavarder', enabled: open }, { id: 'bye', label: 'Au revoir', enabled: true }] };
   }
   if (npc.kind === 'police') {
@@ -89,6 +91,7 @@ export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
   const av = w.avatar; const r = rel(w, npc.id, av.id); w.stats.player_talks = (w.stats.player_talks ?? 0) + 1;
   switch (id) {
     case 'bye': return { line: npc.kind === 'staff' ? 'Bonne soirée.' : 'À plus tard.', close: true };
+    case 'holdup': { const r = Crime.startHoldup(w, av); return { line: r.line, close: r.ok }; }
     case 'pay': { const n = Shop.pay(w, av); return { line: n > 0 ? `Vous payez ${n} €. « Merci, bonne journée. »` : "Vous n'avez rien à payer." }; }
     case 'surrender': { const off = npc.kind === 'police' ? npc : w.police[0]; Crime.arrest(w, off, av, true); return { line: 'Vous levez les mains. On vous emmène.', close: true }; }
     case 'steal': { const r = Life.playerSteal(w, av, npc); return { line: r.line, close: r.ok && npc.isAsleep() }; }
@@ -190,7 +193,7 @@ export function useItem(w: World, id: string): string {
 }
 
 const shelfLabel = (w: World, fi: number, si: number) => { const it = Shop.shelfItem(w, fi, si); return it ? `Prendre : ${Shop.itemLabel(it)} (${Shop.PRICE[it]} €)` : 'Prendre un article'; };
-export interface Interactable { kind: 'npc' | 'furn'; label: string; d: number; npc?: SimChar; furn?: number; slot?: number; act?: string; stand?: V2 }
+export interface Interactable { kind: 'npc' | 'furn' | 'home'; label: string; d: number; npc?: SimChar; furn?: number; slot?: number; act?: string; stand?: V2 }
 const FURN_ACTS: Record<string, string> = { shop: 'shop', snack: 'snack', cook: 'cook', toilet: 'toilet', shower: 'shower', wash: 'wash', tv: 'tv', read: 'read', nap: 'nap', bath: 'bath', browse: 'browse', water: 'water', dishes: 'dishes', pray: 'pray', music: 'music', drink: 'drink' };
 const FURN_LABELS: Record<string, string> = { snack: 'Fouiller dans le frigo', cook: 'Cuisiner', toilet: 'Aller aux toilettes', shower: 'Prendre une douche', wash: 'Se laver les mains', tv: 'S\'asseoir et regarder la télé', read: 'Lire', nap: 'Faire une sieste', bath: 'Prendre un bain', browse: 'Feuilleter un livre', water: 'Arroser la plante', dishes: 'Faire la vaisselle', pray: 'Se recueillir devant l\'autel', music: 'Mettre un morceau sur le jukebox', drink: 'S\'asseoir au bar' };
 /** Tout ce que l'avatar peut faire autour de lui, avec distance. */
@@ -236,6 +239,7 @@ export type TapPlan =
 /** Toutes les actions réellement implémentées pour un meuble donné, où que se trouve le joueur (la marche est gérée par le plan). */
 export function furnitureOptions(w: World, furnIdx: number): Interactable[] {
   const f = w.furn[furnIdx]; const out: Interactable[] = []; if (!f) return out;
+  if (Home.isMovable(f)) out.push({ kind: 'home', label: `Déplacer : ${Home.label(f.def)}`, d: 5, furn: f.i, act: 'move' }, { kind: 'home', label: `Ranger : ${Home.label(f.def)}`, d: 5, furn: f.i, act: 'stash' });
   f.slots.forEach((slot, si) => {
     if (f.users[si] !== -1) return;
     for (const tag of slot.tags) {
@@ -258,7 +262,7 @@ export function planTap(w: World, av: SimChar, t: TapTarget): TapPlan {
   if (t.furn !== undefined) {
     const opts = furnitureOptions(w, t.furn);
     if (opts.length === 0) return { kind: 'none', msg: w.furn[t.furn]?.def ? 'Rien à faire avec ça.' : '' };
-    const reachable = opts.filter((o) => w.pathTo(av.pos, o.stand!).length > 0 || (Math.floor(av.pos.x) === o.stand!.x && Math.floor(av.pos.y) === o.stand!.y));
+    const reachable = opts.filter((o) => o.kind === 'home' || w.pathTo(av.pos, o.stand!).length > 0 || (Math.floor(av.pos.x) === o.stand!.x && Math.floor(av.pos.y) === o.stand!.y));
     if (reachable.length === 0) return { kind: 'none', msg: "Impossible d'y accéder." };
     return reachable.length === 1 ? { kind: 'use', item: reachable[0] } : { kind: 'menu', items: reachable };
   }

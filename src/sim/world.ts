@@ -1,4 +1,5 @@
 /** Monde simulé : grille, mobilier, habitants, horloge. Port de World.gd. Indépendant du rendu. */
+import * as God from './god';
 import { Traffic } from './traffic';
 import { ACT, FURN, MIN_PER_SEC, NEEDS, NEED_DECAY, DIRS, type FurnDef, type SlotDef, type V2 } from './defs';
 import * as L from './layout';
@@ -13,7 +14,7 @@ import * as City from './city';
 import * as Crime from './crime';
 import { lineClear, screenDirToGrid, smoothPath, stepBody } from './movement';
 
-export interface Furn { i: number; def: string; x: number; y: number; w: number; d: number; opts: L.FurnPlacement['opts']; id: string; users: number[]; on: boolean; water: number; slots: SlotDef[]; blocks: boolean; flat: boolean }
+export interface Furn { i: number; def: string; x: number; y: number; w: number; d: number; opts: L.FurnPlacement['opts']; id: string; users: number[]; on: boolean; water: number; slots: SlotDef[]; blocks: boolean; flat: boolean; gone?: boolean; ox?: number; oy?: number }
 export interface Mess { id: number; kind: string; pos: V2; elev: number; t: number }
 /** Relation orientée a -> b. aff = affection, trust = confiance, fear = peur, resp = respect, ten = tension ; l'hostilité se déduit de aff < 0 et ten. cd = date du dernier conflit (rancune). */
 export interface Rel { aff: number; fam: number; att: number; ten: number; n: number; trust: number; fear: number; resp: number; cd: number }
@@ -46,13 +47,19 @@ export class World {
   constructor(seed = 1337) { this.seed = seed; this.rng = new Rng(seed); }
 
   // ---------------------------------------------------------------- construction
-  traffic?: Traffic;
+  traffic?: Traffic; till = 160; freePowers = true; divine: God.DivineEntry[] = []; holdup: Crime.Holdup | null = null;
   build() {
     this.buildFurniture(); this.buildGrid(); this.buildChars(); this.buildExtras(); Life.init(this); this.traffic = new Traffic(this);
     for (const m of L.INITIAL_MESS) this.addMess(m[0], { x: m[1], y: m[2] }, 0);
     this.emitLog('Le jour se lève sur la maison. Huit habitants dorment encore.', 'info');
   }
   private key(x: number, y: number) { return y * 1000 + x; }
+  /** Meubles rangés dans l'inventaire du joueur (def → quantité) ; `baseFurn` : nombre de meubles d'origine (les suivants ont été ajoutés par le joueur). */
+  stash: Record<string, number> = {}; baseFurn = 0; homeEdit: { mode: 'move'; furn: number } | { mode: 'place'; def: string } | null = null;
+  furnAt(x: number, y: number) { return this.cellFurn.get(this.key(x, y)) ?? -1; }
+  reindexFurniture() { this.cellFurn.clear(); for (const f of this.furn) { f.slots = f.gone ? [] : FURN[f.def].slots; if (f.blocks && !f.gone) for (let cx = 0; cx < f.w; cx++) for (let cy = 0; cy < f.d; cy++) this.cellFurn.set(this.key(f.x + cx, f.y + cy), f.i); } this.buildGrid(); this.furnVersion++; }
+  furnVersion = 0;
+  addFurn(def: string, x: number, y: number, style = 0): Furn { const d: FurnDef = FURN[def]; const f: Furn = { i: this.furn.length, def, x, y, w: d.w, d: d.d, opts: { style }, id: '', users: d.slots.map(() => -1), on: false, water: 100, slots: d.slots, blocks: d.blocks, flat: !!d.flat }; this.furn.push(f); return f; }
   private buildFurniture() {
     this.furn = []; this.cellFurn.clear(); this.furnById.clear();
     for (const e of L.furniture()) {
@@ -62,7 +69,9 @@ export class World {
       this.furn.push(f);
       if (f.id) this.furnById.set(f.id, f.i);
       if (f.blocks) for (let cx = 0; cx < f.w; cx++) for (let cy = 0; cy < f.d; cy++) this.cellFurn.set(this.key(f.x + cx, f.y + cy), f.i);
+      f.ox = f.x; f.oy = f.y;
     }
+    this.baseFurn = this.furn.length;
   }
   private buildGrid() {
     this.astar = new AStar(L.W, L.H);

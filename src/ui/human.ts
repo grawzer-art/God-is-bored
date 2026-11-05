@@ -1,4 +1,5 @@
 /** Interface du mode humain : dialogues, carte du bar, cadeaux, inventaire, menu contextuel, bandeau d'état, invite d'interaction. */
+import * as Home from '../sim/home';
 import type { GameScene } from '../view/scene';
 import * as I from '../sim/interact';
 import { EMOTIONS, NEEDS, NEED_LABEL } from '../sim/defs';
@@ -86,8 +87,11 @@ export class HumanUi {
     this.el.inv.innerHTML = `<div class="row" style="justify-content:space-between"><b style="font-size:17px;color:#fff">Inventaire</b><span class="gold" style="font-size:17px">${av.money} €</span></div>
       <div style="margin-top:8px">${items.map(([id, n]) => `<div class="row" style="justify-content:space-between;margin:4px 0"><span>${I.ITEMS[id]?.label ?? id} ×${n}<br><span class="dim small">${I.ITEMS[id]?.desc ?? ''}</span></span><button class="btn" data-u="${id}">Utiliser</button></div>`).join('') || '<span class="dim">Vos poches sont vides.</span>'}</div>
       <div class="gold small" style="margin-top:10px">SECRETS APPRIS</div><div class="small">${sec.length ? sec.map((c) => `<div><b>${esc(c.first)}</b> : ${esc(c.secret)}</div>`).join('') : '<span class="dim">Aucun. Gagnez la confiance de quelqu\'un.</span>'}</div>
+      ${buildingAt(av.cell().x, av.cell().y)?.name === 'flats1' || Home.inApartment(av.cell().x, av.cell().y) ? `<div class="gold small" style="margin-top:10px">AMÉNAGER MON APPARTEMENT</div><div class="small dim">Touchez un meuble : Déplacer / Ranger. Puis touchez la case voulue.</div>${Object.entries(this.w.stash).filter(([, n]) => n > 0).map(([d, n]) => `<div class="row" style="justify-content:space-between;margin:4px 0"><span>${Home.label(d)} ×${n}</span><button class="btn" data-pl="${d}">Poser</button></div>`).join('')}<div class="dim small" style="margin-top:4px">Catalogue (livraison immédiate)</div>${Home.CATALOG.map((c) => `<div class="row" style="justify-content:space-between;margin:3px 0"><span>${c.label} · ${c.price} €</span><button class="btn" data-by="${c.def}" ${av.money < c.price ? 'disabled' : ''}>Acheter</button></div>`).join('')}` : ''}
       ${av.stats.debt ? `<div class="small" style="margin-top:8px;color:#ff9a9a">Dettes : ${av.stats.debt} €</div>` : ''}<div class="small dim" style="margin-top:10px">I ou Échap : fermer</div>`;
     this.el.inv.querySelectorAll<HTMLButtonElement>('button[data-u]').forEach((b) => (b.onclick = () => { this.g.hud.toast(I.useItem(this.w, b.dataset.u!)); this.showInv(); }));
+    this.el.inv.querySelectorAll<HTMLButtonElement>('button[data-by]').forEach((b) => (b.onclick = () => { this.g.hud.toast(Home.buy(this.w, b.dataset.by!).msg); this.showInv(); }));
+    this.el.inv.querySelectorAll<HTMLButtonElement>('button[data-pl]').forEach((b) => (b.onclick = () => { this.w.homeEdit = { mode: 'place', def: b.dataset.pl! }; this.hideInv(); this.g.hud.toast(`Touchez la case où poser : ${Home.label(b.dataset.pl!)} (Échap : annuler)`); }));
     this.el.inv.style.display = 'block';
   }
   // ---- bandeau d'état + invite

@@ -9,11 +9,44 @@ export const POWERS: Record<string, { label: string; cost: number; key: string; 
   whisper: { label: 'Murmure', cost: 10, key: '2', target: 'char', desc: 'Souffle une idée à un habitant (obéit selon sa foi).' },
   fate: { label: 'Coup du destin', cost: 25, key: '3', target: 'two', desc: 'Force la rencontre de deux habitants.' },
   feast: { label: 'Festin céleste', cost: 40, key: '4', target: 'none', desc: 'Un banquet apparaît dans la cuisine : tout le monde est invité.' },
+  forget: { label: 'Effacer les souvenirs', cost: 0, key: '5', target: 'none', desc: 'Les témoins proches oublient ce qu\'ils ont vu de vous : souvenirs, appels en attente et rumeurs.' },
+  teleport: { label: 'Téléportation', cost: 0, key: '6', target: 'none', desc: 'Vous disparaissez et réapparaissez dans un lieu de la ville (les témoins le voient).' },
 };
 export const WHISPERS: Record<string, string> = { eat: 'Va manger', sleep: 'Va dormir', shower: 'Va te laver', chat: 'Va discuter', tv: 'Détends-toi devant la télé', tidy: 'Range un peu', pray: 'Prie un instant' };
 export const cost = (p: string) => POWERS[p].cost;
-export const canAfford = (w: World, p: string) => w.godEnergy >= cost(p);
-function pay(w: World, p: string) { w.godEnergy -= cost(p); w.ennui = Math.max(0, w.ennui - 8); }
+/** Le créateur n'est pas limité par une jauge : `freePowers` (vrai par défaut) rend tous les pouvoirs gratuits. */
+export const canAfford = (w: World, p: string) => w.freePowers || w.godEnergy >= cost(p);
+function pay(w: World, p: string) { if (!w.freePowers) w.godEnergy -= cost(p); w.ennui = Math.max(0, w.ennui - 8); }
+/** Journal des interventions divines (sauvegardé). */
+export interface DivineEntry { t: number; power: string; target: number; text: string }
+function note(w: World, power: string, target: number, text: string) { w.divine.push({ t: w.clock, power, target, text }); if (w.divine.length > 80) w.divine.shift(); w.emitLog(text, 'god', target); }
+export const PLACES: Record<string, { label: string; x: number; y: number }> = {
+  flat: { label: 'Mon appartement', x: 66.5, y: 28.5 }, street: { label: 'Avenue', x: 70.5, y: 19.5 }, store: { label: 'Épicerie', x: 61.5, y: 14.5 }, bar: { label: 'Bar', x: 38.5, y: 15.5 },
+  station: { label: 'Commissariat', x: 75.5, y: 14.5 }, park: { label: 'Parc', x: 20.5, y: 28.5 }, house: { label: 'Maison', x: 14.5, y: 13.5 },
+};
+/** Efface chez les témoins proches (vue directe, ≤ 9 cases) ce qu'ils savent de `subject` : souvenirs de délit, connaissances d'événements, appels en attente. Retourne le nombre de personnes touchées. */
+export function forget(w: World, center: { x: number; y: number }, subject: number): number {
+  let hit = 0;
+  for (const c of w.chars) {
+    if (c.id === subject || c.away || c.kind === 'avatar' || Math.hypot(c.pos.x - center.x, c.pos.y - center.y) > 9) continue;
+    const m0 = c.memories.length; c.memories = c.memories.filter((m) => !((m.subj === subject || m.other === subject) && (m.kind === 'crime' || m.kind === 'theft' || m.src === 'lived')));
+    let k = 0; for (const id of Object.keys(c.known).map(Number)) { const ev = w.events.find((e) => e.id === id); if (ev && (ev.actor === subject || c.known[id].culprit === subject)) { delete c.known[id]; k++; } }
+    const r0 = w.reports.length; w.reports = w.reports.filter((r) => !(r.by === c.id && r.perp === subject));
+    if (c.memories.length !== m0 || k || w.reports.length !== r0) { hit++; const rl = w.getRel(c.id, subject); rl.fear = Math.max(0, rl.fear - 30); w.showEmote(c, 'dots', 3); c.addMemory(w.clock, 'miracle', "J'ai eu un vertige… j'ai perdu le fil de ce qui venait de se passer.", -0.2, 0.5); }
+  }
+  return hit;
+}
+export function doForget(w: World, subject: SimChar): number {
+  if (!canAfford(w, 'forget')) return 0; pay(w, 'forget'); const n = forget(w, subject.pos, subject.id);
+  note(w, 'forget', subject.id, n ? `Vous effacez les souvenirs de ${n} témoin(s).` : 'Personne ici n\'avait de souvenir à effacer.'); return n;
+}
+export function teleport(w: World, c: SimChar, place: string): boolean {
+  const p = PLACES[place]; if (!p || !canAfford(w, 'teleport')) return false; const cell = { x: Math.floor(p.x), y: Math.floor(p.y) }; if (!w.isWalkable(cell)) return false;
+  pay(w, 'teleport');
+  for (const o of w.chars) if (o.id !== c.id && !o.away && o.kind !== 'avatar' && Math.hypot(o.pos.x - c.pos.x, o.pos.y - c.pos.y) < 8) { witness(w, o, false); o.addMemory(w.clock, 'miracle', `${c.kind === 'avatar' ? "L'étranger" : c.first} s'est volatilisé sous mes yeux.`, 0.2, 0.9, c.id, { src: 'lived', conf: 1, subj: c.id }); }
+  if (c.state === 'use') w.endUse(c, false); w.abortPlan(c, 'teleport'); c.pos = { x: p.x, y: p.y }; c.state = 'idle'; c.plan = []; c.path = []; c.stuck_t = 0;
+  note(w, 'teleport', c.id, `${c.kind === 'avatar' ? 'Vous vous téléportez' : c.first + ' est téléporté(e)'} : ${p.label}.`); return true;
+}
 
 export function bless(w: World, c: SimChar): boolean {
   if (!canAfford(w, 'bless')) return false;

@@ -6,6 +6,8 @@ import * as Crime from '../src/sim/crime';
 import * as Act from '../src/sim/interact';
 import { setupNoriaDemo } from '../src/sim/demo';
 import * as City from '../src/sim/city';
+import * as God from '../src/sim/god';
+import * as Home from '../src/sim/home';
 import { toJSON, fromJSON } from '../src/sim/save';
 import { MIN_PER_SEC } from '../src/sim/defs';
 
@@ -130,5 +132,63 @@ describe('8. performance', () => {
   it('3 jours de ville complète en moins de 12 s ; population constante ; mémoires bornées', () => {
     const w = mk(); const t = performance.now(); run(w, 3 * 1440); expect(performance.now() - t).toBeLessThan(12000); expect(w.chars.length).toBe(19);
     for (const c of w.chars) { expect(c.memories.length).toBeLessThanOrEqual(60); for (const v of Object.values(c.needs)) expect(Number.isFinite(v)).toBe(true); }
+  });
+});
+
+describe('4. braquage : une situation, pas un bouton', () => {
+  const scene = () => { const w = mk(); day(w, 11); const av = w.avatar; put(w, av, 61.5, 14.5); av.money = 60; w.clerk!.away = false; put(w, w.clerk!, 63.5, 15.5); return { w, av }; };
+  it('menacer le commerçant : il réagit selon son caractère, la caisse se vide ou l\'alarme sonne, des témoins se souviennent, la police est appelée', () => {
+    const outcomes = new Set<string>(); let looted = 0;
+    for (const seed of [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]) {
+      const w = mk(seed); day(w, 11); const av = w.avatar; put(w, av, 62.5, 14.5); av.money = 60; put(w, w.clerk!, 63.5, 15.5); w.till = 150;
+      const money0 = av.money; const r = Act.choose(w, w.clerk!, 'holdup'); expect(r.close).toBe(true); expect(w.holdup).not.toBeNull(); outcomes.add(w.holdup!.outcome);
+      expect(run(w, 3, () => !w.holdup)).toBe(true);
+      expect(w.clerk!.memories.some((m) => /braqué/.test(m.text))).toBe(true); expect(w.events.some((e) => e.kind === 'robbery')).toBe(true);
+      if (av.money > money0) { looted++; expect(w.till).toBeLessThan(150); }
+      expect(run(w, 30, () => w.wanted.level >= 2 || w.dispatches.length > 0)).toBe(true); expect(w.wanted.level).toBeGreaterThanOrEqual(1);
+    }
+    expect(looted).toBeGreaterThan(0); expect(outcomes.size).toBeGreaterThan(1);
+  });
+  it('les conséquences persistent après sauvegarde : souvenir du commerçant, caisse, niveau de recherche', () => {
+    const { w, av } = scene(); w.till = 150; Act.choose(w, w.clerk!, 'holdup'); run(w, 3, () => !w.holdup); run(w, 10);
+    const w2 = fromJSON(JSON.parse(JSON.stringify(toJSON(w))))!; expect(w2.clerk!.memories.some((m) => /braqué/.test(m.text))).toBe(true); expect(w2.till).toBeCloseTo(w.till, 1); expect(w2.wanted.level).toBe(w.wanted.level); void av;
+  });
+});
+
+describe('5. intervention divine : agit sur les vrais systèmes, conséquences persistantes', () => {
+  it('effacer les souvenirs : le commerçant oublie le braquage, son appel est annulé ; téléportation vue par les témoins ; le tout est sauvegardé', () => {
+    let tested = 0;
+    for (const seed of [31, 32, 33, 34, 35, 36]) {
+      const w = mk(seed); day(w, 11); const av = w.avatar; put(w, av, 62.5, 14.5); put(w, w.clerk!, 63.5, 15.5); w.till = 150;
+      Act.choose(w, w.clerk!, 'holdup'); run(w, 3, () => !w.holdup); if (!w.clerk!.memories.some((m) => /braqué/.test(m.text))) continue; tested++;
+      const n = God.doForget(w, av); expect(n).toBeGreaterThan(0); expect(w.clerk!.memories.some((m) => /braqué/.test(m.text))).toBe(false); expect(w.reports.some((r) => r.by === w.clerk!.id)).toBe(false);
+      expect(God.teleport(w, av, 'flat')).toBe(true); expect(L.buildingAt(Math.floor(av.pos.x), Math.floor(av.pos.y))?.name).toBe('flats1'); expect(w.divine.length).toBe(2);
+      const w2 = fromJSON(JSON.parse(JSON.stringify(toJSON(w))))!; expect(w2.divine.length).toBe(2); expect(w2.clerk!.memories.some((m) => /braqué/.test(m.text))).toBe(false); expect(w2.avatar.pos.x).toBeCloseTo(av.pos.x, 1);
+    }
+    expect(tested).toBeGreaterThan(2);
+  });
+});
+
+describe('6. aménager son appartement (Habbo) : déplacer, ranger, acheter, poser ; collisions ; sauvegarde', () => {
+  const apt = () => { const w = mk(5); const av = w.avatar; put(w, av, 66.5, 28.5); av.money = 200; return { w, av }; };
+  it('déplacer un meuble sur une case libre ; refus sur un mur, un autre meuble, hors de l\'appartement ou si l\'accès est bloqué', () => {
+    const { w } = apt(); const sofa = w.furnById.get('flat_sofa')!; const f = w.furn[sofa]; expect(Home.isMovable(f)).toBe(true);
+    expect(Home.moveFurn(w, sofa, 58, 26).ok).toBe(false);                      // salle de bains / murs
+    expect(Home.moveFurn(w, sofa, 65, 27).ok).toBe(false);                      // l'assise sud serait bloquée par la plante
+    expect(Home.moveFurn(w, sofa, 64, 27).ok).toBe(true); expect([f.x, f.y]).toEqual([64, 27]); expect(w.furnAt(66, 27)).toBe(sofa); expect(w.furnAt(63, 27)).toBe(-1);
+    expect(Home.moveFurn(w, sofa, 70, 28).ok).toBe(false);                      // hors appartement
+    const tv = w.furnById.get('flat_tv')!; expect(Home.moveFurn(w, tv, 65, 27).ok).toBe(false); // occupé par le canapé
+    expect(Home.isMovable(w.furn[w.furnById.get('flat_stove')!])).toBe(false); // plomberie fixe
+  });
+  it('ranger puis reposer ; acheter un meuble (argent débité) et le poser ; usage du canapé suit sa nouvelle place', () => {
+    const { w, av } = apt(); const sofa = w.furnById.get('flat_sofa')!; expect(Home.stash(w, sofa).ok).toBe(true); expect(w.furn[sofa].slots.length).toBe(0); expect(w.stash.sofa_s).toBe(1);
+    expect(Home.place(w, 'sofa_s', 64, 27).ok).toBe(true); expect(w.furn[sofa].gone).toBe(false); expect(w.furn[sofa].slots.length).toBe(3);
+    const m0 = av.money; expect(Home.buy(w, 'floor_lamp').ok).toBe(true); expect(av.money).toBe(m0 - 25); const n0 = w.furn.length; expect(Home.place(w, 'floor_lamp', 60, 25).ok).toBe(true); expect(w.furn.length).toBe(n0 + 1);
+    av.money = 1; expect(Home.buy(w, 'wardrobe').ok).toBe(false);
+  });
+  it('l\'aménagement est sauvegardé et rechargé tel quel', () => {
+    const { w, av } = apt(); Home.moveFurn(w, w.furnById.get('flat_sofa')!, 64, 27); Home.buy(w, 'plant'); Home.place(w, 'plant', 59, 29); void av;
+    const w2 = fromJSON(JSON.parse(JSON.stringify(toJSON(w))))!; const s2 = w2.furn[w2.furnById.get('flat_sofa')!];
+    expect([s2.x, s2.y]).toEqual([64, 27]); expect(w2.furn.length).toBe(w.furn.length); const p = w2.furn[w2.furn.length - 1]; expect([p.def, p.x, p.y, !!p.gone]).toEqual(['plant', 59, 29, false]); expect(w2.furnAt(59, 29)).toBe(p.i);
   });
 });

@@ -87,7 +87,7 @@ describe('simulation autonome (3 jours)', () => {
 describe('pouvoirs divins', () => {
   it('bénédiction, murmure, destin, festin', () => {
     const w = mk(99); for (let i = 0; i < 600; i++) w.tick(0.25);
-    const c = w.chars[0]; c.needs.hunger = 20; c.joy = 0; w.godEnergy = 100; const f0 = c.faith;
+    const c = w.chars[0]; c.needs.hunger = 20; c.joy = 0; w.freePowers = false; w.godEnergy = 100; const f0 = c.faith;
     expect(God.bless(w, c)).toBe(true); expect(c.needs.hunger).toBeGreaterThan(30); expect(c.joy).toBeGreaterThan(20); expect(c.faith).toBeGreaterThan(f0);
     expect(w.godEnergy).toBeCloseTo(100 - God.cost('bless'), 0);
     w.godEnergy = 5; expect(God.bless(w, c)).toBe(false);

@@ -63,6 +63,7 @@ export function describe(w: World, ev: WorldEvent, c: SimChar, k: Know): string 
     case 'job': return k.src === 'lived' && a === c ? `J'ai trouvé du travail à ${NEW_JOB.place}.` : `${from ? from + ' m\'a dit que ' : ''}${nm(a)} a trouvé du travail.`;
     case 'reconcile': return `${nm(a)} et ${nm(t)} se sont réconciliés.`;
     case 'shoplift': return k.src === 'lived' ? `J'ai vu ${who} partir de l'épicerie sans payer.` : `${from} m'a dit que ${who} a volé à l'épicerie.`;
+    case 'robbery': return k.src === 'lived' ? `J'ai vu ${who} braquer l'épicerie.` : `${from} m'a dit que ${who} a braqué l'épicerie.`;
     case 'arrest': return `${a.first} a arrêté ${nm(t)}.`;
   }
   return '…';
@@ -76,6 +77,7 @@ function gist(w: World, ev: WorldEvent, k: Know, listener: number): string {
     case 'help': return `que ${nm(a)} a aidé ${nm(t)}`;
     case 'job': return `que ${nm(a)} a trouvé du travail`;
     case 'shoplift': return `que ${nm(a)} a volé à l'épicerie`;
+    case 'robbery': return `que ${nm(a)} a braqué l'épicerie`;
     case 'arrest': return `que ${nm(t)} s'est fait arrêter`;
     default: return `que ${nm(a)} et ${nm(t)} se sont réconciliés`;
   }
