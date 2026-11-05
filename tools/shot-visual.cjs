@@ -20,5 +20,6 @@ const only = process.argv[2];
   await shot('vis-5-bar-front', '?fresh&nohelp&zoom=1.1&at=40,20&speed=0');
   await shot('vis-6-people', '?fresh&nohelp&zoom=2.4&at=72,20&speed=1', () => { const w = window.__gib.world; w.clock = Math.floor(w.clock / 1440) * 1440 + 10 * 60; w.citizens.forEach((c, k) => { c.away = false; c.pos = { x: 69.5 + k * 1.6, y: 19.5 }; c.state = 'idle'; c.plan = []; c.decision_cooldown = 60; }); w.police.forEach((c, k) => { c.away = false; c.pos = { x: 73.5 + k * 1.6, y: 22.5 }; c.state = 'idle'; c.plan = []; c.decision_cooldown = 60; }); }, 1200);
   await shot('vis-7-apartment', '?fresh&nohelp&zoom=1.5&at=63,28&speed=0', () => { const g = window.__gib; g.world.avatar.pos = { x: 66.5, y: 28.5 }; g.descend(false); g.setSpeed(0); });
+  await shot('vis-8-hud-descendre', '?fresh&nohelp&zoom=2&at=70,20&speed=0', () => { const g = window.__gib; g.world.clock = Math.floor(g.world.clock / 1440) * 1440 + 20 * 60 + 40; g.world.avatar.pos = { x: 70.5, y: 19.5 }; g.descend(false); g.setSpeed(0); });
   console.log('errors:', errs.length, errs.slice(0, 3)); await b.close();
 })();

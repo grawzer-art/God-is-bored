@@ -14,6 +14,8 @@ export class Traffic {
       const dir: 1 | -1 = lane === 21 ? 1 : -1; this.cars.push({ id: this.cars.length, lane, x: (i + this.rnd() * 0.6) * (L.W / per), dir, v: 0, vmax: 2.6 + this.rnd() * 1.4, style: Math.floor(this.rnd() * 8), stopped: false });
     }
   }
+  /** Fait apparaître une voiture (pouvoir CRÉER) sur une voie de l'avenue ; plafonné pour la fluidité. */
+  spawn(): boolean { if (this.cars.length >= 16) return false; const lane = this.rnd() < 0.5 ? 20 : 21; const dir: 1 | -1 = lane === 21 ? 1 : -1; this.cars.push({ id: this.cars.length, lane, x: dir > 0 ? -CAR_LEN - 1 : L.W + 1, dir, v: 0, vmax: 2.6 + this.rnd() * 1.4, style: Math.floor(this.rnd() * 8), stopped: false }); return true; }
   tick(dt: number) {
     const W = L.W;
     for (const c of this.cars) {

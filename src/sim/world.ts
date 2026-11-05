@@ -1,4 +1,6 @@
 /** Monde simulé : grille, mobilier, habitants, horloge. Port de World.gd. Indépendant du rendu. */
+import type * as Home from './home';
+import * as Possess from './possess';
 import * as God from './god';
 import { Traffic } from './traffic';
 import { ACT, FURN, MIN_PER_SEC, NEEDS, NEED_DECAY, DIRS, type FurnDef, type SlotDef, type V2 } from './defs';
@@ -47,7 +49,8 @@ export class World {
   constructor(seed = 1337) { this.seed = seed; this.rng = new Rng(seed); }
 
   // ---------------------------------------------------------------- construction
-  traffic?: Traffic; till = 160; freePowers = true; divine: God.DivineEntry[] = []; holdup: Crime.Holdup | null = null;
+  possess: Possess.PossessState | null = null; incarnations: Possess.Incarnation[] = [];
+  traffic?: Traffic; till = 160; freePowers = true; laws: God.Laws = { police: true }; divine: God.DivineEntry[] = []; holdup: Crime.Holdup | null = null;
   build() {
     this.buildFurniture(); this.buildGrid(); this.buildChars(); this.buildExtras(); Life.init(this); this.traffic = new Traffic(this);
     for (const m of L.INITIAL_MESS) this.addMess(m[0], { x: m[1], y: m[2] }, 0);
@@ -58,7 +61,9 @@ export class World {
   stash: Record<string, number> = {}; baseFurn = 0; homeEdit: { mode: 'move'; furn: number } | { mode: 'place'; def: string } | null = null;
   furnAt(x: number, y: number) { return this.cellFurn.get(this.key(x, y)) ?? -1; }
   reindexFurniture() { this.cellFurn.clear(); for (const f of this.furn) { f.slots = f.gone ? [] : FURN[f.def].slots; if (f.blocks && !f.gone) for (let cx = 0; cx < f.w; cx++) for (let cy = 0; cy < f.d; cy++) this.cellFurn.set(this.key(f.x + cx, f.y + cy), f.i); } this.buildGrid(); this.furnVersion++; }
-  furnVersion = 0;
+  furnVersion = 0; hist: Home.Op[] = []; redo: Home.Op[] = []; decoMode = false;
+  /** Sols et murs de l'appartement (id de style par pièce j/m/v) ; `styleVersion` force le redessin. */
+  homeStyle: { floor: Record<string, string>; wall: Record<string, string> } = { floor: {}, wall: {} }; styleVersion = 0;
   addFurn(def: string, x: number, y: number, style = 0): Furn { const d: FurnDef = FURN[def]; const f: Furn = { i: this.furn.length, def, x, y, w: d.w, d: d.d, opts: { style }, id: '', users: d.slots.map(() => -1), on: false, water: 100, slots: d.slots, blocks: d.blocks, flat: !!d.flat }; this.furn.push(f); return f; }
   private buildFurniture() {
     this.furn = []; this.cellFurn.clear(); this.furnById.clear();
@@ -231,6 +236,7 @@ export class World {
   feastActive() { return this.feastUntil > 0 && this.clock < this.feastUntil; }
 
   updateChar(c: SimChar, dt: number, dmin: number) {
+    if (c.kind === 'dormant') return;
     if (c.kind === 'staff') { this.updateStaff(c, dt, dmin); return; }
     if (c.kind === 'avatar') { this.updateAvatar(c, dt, dmin); return; }
     if (c.kind === 'clerk') { City.updateClerk(this, c, dt, dmin); this.runStates(c, dt, dmin); return; }

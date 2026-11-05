@@ -39,7 +39,7 @@ export class SimChar {
   memories: Memory[] = []; goal: Goal = { id: 'social', progress: 0, done: false }; goal_index = 0;
   emote = ''; emote_t = 0; action_text = ''; stats: Record<string, number> = {};
   /** resident = habitant autonome ; avatar = le dieu incarné (joueur) ; staff = employé (barman). */
-  kind: 'resident' | 'avatar' | 'staff' | 'citizen' | 'police' | 'clerk' = 'resident'; away = false;
+  kind: 'resident' | 'avatar' | 'staff' | 'citizen' | 'police' | 'clerk' | 'dormant' = 'resident'; away = false;
   money = 40; inventory: Record<string, number> = {}; drunk = 0;
   /** Dernière décision et ses justifications (mode diagnostic). */
   diag: { t: number; chosen: string; why: string; cands: { act: string; score: number; why: string }[] } | null = null;

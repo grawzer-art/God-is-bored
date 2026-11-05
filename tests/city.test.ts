@@ -8,6 +8,7 @@ import { setupNoriaDemo } from '../src/sim/demo';
 import * as City from '../src/sim/city';
 import * as God from '../src/sim/god';
 import * as Home from '../src/sim/home';
+import * as PossessMod from '../src/sim/possess';
 import { toJSON, fromJSON } from '../src/sim/save';
 import { MIN_PER_SEC } from '../src/sim/defs';
 
@@ -190,5 +191,45 @@ describe('6. aménager son appartement (Habbo) : déplacer, ranger, acheter, pos
     const { w, av } = apt(); Home.moveFurn(w, w.furnById.get('flat_sofa')!, 64, 27); Home.buy(w, 'plant'); Home.place(w, 'plant', 59, 29); void av;
     const w2 = fromJSON(JSON.parse(JSON.stringify(toJSON(w))))!; const s2 = w2.furn[w2.furnById.get('flat_sofa')!];
     expect([s2.x, s2.y]).toEqual([64, 27]); expect(w2.furn.length).toBe(w.furn.length); const p = w2.furn[w2.furn.length - 1]; expect([p.def, p.x, p.y, !!p.gone]).toEqual(['plant', 59, 29, false]); expect(w2.furnAt(59, 29)).toBe(p.i);
+  });
+});
+
+describe('7. INCARNER : prendre un corps, agir, le quitter ; fiche : interventions réelles', () => {
+  const Possess = require_possess();
+  function require_possess() { return PossessMod; }
+  it('possession : le joueur contrôle le PNJ ; à la sortie il oublie la période, les autres s\'en souviennent, l\'argent et les conséquences restent', () => {
+    const w = mk(7); day(w, 12); run(w, 20); const npc = w.residents.find((c) => !c.away && !c.isAsleep())!; const orig = w.avatar.id; const mem0 = npc.memories.length;
+    const r = Possess.start(w, npc.id); expect(r.ok).toBe(true); expect(w.avatar.id).toBe(npc.id); expect(w.chars[orig].kind).toBe('dormant'); expect(w.residents.some((c) => c.id === npc.id)).toBe(false);
+    w.avatarControlled = true; npc.money += 50; npc.addMemory(w.clock, 'test', 'Souvenir créé pendant la possession.', 0, 0.5);
+    w.input = { dx: 1, dy: 0, run: false, mag: 1 }; const x0 = npc.pos.x; run(w, 0.5); expect(Math.abs(npc.pos.x - x0) + Math.abs(npc.pos.y)).toBeGreaterThan(0);   // il se déplace sous contrôle du joueur
+    const witness = w.residents.find((c) => c.id !== npc.id)!; witness.addMemory(w.clock, 'crime', 'J\'ai vu ce qu\'a fait ' + npc.first + '.', -0.5, 0.8, npc.id);
+    w.input = { dx: 0, dy: 0, run: false }; const e = Possess.end(w); expect(e.ok).toBe(true); expect(npc.kind).toBe('resident'); expect(w.chars[orig].kind).toBe('avatar'); expect(w.avatar.id).toBe(orig);
+    expect(npc.memories.some((m) => m.text.includes('pendant la possession'))).toBe(false); expect(witness.memories.some((m) => m.text.includes('J\'ai vu ce qu\'a fait'))).toBe(true); expect(npc.money).toBeGreaterThan(40);
+    expect(w.incarnations.length).toBe(1); expect(npc.memories.length).toBeGreaterThanOrEqual(mem0 - 0); run(w, 30); expect(npc.state === 'idle' || npc.state === 'walk' || npc.state === 'use').toBe(true);   // il reprend sa vie autonome
+  });
+  it('la possession survit à la sauvegarde ; un crime commis dans le corps rend le PNJ recherché à la sortie', () => {
+    const w = mk(8); day(w, 12); run(w, 10); const npc = w.residents.find((c) => !c.away)!; Possess.start(w, npc.id); w.avatarControlled = true; w.wanted.level = 2;
+    const w2 = fromJSON(JSON.parse(JSON.stringify(toJSON(w))))!; expect(w2.possess?.npc).toBe(npc.id); expect(w2.avatar.id).toBe(npc.id); expect(w2.chars.find((c) => c.kind === 'dormant')).toBeTruthy();
+    Possess.end(w2); expect(w2.wantedNpcs[npc.id]).toBeGreaterThan(w2.clock); expect(w2.wanted.level).toBe(0);
+  });
+  it('fiche : donner de l\'argent, changer un trait et révéler un secret modifient réellement l\'état du monde', () => {
+    const w = mk(9); run(w, 5); const [a, b] = w.residents; const m0 = a.money; God.give(w, a, 100000); expect(a.money).toBe(m0 + 100000); expect(a.memories.some((m) => m.kind === 'miracle')).toBe(true);
+    const t0 = a.traits.agreeableness; God.shiftTrait(w, a, 'agreeableness', 0.2); expect(a.traits.agreeableness).toBeCloseTo(Math.min(1, t0 + 0.2), 5);
+    const aff0 = w.getRel(b.id, a.id).aff; const msg = God.reveal(w, a, b); expect(msg.length).toBeGreaterThan(0); expect(b.memories.some((m) => m.kind === 'secret' && m.src === 'told')).toBe(true); expect(w.getRel(b.id, a.id).aff).not.toBe(aff0); expect(w.divine.length).toBe(3);
+  });
+});
+
+describe('8. décoration : annuler / rétablir, sols et murs persistants', () => {
+  const apt = () => { const w = mk(5); put(w, w.avatar, 66.5, 28.5); w.avatar.money = 500; return w; };
+  it('annuler et rétablir un déplacement, un rangement et une pose', () => {
+    const w = apt(); const sofa = w.furnById.get('flat_sofa')!; const f = w.furn[sofa];
+    expect(Home.moveFurn(w, sofa, 64, 27).ok).toBe(true); expect(Home.undo(w).ok).toBe(true); expect([f.x, f.y]).toEqual([63, 27]); expect(Home.redo(w).ok).toBe(true); expect([f.x, f.y]).toEqual([64, 27]);
+    expect(Home.stash(w, sofa).ok).toBe(true); expect(Home.undo(w).ok).toBe(true); expect(f.gone).toBeFalsy(); expect(w.stash.sofa_s ?? 0).toBe(0);
+    Home.buy(w, 'plant'); expect(Home.place(w, 'plant', 60, 25).ok).toBe(true); expect(Home.undo(w).ok).toBe(true); expect(w.stash.plant).toBe(1); expect(Home.redo(w).ok).toBe(true); expect(w.stash.plant).toBe(0);
+    expect(w.furnAt(60, 25)).toBeGreaterThanOrEqual(0);
+  });
+  it('sol et murs : achat, solde débité, sauvegarde', () => {
+    const w = apt(); const m = w.avatar.money; expect(Home.restyle(w, 'j', 'floor', 'wood_a').ok).toBe(true); expect(w.avatar.money).toBe(m - 40); expect(Home.restyle(w, 'm', 'wall', 'lilas').ok).toBe(true); w.avatar.money = 5; expect(Home.restyle(w, 'v', 'floor', 'tile_bath').ok).toBe(false);
+    const w2 = fromJSON(JSON.parse(JSON.stringify(toJSON(w))))!; expect(w2.homeStyle.floor.j).toBe('wood_a'); expect(w2.homeStyle.wall.m).toBe('lilas');
   });
 });

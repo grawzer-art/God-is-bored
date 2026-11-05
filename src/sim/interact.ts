@@ -193,13 +193,13 @@ export function useItem(w: World, id: string): string {
 }
 
 const shelfLabel = (w: World, fi: number, si: number) => { const it = Shop.shelfItem(w, fi, si); return it ? `Prendre : ${Shop.itemLabel(it)} (${Shop.PRICE[it]} €)` : 'Prendre un article'; };
-export interface Interactable { kind: 'npc' | 'furn' | 'home'; label: string; d: number; npc?: SimChar; furn?: number; slot?: number; act?: string; stand?: V2 }
+export interface Interactable { kind: 'npc' | 'furn' | 'home' | 'sheet'; label: string; d: number; npc?: SimChar; furn?: number; slot?: number; act?: string; stand?: V2 }
 const FURN_ACTS: Record<string, string> = { shop: 'shop', snack: 'snack', cook: 'cook', toilet: 'toilet', shower: 'shower', wash: 'wash', tv: 'tv', read: 'read', nap: 'nap', bath: 'bath', browse: 'browse', water: 'water', dishes: 'dishes', pray: 'pray', music: 'music', drink: 'drink' };
 const FURN_LABELS: Record<string, string> = { snack: 'Fouiller dans le frigo', cook: 'Cuisiner', toilet: 'Aller aux toilettes', shower: 'Prendre une douche', wash: 'Se laver les mains', tv: 'S\'asseoir et regarder la télé', read: 'Lire', nap: 'Faire une sieste', bath: 'Prendre un bain', browse: 'Feuilleter un livre', water: 'Arroser la plante', dishes: 'Faire la vaisselle', pray: 'Se recueillir devant l\'autel', music: 'Mettre un morceau sur le jukebox', drink: 'S\'asseoir au bar' };
 /** Tout ce que l'avatar peut faire autour de lui, avec distance. */
 export function nearby(w: World, av: SimChar, reach = 1.9): Interactable[] {
   const out: Interactable[] = [];
-  for (const o of w.chars) { if (o.id === av.id || o.away) continue; const d = dist(o.pos, av.pos); if (d <= reach + ((o.kind === 'staff' || o.kind === 'clerk') ? 0.9 : 0.4) && lineClear(av.pos, o.pos)) out.push({ kind: 'npc', label: `Parler à ${o.first}`, d, npc: o }); }
+  for (const o of w.chars) { if (o.id === av.id || o.away) continue; const d = dist(o.pos, av.pos); if (d <= reach + ((o.kind === 'staff' || o.kind === 'clerk') ? 0.9 : 0.4) && lineClear(av.pos, o.pos)) { out.push({ kind: 'npc', label: `Parler à ${o.first}`, d, npc: o }); out.push({ kind: 'sheet', label: `Consulter la fiche de ${o.first}`, d: d + 0.7, npc: o }); } }
   for (const f of w.furn) f.slots.forEach((slot, si) => {
     if (f.users[si] !== -1) return;
     for (const tag of slot.tags) {

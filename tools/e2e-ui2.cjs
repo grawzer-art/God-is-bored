@@ -1,0 +1,83 @@
+// IPHONE EXPERIENCE V2 — parcours B, C, D dans le vrai jeu (iPhone émulé) : fiche depuis le gameplay, fiche + interventions divines, incarnation, sortie du corps, sauvegarde.
+const { chromium, devices } = require('playwright');
+const URL = process.env.GAME_URL || 'http://localhost:5173/';
+let fails = 0; const ok = (c, m) => { if (!c) fails++; console.log(c ? '  [OK]   ' : '  [FAIL] ', m); };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+(async () => {
+  const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] }); const errs = [];
+  const ctx = await b.newContext({ ...devices['iPhone 13 landscape'], viewport: { width: 844, height: 390 }, deviceScaleFactor: 2 }); const pg = await ctx.newPage(); pg.on('pageerror', (e) => errs.push(String(e))); const cdp = await ctx.newCDPSession(pg);
+  const E = (f, a) => pg.evaluate(f, a); const ready = () => pg.waitForFunction(() => window.__gib && window.__gib.world, null, { timeout: 60000 });
+  const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
+  const tapXY = async (x, y) => { await touch('touchStart', [{ x, y, id: 1 }]); await sleep(60); await touch('touchEnd', []); await sleep(250); };
+  const tapSel = async (sel) => { if (!(await E((s) => !!document.querySelector(s), sel))) { console.log('        sélecteur introuvable :', sel); fails++; return; } const r = await E((s) => { const el = document.querySelector(s); const ch = el.closest('.chips'); if (ch) ch.scrollLeft = Math.max(0, el.offsetLeft - ch.clientWidth / 2); const bd = el.closest('.body'); if (bd) { const br = bd.getBoundingClientRect(), er = el.getBoundingClientRect(); if (er.bottom > br.bottom - 4 || er.top < br.top + 4) bd.scrollTop += er.top - br.top - br.height / 2; } const q = el.getBoundingClientRect(); return { x: (q.left + q.right) / 2, y: (q.top + q.bottom) / 2 }; }, sel); await tapXY(r.x, r.y); await sleep(250); };
+  const waitFor = async (f, ms = 30000, a) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await E(f, a)) return true; await sleep(300); } return false; };
+  const fiche = () => E(() => { const f = document.getElementById('fiche'); const r = f.getBoundingClientRect(); return { shown: getComputedStyle(f).display !== 'none', w: r.width, h: r.height, right: r.right, bottom: r.bottom, vw: innerWidth, vh: innerHeight, tabs: [...f.querySelectorAll('.gp-tabs button')].map((x) => x.textContent) }; });
+
+  await pg.goto(URL + '?fresh&nohelp&speed=0'); await ready(); await pg.waitForTimeout(2000);
+  console.log('\n== PARCOURS A — chez moi : mode décoration (catalogue, achat, pose sur grille, annuler / rétablir, sol et murs), puis retour dans la rue');
+  await E(() => { const g = window.__gib; g.world.avatar.pos = { x: 66.5, y: 28.5 }; g.world.avatar.money = 1000; g.descend(false); g.setSpeed(1); g.tz = g.cz = 1.7; }); await pg.waitForTimeout(2500);
+  ok(await E(() => getComputedStyle(document.getElementById('decobtn')).display !== 'none'), 'dans l\'appartement : le bouton « Décorer » apparaît');
+  ok(await E(() => document.getElementById('hv2d') && /appartement/i.test(document.getElementById('hv2d').textContent)), 'HUD : « Mon appartement » + argent + jauges réels');
+  await tapSel('#decobtn'); await pg.waitForTimeout(600); ok(await E(() => window.__gib.world.decoMode && getComputedStyle(document.getElementById('deco')).display !== 'none'), 'mode décoration actif, panneau ouvert');
+  await tapSel('#deco [data-cat="eclairage"]'); const m0 = await E(() => window.__gib.world.avatar.money); await tapSel('#deco [data-buy="floor_lamp"]'); await pg.waitForTimeout(400);
+  ok(await E((m) => window.__gib.world.avatar.money === m - 25 && window.__gib.world.stash.floor_lamp === 1, m0), 'achat : 25 € débités, lampadaire dans l\'inventaire');
+  await tapSel('#deco [data-pl="floor_lamp"]'); const spot = await E(() => window.__gib.cellToScreen(60.5, 25.5)); await tapXY(spot.x, spot.y); await pg.waitForTimeout(500);
+  ok(await E(() => window.__gib.world.furn.some((f) => f.def === 'floor_lamp' && !f.gone && f.x === 60 && f.y === 25)), 'pose sur la grille : le lampadaire est dans la salle de bains');
+  await tapSel('#deco [data-x="undo"]'); ok(await E(() => !window.__gib.world.furn.some((f) => f.def === 'floor_lamp' && !f.gone && f.x === 60)), 'annuler : le lampadaire revient dans l\'inventaire'); await tapSel('#deco [data-x="redo"]');
+  ok(await E(() => window.__gib.world.furn.some((f) => f.def === 'floor_lamp' && !f.gone && f.x === 60 && f.y === 25)), 'rétablir : il est reposé');
+  await tapSel('#deco [data-tab="sols"]'); await tapSel('#deco [data-room="j"]'); await tapSel('#deco [data-fl="wood_a"]'); await tapSel('#deco [data-wl="lilas"]');
+  ok(await E(() => window.__gib.world.homeStyle.floor.j === 'wood_a' && window.__gib.world.homeStyle.wall.j === 'lilas'), 'sol et murs du séjour changés (achat débité)');
+  await pg.screenshot({ path: 'docs/shots/ui2-0-decoration.png' }); await tapSel('#deco [data-x="ok"]'); ok(await E(() => !window.__gib.world.decoMode), 'valider : retour au jeu');
+  await E(() => { const g = window.__gib; g.world.avatar.pos = { x: 62.5, y: 33.5 }; g.world.abortPlan(g.world.avatar, 't'); }); await pg.waitForTimeout(1500);
+  ok(await E(() => window.__gib.insideBuilding === '' && getComputedStyle(document.getElementById('decobtn')).display === 'none'), 'dehors : même monde, le bouton « Décorer » disparaît');
+
+  console.log('\n== PARCOURS B — en mode Descendre, toucher un habitant : sa fiche, puis retour immédiat au gameplay');
+  const npc = await E(() => { const g = window.__gib, w = g.world; const c = w.residents.find((x) => !x.away); g.world.clock = Math.floor(w.clock / 1440) * 1440 + 12 * 60; c.pos = { x: 14.5, y: 19.5 }; c.state = 'idle'; c.plan = []; c.decision_cooldown = 999; const a = w.avatar; a.pos = { x: 15.5, y: 19.5 }; g.descend(false); g.setSpeed(1); g.tz = g.cz = 2.2; return { id: c.id, first: c.first }; }); await pg.waitForTimeout(2500);
+  await E((id) => { const g = window.__gib; g.hud.openDialogue(g.world.chars[id]); }, npc.id); await pg.waitForTimeout(400);
+  const hasBtn = await E(() => [...document.querySelectorAll('#dlg button')].some((x) => /fiche/i.test(x.textContent))); ok(hasBtn, 'dialogue : bouton « Consulter sa fiche » présent');
+  await E(() => { [...document.querySelectorAll('#dlg button')].find((x) => /fiche/i.test(x.textContent)).click(); }); await pg.waitForTimeout(500);
+  let f = await fiche(); ok(f.shown && f.tabs.length === 4, `la fiche s'ouvre avec ses 4 onglets (${f.tabs.join(' · ')})`); ok(f.right <= f.vw && f.bottom <= f.vh && f.w > 250, `la fiche tient dans l'écran (${Math.round(f.w)}×${Math.round(f.h)} sur ${f.vw}×${f.vh})`);
+  await pg.screenshot({ path: 'docs/shots/ui2-1-fiche-profil.png' });
+  await tapSel('#fiche [data-t="relations"]'); ok(await E(() => document.querySelector('#fiche .body').textContent.length > 20), 'onglet Relations : contenu issu des vraies relations'); await tapSel('#fiche [data-t="souvenirs"]');
+  const memShown = await E((id) => { const c = window.__gib.world.chars[id]; const txt = document.querySelector('#fiche .body').textContent; return c.memories.length === 0 ? txt.includes('Aucun souvenir') : c.memories.slice(-3).every((m) => txt.includes(m.text.slice(0, 20))); }, npc.id); ok(memShown, 'onglet Souvenirs : uniquement les souvenirs enregistrés par la simulation');
+  await tapSel('#fiche [data-t="secrets"]'); ok(await E(() => /cach/i.test(document.querySelector('#fiche .body').textContent)), 'onglet Secrets : cachés en mode humain tant qu\'on ne les a pas découverts');
+  await tapSel('#fiche [data-a="close"]'); console.log('        état :', JSON.stringify(await fiche()), await E(() => window.__gib.hud.dialogueOpen()));
+  ok(!(await fiche()).shown && (await E(() => !window.__gib.hud.dialogueOpen())), 'fermer la fiche : retour immédiat au gameplay');
+
+  console.log('\n== PARCOURS C — mode Dieu : sélectionner, ouvrir la fiche, modifier, retour au monde');
+  await E(() => { const g = window.__gib; g.ascend(false); g.setSpeed(1); }); await pg.waitForTimeout(800);
+  await E((id) => window.__gib.selectChar(id, true), npc.id); await pg.waitForTimeout(500); await tapSel('#qf'); await pg.waitForTimeout(500);
+  f = await fiche(); ok(f.shown, 'mode Dieu : la fiche s\'ouvre depuis la carte rapide'); await tapSel('#fiche [data-a="sub:modifier"]');
+  const before = await E((id) => { const c = window.__gib.world.chars[id]; return { money: c.money, agree: c.traits.agreeableness }; }, npc.id);
+  await tapSel('#fiche [data-a="give:100000"]'); await tapSel('#fiche [data-a="trait:agreeableness:-0.15"]');
+  const after = await E((id) => { const c = window.__gib.world.chars[id]; return { money: c.money, agree: c.traits.agreeableness, mem: c.memories.some((m) => m.kind === 'miracle'), journal: window.__gib.world.divine.length }; }, npc.id);
+  ok(after.money === before.money + 100000, `+100 000 € : l'argent change réellement (${Math.round(before.money)} → ${Math.round(after.money)})`); ok(after.agree < before.agree, `personnalité modifiée (amabilité ${Math.round(before.agree * 100)} → ${Math.round(after.agree * 100)} %)`); ok(after.mem && after.journal >= 2, 'l\'habitant s\'en souvient ; le journal divin est alimenté');
+  await pg.screenshot({ path: 'docs/shots/ui2-2-fiche-dieu.png' });
+
+  console.log('\n== PARCOURS D — INCARNER : agir avec son corps, le quitter, il reprend sa vie');
+  await tapSel('#fiche [data-a="sub:"]'); await pg.waitForTimeout(300);
+  await E((id) => { const w = window.__gib.world; const c = w.chars[id]; c.decision_cooldown = 5; }, npc.id);
+  console.log('        bouton incarner :', await E(() => { const b = document.querySelector('#fiche [data-a="incarner"]'); return b ? (b.disabled ? 'désactivé' : 'actif') : 'absent'; }), await E((id) => { const c = window.__gib.world.chars[id]; return JSON.stringify({ away: c.away, kind: c.kind, st: c.state }); }, npc.id));
+  await tapSel('#fiche [data-a="incarner"]'); await pg.waitForTimeout(800);
+  const inc = await E((id) => { const g = window.__gib; return { mode: g.mode, av: g.world.avatar.id, ctrl: g.world.avatarControlled, badge: getComputedStyle(document.getElementById('possbadge')).display }; }, npc.id);
+  ok(inc.mode === 'human' && inc.av === npc.id && inc.ctrl, `on contrôle le corps de ${npc.first} (mode humain, même monde)`); await pg.waitForTimeout(500);
+  ok(await E(() => getComputedStyle(document.getElementById('possbadge')).display !== 'none'), 'bandeau « INCARNÉ » avec bouton « Quitter ce corps »');
+  const p0 = await E(() => ({ x: window.__gib.world.avatar.pos.x, y: window.__gib.world.avatar.pos.y }));
+  await E(() => window.__gib.setAnalog(-1, 0, 1)); await pg.waitForTimeout(1500); await E(() => window.__gib.setAnalog(0, 0, 0));
+  const p1 = await E(() => ({ x: window.__gib.world.avatar.pos.x, y: window.__gib.world.avatar.pos.y })); ok(Math.hypot(p1.x - p0.x, p1.y - p0.y) > 0.8, `le corps obéit au joystick (déplacé de ${Math.hypot(p1.x - p0.x, p1.y - p0.y).toFixed(1)} cases)`);
+  await E((id) => { const c = window.__gib.world.chars[id]; c.addMemory(window.__gib.world.clock, 'test', 'Souvenir pendant la possession.', 0, 0.5); }, npc.id);
+  await pg.screenshot({ path: 'docs/shots/ui2-3-incarne.png' });
+  await tapSel('#possquit'); await pg.waitForTimeout(800);
+  const out = await E((id) => { const g = window.__gib, w = g.world, c = w.chars[id]; return { mode: g.mode, kind: c.kind, forgot: !c.memories.some((m) => m.text.includes('pendant la possession')), journal: w.incarnations.length, money: c.money }; }, npc.id);
+  ok(out.mode === 'god' && out.kind === 'resident', 'quitter le corps : retour en mode Dieu, l\'habitant est de nouveau autonome'); ok(out.forgot, 'il n\'a gardé aucun souvenir personnel de la possession'); ok(out.journal === 1 && out.money > 100000, 'le journal des incarnations est tenu ; l\'argent reçu reste');
+  await E(() => window.__gib.setSpeed(3)); await pg.waitForTimeout(6000);
+  ok(await E((id) => { const c = window.__gib.world.chars[id]; return c.state !== 'idle' || c.action_text !== '' || c.decision_cooldown > 0; }, npc.id), 'il reprend sa vie autonome (décisions et activités)');
+
+  console.log('\n== SAUVEGARDE : fermer et rouvrir');
+  const snap = await E((id) => { const w = window.__gib.world, c = w.chars[id]; return { lamp: w.furn.some((f) => f.def === 'floor_lamp' && !f.gone && f.x === 60), floor: w.homeStyle.floor.j, money: Math.round(c.money), agree: Math.round(c.traits.agreeableness * 100), inc: w.incarnations.length, divine: w.divine.length }; }, npc.id);
+  await tapSel('#mmenu'); await tapSel('#msheet [data-k="save"]'); await sleep(500); await pg.goto(URL + '?load&nohelp&speed=0'); await ready(); await pg.waitForTimeout(2500);
+  const s2 = await E((id) => { const w = window.__gib.world, c = w.chars[id]; return { lamp: w.furn.some((f) => f.def === 'floor_lamp' && !f.gone && f.x === 60), floor: w.homeStyle.floor.j, money: Math.round(c.money), agree: Math.round(c.traits.agreeableness * 100), inc: w.incarnations.length, divine: w.divine.length }; }, npc.id);
+  ok(JSON.stringify(snap) === JSON.stringify(s2), `après réouverture : lampadaire ${s2.lamp}, sol ${s2.floor}, argent ${s2.money} €, amabilité ${s2.agree} %, incarnations ${s2.inc}, journal divin ${s2.divine} — identiques`);
+  ok(errs.length === 0, 'aucune erreur JS' + (errs[0] ? ' : ' + errs[0] : ''));
+  await b.close(); console.log(fails ? `\n${fails} ÉCHEC(S)` : '\nIPHONE V2 (parcours A, B, C, D) : tout est vert'); process.exit(fails ? 1 : 0);
+})();

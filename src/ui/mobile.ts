@@ -184,7 +184,7 @@ export class MobileUi {
   }
   openJournal() { this.show('Journal', `<div class="feedl">${this.g.world.journal.slice(-18).reverse().map((e) => { const t = Math.floor(e.t) % 1440; return `<div><span class="dim">${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}</span> ${esc(e.text)}</div>`; }).join('')}</div>`); }
   // ---- fiche complète / carte rapide
-  openFiche() { if (this.g.selectedId < 0) return; this.hud.root.classList.add('charp-open'); this.hud.el.charp.style.display = 'block'; this.hud.acc = 1; }
+  openFiche() { if (this.g.selectedId < 0) return; this.hud.fiche.open(this.g.selectedId); return; this.hud.root.classList.add('charp-open'); this.hud.el.charp.style.display = 'block'; this.hud.acc = 1; }
   closeFiche() { this.hud.root.classList.remove('charp-open'); }
   onSelect(id: number) {
     this.closeFiche(); const q = this.el.qcard;
@@ -207,7 +207,7 @@ export class MobileUi {
     if (!this.active) return; this.acc += dt; if (this.acc < 0.25) return; this.acc = 0; const w = this.g.world;
     const t = Math.floor(w.tod()); document.getElementById('mclock')!.textContent = `J${w.day()} ${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; this.updateLabels();
     if (this.g.mode === 'god' && this.g.selectedId >= 0 && this.el.qcard.style.display === 'flex') { const open = document.activeElement; void open; this.renderCard(); }
-    if (this.g.mode === 'human') { const a = w.avatar; const col = (v: number) => (v > 60 ? '#73cc8c' : v > 30 ? '#f2c761' : '#eb6161'); const b = (n: string, v: number) => `<div class="nb">${n}<div class="bar"><i style="width:${v}%;background:${col(v)}"></i></div></div>`; this.el.mhud.innerHTML = `<span class="m">${a.money} €</span>${b('Faim', a.needs.hunger)}${b('Énergie', a.needs.energy)}${b('Social', a.needs.social)}${a.drunk > 2 ? b('Ivresse', 100 - a.drunk) : ''}`; this.el.mhud.style.display = 'flex'; } else this.el.mhud.style.display = 'none';
+    this.el.mhud.style.display = 'none';   // remplacé par le HUD V2 (puce avatar, argent, jauges)
   }
 }
 void SAFE;

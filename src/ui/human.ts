@@ -54,7 +54,7 @@ export class HumanUi {
       body = `<div class="menu">${items.map(([id, n]) => this.opt('give_item:' + id, I.ITEMS[id]?.label ?? id, `×${n}`, true)).join('') || '<span class="dim">Vous n\'avez rien à offrir.</span>'}${this.opt('back', 'Retour', '', true)}</div>`;
     } else {
       const d = I.dialogueOpen(w, npc);
-      body = `<div class="choices">${d.choices.map((c) => this.opt(c.id, c.label, c.hint ?? '', c.enabled)).join('')}</div>`;
+      body = `<div class="choices">${d.choices.map((c) => this.opt(c.id, c.label, c.hint ?? '', c.enabled)).join('')}${this.opt('sheet', 'Consulter sa fiche', 'profil, relations, souvenirs', true)}</div>`;
     }
     this.el.dlg.innerHTML = `<div class="head"><img class="pp" src="${cv.assets.portrait.toDataURL()}"><div style="flex:1"><div class="row" style="justify-content:space-between"><b style="font-size:17px;color:#fff">${esc(npc.name)}</b><span class="dim small">${esc(rl)} · ${EMOTIONS[npc.emotion] ?? ''}${npc.drunk > 15 ? ' · éméché' : ''}</span></div>
       <div class="txt">${esc(this.last)}</div></div></div>${body}<div class="small dim" style="margin-top:6px">Touches 1–9 : choisir · Échap : partir · Le monde est en pause pendant la conversation</div>`;
@@ -69,6 +69,7 @@ export class HumanUi {
       else { const id = c.id.split(':')[1]; const r = I.choose(w, npc, 'give_item', id); this.last = r.line; this.barMode = ''; }
       this.render(); return;
     }
+    if (c.id === 'sheet') { this.close(); this.g.hud.fiche.open(npc.id); return; }
     const r = I.choose(w, npc, c.id); this.last = r.line;
     if (r.close) { this.close(); return; }
     if (r.openBar) this.barMode = 'bar'; else if (r.openGift) this.barMode = 'gift';
@@ -111,7 +112,7 @@ export class HumanUi {
       this.el.hhud.querySelectorAll<HTMLButtonElement>('button[data-use]').forEach((b) => (b.onclick = () => this.g.hud.toast(I.useItem(this.w, b.dataset.use!))));
       (this.el.hhud.querySelector('#invb') as HTMLElement).onclick = () => this.toggleInventory();
     }
-    (this.el.hhud.querySelector('#hstat') as HTMLElement).innerHTML = `<div><div class="m">${av.money} €</div><div class="small dim">${esc(w.clockLabel())}</div><div class="small dim">${esc(roomName(w, av))}</div></div>
+    (this.el.hhud.querySelector('#hstat') as HTMLElement).style.display = 'none'; (this.el.hhud.querySelector('#hstat') as HTMLElement).innerHTML = `<div><div class="m">${av.money} €</div><div class="small dim">${esc(w.clockLabel())}</div><div class="small dim">${esc(roomName(w, av))}</div></div>
       ${NEEDS.map((n) => `<div class="nb"><span>${NEED_LABEL[n]}</span>${bar(av.needs[n], col(av.needs[n]))}</div>`).join('')}
       ${av.drunk > 2 ? `<div class="nb"><span>Ivresse</span>${bar(av.drunk, '#d66bff')}</div>` : ''}`;
   }

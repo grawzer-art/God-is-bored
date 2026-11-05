@@ -1,3 +1,4 @@
+import * as Possess from './possess';
 import { FURN } from './defs';
 /** Sauvegarde JSON versionnée dans localStorage. */
 import { World } from './world';
@@ -14,10 +15,10 @@ export function toJSON(w: World) {
     feastUntil: w.feastUntil, musicUntil: w.musicUntil, knownSecrets: w.knownSecrets, avatarControlled: w.avatarControlled, nextMessId: w.nextMessId, rng: w.rng.state, stats: w.stats,
     rel: [...w.rel.entries()], furn: w.furn.map((f) => ({ water: f.water })), mess: w.mess.map((m) => ({ ...m })),
     events: w.events, nextEvent: w.nextEvent, lastTheft: w.lastTheft, lifeAcc: w.lifeAcc,
-    crime: { wanted: w.wanted, record: w.record_, dispatches: w.dispatches, reports: w.reports, nextDispatch: w.nextDispatch, wantedNpcs: w.wantedNpcs, jail: w.jail, till: w.till }, divine: w.divine, freePowers: w.freePowers, home: { stash: w.stash, furn: w.furn.filter((f) => f.i >= w.baseFurn || f.gone || f.x !== f.ox || f.y !== f.oy).map((f) => ({ i: f.i, def: f.def, x: f.x, y: f.y, gone: !!f.gone, style: f.opts.style ?? 0 })) },
+    crime: { wanted: w.wanted, record: w.record_, dispatches: w.dispatches, reports: w.reports, nextDispatch: w.nextDispatch, wantedNpcs: w.wantedNpcs, jail: w.jail, till: w.till }, divine: w.divine, freePowers: w.freePowers, laws: w.laws, possess: w.possess, incarnations: w.incarnations, home: { stash: w.stash, style: w.homeStyle, furn: w.furn.filter((f) => f.i >= w.baseFurn || f.gone || f.x !== f.ox || f.y !== f.oy).map((f) => ({ i: f.i, def: f.def, x: f.x, y: f.y, gone: !!f.gone, style: f.opts.style ?? 0 })) },
     journal: w.journal.slice(-60),
     chars: w.chars.map((c) => ({
-      id: c.id, pos: c.pos, facing: c.facing, needs: c.needs, joy: c.joy, stress: c.stress, anger: c.anger, faith: c.faith, wake_target: c.wake_target,
+      id: c.id, traits: c.traits, pos: c.pos, facing: c.facing, needs: c.needs, joy: c.joy, stress: c.stress, anger: c.anger, faith: c.faith, wake_target: c.wake_target,
       slept_min: c.slept_min, last_shower: c.last_shower, last_chat: c.last_chat, last_meal: c.last_meal, carry: c.carry, carry_cook: c.carry_cook,
       avoid: c.avoid, pref: c.pref, memories: c.memories, goal: c.goal, goal_index: c.goal_index, stats: c.stats,
       hp: c.hp, unpaid: c.unpaid, task: c.task, place: c.place, home: c.home, dutyPost: c.dutyPost, lifeAct: c.lifeAct,
@@ -34,8 +35,9 @@ export function fromJSON(d: any): World | null {
   w.rel = new Map(d.rel);
   d.furn.forEach((f: any, i: number) => { if (w.furn[i]) w.furn[i].water = f.water; });
   w.mess = d.mess.map((m: any) => ({ ...m }));
-  if (Array.isArray(d.divine)) w.divine = d.divine; if (typeof d.freePowers === 'boolean') w.freePowers = d.freePowers;
-  if (d.home) { w.stash = d.home.stash ?? {}; for (const e of [...(d.home.furn ?? [])].sort((a: any, b: any) => a.i - b.i)) { let f = w.furn[e.i]; if (!f && FURN[e.def]) { while (w.furn.length < e.i) w.addFurn('bin', -50, -50).gone = true; f = w.addFurn(e.def, e.x, e.y, e.style); } if (f && f.def === e.def) { f.x = e.x; f.y = e.y; f.gone = !!e.gone; } } w.reindexFurniture(); }
+  if (Array.isArray(d.divine)) w.divine = d.divine; if (typeof d.freePowers === 'boolean') w.freePowers = d.freePowers; if (d.laws) w.laws = { ...w.laws, ...d.laws };
+  if (d.home) { w.stash = d.home.stash ?? {}; if (d.home.style) { w.homeStyle = { floor: { ...d.home.style.floor }, wall: { ...d.home.style.wall } }; w.styleVersion++; } for (const e of [...(d.home.furn ?? [])].sort((a: any, b: any) => a.i - b.i)) { let f = w.furn[e.i]; if (!f && FURN[e.def]) { while (w.furn.length < e.i) w.addFurn('bin', -50, -50).gone = true; f = w.addFurn(e.def, e.x, e.y, e.style); } if (f && f.def === e.def) { f.x = e.x; f.y = e.y; f.gone = !!e.gone; } } w.reindexFurniture(); }
+  if (Array.isArray(d.incarnations)) w.incarnations = d.incarnations; Possess.restore(w, d.possess);
   if (d.crime) { if (typeof d.crime.till === 'number') w.till = d.crime.till; w.wanted = { ...w.wanted, ...d.crime.wanted }; w.record_ = { ...w.record_, ...d.crime.record }; w.dispatches = d.crime.dispatches ?? []; w.reports = d.crime.reports ?? []; w.nextDispatch = d.crime.nextDispatch ?? 1; w.wantedNpcs = d.crime.wantedNpcs ?? {}; w.jail = d.crime.jail ?? null; }
   w.events = (d.events ?? []).map((e: any) => ({ ...e })); w.nextEvent = d.nextEvent ?? (w.events.reduce((m: number, e: any) => Math.max(m, e.id), 0) + 1); w.lastTheft = d.lastTheft ?? -99999; w.lifeAcc = d.lifeAcc ?? 0;
   for (const f of w.furn) f.users = f.users.map(() => -1);
@@ -45,6 +47,7 @@ export function fromJSON(d: any): World | null {
     c.known = cd.known ? JSON.parse(JSON.stringify(cd.known)) : {}; c.intent = cd.intent ? { ...cd.intent } : null; if (cd.shift !== undefined) c.shift = cd.shift ? { ...cd.shift } : null;
     c.jobPhase = cd.jobPhase ?? ''; c.jobUntil = cd.jobUntil ?? 0; c.jobStart = cd.jobStart ?? 0; c.outing = cd.outing ?? ''; c.outUntil = cd.outUntil ?? 0;
     c.away = cd.away ?? c.away; c.money = cd.money ?? c.money; c.inventory = cd.inventory ? { ...cd.inventory } : c.inventory; c.drunk = cd.drunk ?? 0;
+    if (cd.traits) c.traits = { ...c.traits, ...cd.traits };
     Object.assign(c, { pos: { ...cd.pos }, facing: cd.facing, joy: cd.joy, stress: cd.stress, anger: cd.anger, faith: cd.faith, wake_target: cd.wake_target, slept_min: cd.slept_min,
       last_shower: cd.last_shower, last_chat: cd.last_chat, last_meal: cd.last_meal, carry: cd.carry, carry_cook: cd.carry_cook,
       avoid: { ...cd.avoid }, pref: { ...cd.pref }, memories: cd.memories.map((m: any) => ({ ...m })), goal: { ...cd.goal }, goal_index: cd.goal_index, stats: { ...cd.stats } });

@@ -19,6 +19,7 @@ import { brief } from '../sim/observe';
 import { roofCanvas, signCanvas, type RoofStyle } from '../art/city';
 import * as Act from '../sim/interact';
 import * as Home from '../sim/home';
+import * as Possess from '../sim/possess';
 
 /** Vitesses : pause, ×1, ×2, ×3, ×8. La simulation (décisions, routines, trajets, conséquences) avance à ce rythme, pas seulement l'horloge. */
 export const SPEEDS = [0, 1, 2, 3, 8];
@@ -127,7 +128,7 @@ export class GameScene extends Phaser.Scene {
           room = cands.find((q) => !L.OUTDOOR.includes(q)) ?? cands[0] ?? '';
           if (room === '') { g.globalAlpha = 0.9; g.drawImage(floorTile('concrete', 0), p.x - 32, p.y); g.globalAlpha = 1; continue; }
         }
-        g.drawImage(floorTile(L.isDoor(cx, cy) ? FLOOR_STYLES.door : FLOOR_STYLES[room], (cx * 7 + cy * 13) % 3), p.x - 32, p.y);
+        g.drawImage(floorTile(L.isDoor(cx, cy) ? FLOOR_STYLES.door : (this.world.homeStyle.floor[room] ?? FLOOR_STYLES[room]), (cx * 7 + cy * 13) % 3), p.x - 32, p.y);
       } else {
         const dx = Math.max(-cx, cx - (W - 1), 0), dy = Math.max(-cy, cy - (H - 1), 0); const dist = Math.hypot(dx, dy);
         let a = Math.max(0, Math.min(1, 1 - (dist - 1) / 6.5)); a *= a;
@@ -175,7 +176,7 @@ export class GameScene extends Phaser.Scene {
       spec.c = WALLCOL[bld.wall ?? 'concrete']; if (se) spec.c = shade(spec.c, -0.15);
       spec.ext = this.extSpec(bld, cx, cy, se, h); return spec;
     }
-    if (room && !outdoor) { spec.c = ROOM_COL[room]; spec.tiled = room === 'w' || room === 'C'; }
+    if (room && !outdoor) { const ov = this.world.homeStyle.wall[room]; const wv = ov ? Home.WALLS.find((q) => q.id === ov) : undefined; spec.c = wv ? c(wv.col[0], wv.col[1], wv.col[2]) : ROOM_COL[room]; spec.tiled = room === 'w' || room === 'C'; }
     if (se) spec.c = shade(spec.c, -0.15);
     if (!se && bld?.name === 'bar' && cy === bld.y0 && room === 'B' && [35, 41].includes(cx) && full) spec.dec = 'neon';
     if (full && room && !outdoor && bld?.name === 'house') {
@@ -233,7 +234,9 @@ export class GameScene extends Phaser.Scene {
   }
   cycleWalls() { this.wallMode = (this.wallMode + 1) % 3; this.applyWalls(); return this.wallMode; }
   /** Redessine les meubles quand l'aménagement change (déplacement, rangement, achat). */
-  furnSeen = 0;
+  furnSeen = 0; styleSeen = 0;
+  /** Sols et murs de l'appartement modifiés : on redessine les blocs de sol et les murs du bâtiment concerné. */
+  private refreshStyle() { this.styleSeen = this.world.styleVersion; for (const [k, img] of this.floorChunks) { const key = img.texture.key; img.destroy(); this.textures.remove(key); this.floorChunks.delete(k); } this.updateFloorChunks(99); this.applyWalls(new Set(['flats1'])); }
   private refreshFurniture() { for (const nodes of this.furnNodes.values()) nodes.forEach((n) => n.destroy()); this.furnNodes.clear(); this.buildFurniture(); this.furnSeen = this.world.furnVersion; }
   private buildFurniture() {
     for (const f of this.world.furn) {
@@ -402,7 +405,7 @@ export class GameScene extends Phaser.Scene {
       case 'i': if (this.mode === 'human') this.hud.toggleInventory(); break;
       case ' ': if (!this.hud.dialogueOpen()) this.setSpeed(this.speedIndex === 0 ? 1 : 0); break;
       case '1': if (this.mode === 'god') this.hud.pickPower('bless'); break; case '2': if (this.mode === 'god') this.hud.pickPower('whisper'); break; case '3': if (this.mode === 'god') this.hud.pickPower('fate'); break; case '4': if (this.mode === 'god') this.hud.pickPower('feast'); break;
-      case 'f': this.toggleFollow(); break;
+      case 'f': this.toggleFollow(); break; case 'c': if (this.selectedId >= 0) this.hud.fiche.open(this.selectedId); break;
       case 'tab': if (this.mode === 'god') this.selectChar((this.selectedId + 1) % this.world.residents.length, true); break;
       case 'v': { const m = this.cycleWalls(); this.hud.toast('Murs : ' + ['bas', 'coupés', 'hauts'][m]); break; }
       case 'f5': e.preventDefault(); this.saveGame(); break; case 'f9': e.preventDefault(); this.loadGame(); break;
@@ -471,7 +474,14 @@ export class GameScene extends Phaser.Scene {
     const av = w.avatar; if (av.away) av.away = false; this.hud.onMode('human'); if (flash) this.hud.flash('descend'); this.tz = Math.max(2.0, Math.min(this.tz, 2.4)); const cv = this.chars[av.id]; if (cv) { this.tx = cv.x; this.ty = cv.y - 20; }
     this.hud.toast(this.hud.mobile?.active ? 'Croix : marcher · A : agir · B : inventaire' : 'Vous êtes descendu parmi eux — ZQSD pour marcher, E pour interagir');
   }
+  /** INCARNER : prend possession de l'habitant `id` (même monde, même simulation) et passe en vue humaine sur son corps. */
+  incarnate(id: number) {
+    const w = this.world; const r = Possess.start(w, id); if (!r.ok) { this.hud.toast(r.msg); return false; }
+    this.mode = 'human'; w.avatarControlled = true; this.selectChar(-1); this.follow = false; this.hud.cancelPower(); this.hud.onMode('human'); this.hud.flash('descend');
+    const cv = this.chars[id]; this.tz = Math.max(2.0, Math.min(this.tz, 2.4)); if (cv) { this.tx = cv.x; this.ty = cv.y - 20; } this.hud.toast(`${r.msg} Quittez son corps avec « Redevenir dieu » : il reprendra sa vie.`); return true;
+  }
   ascend(flash = true) {
+    if (this.world.possess) { const r = Possess.end(this.world); if (r.msg) this.hud.toast(r.msg); }
     const w = this.world; this.mode = 'god'; w.avatarControlled = false; w.input = { dx: 0, dy: 0, run: false }; this.hud.closeDialogue(); this.hud.onMode('god'); if (flash) this.hud.flash('ascend');
     const r = this.houseRect(); this.tz = Math.max(this.minZoom, Math.min(this.maxZoom, Math.min(this.scale.width / r.w, (this.scale.height - 120) / r.h) * 1.1)); const cv = this.chars[w.avatar.id]; this.tx = cv ? cv.x : this.tx; this.ty = cv ? cv.y - 60 : this.ty;
     this.hud.toast('Vous reprenez votre place de dieu. L\'avatar reste là où vous l\'avez laissé.');
@@ -486,6 +496,7 @@ export class GameScene extends Phaser.Scene {
   }
   doInteract(it: Act.Interactable) {
     const av = this.world.avatar; this.hud.hideContext();
+    if (it.kind === 'sheet') { this.hud.fiche.open(it.npc!.id); return; }
     if (it.kind === 'home') {
       if (it.act === 'stash') { const r = Home.stash(this.world, it.furn!); this.hud.toast(r.msg); } else { this.world.homeEdit = { mode: 'move', furn: it.furn! }; this.hud.toast(`Touchez la case où poser : ${Home.label(this.world.furn[it.furn!].def)} (Échap : annuler)`); }
       return;
@@ -496,6 +507,7 @@ export class GameScene extends Phaser.Scene {
   humanTap(wx: number, wy: number) {
     if (this.hud.dialogueOpen()) return; this.hud.hideContext();
     if (this.world.homeEdit) { this.applyHomeEdit(wx, wy); return; }
+    if (this.world.decoMode) { const h = pickProp(this, wx, wy); if (h.furn !== undefined && Home.isMovable(this.world.furn[h.furn])) { this.world.homeEdit = { mode: 'move', furn: h.furn }; this.hud.toast(`Touchez la case de destination : ${Home.label(this.world.furn[h.furn].def)}`); } return; }
     const w = this.world, av = w.avatar; const id = this.charAt(wx, wy); let target: Act.TapTarget;
     if (id >= 0 && id !== av.id) target = { npc: id };
     else { const hit = pickProp(this, wx, wy); if (hit.furn !== undefined && Act.furnitureOptions(w, hit.furn).length > 0) target = { furn: hit.furn }; else { if (hit.furn !== undefined) this.hud.toast('Rien à faire avec ça.'); const g = toGrid(wx, wy); target = { cell: { x: Math.floor(g.x), y: Math.floor(g.y) } }; } }
@@ -574,7 +586,7 @@ export class GameScene extends Phaser.Scene {
     { const c = this.camLimits(); this.cx = Math.max(c.x0, Math.min(c.x1, this.cx)); this.cy = Math.max(c.y0, Math.min(c.y1, this.cy)); }
     const cam = this.cameras.main; cam.setZoom(this.cz); cam.centerOn(Math.round(this.cx * this.cz) / this.cz, Math.round(this.cy * this.cz) / this.cz);
     // vue
-    this.syncProps(); this.syncFeast(); this.syncPlants(); this.doors.update(dt); this.updateCity(dt); this.syncCars(); if (this.furnSeen !== this.world.furnVersion) this.refreshFurniture();
+    this.syncProps(); this.syncFeast(); this.syncPlants(); this.doors.update(dt); this.updateCity(dt); this.syncCars(); if (this.furnSeen !== this.world.furnVersion) this.refreshFurniture(); if (this.styleSeen !== this.world.styleVersion) this.refreshStyle();
     for (const cv of this.chars) cv.update(dt, cv.sim.id === this.selectedId || (this.mode === 'human' && cv.sim.kind === 'avatar'), cv.sim.id === this.hoverId, Math.max(1, Math.min(SPEEDS[this.speedIndex], 3)));
     this.lighting.update(dt); this.lighting.render(); this.sunSprite.setAlpha(this.lighting.daylight * 0.9);
     this.drawFx(dt); this.hud.update(dt);
@@ -605,6 +617,13 @@ export class GameScene extends Phaser.Scene {
   }
   private drawFx(dt: number) {
     this.fxT += dt; const g = this.fx; g.clear(); const t = this.fxT;
+    if (this.world.decoMode) { // grille de placement de l'appartement : cases libres (violet) / occupées (rouge discret)
+      g.lineStyle(1, 0xa78bfa, 0.55);
+      for (let y = Home.APT.y0; y <= Home.APT.y1; y++) for (let x = Home.APT.x0; x <= Home.APT.x1; x++) {
+        if (!Home.inApartment(x, y)) continue; const p = toScreen(x, y); const busy = this.world.furnAt(x, y) >= 0 || L.isWall(x, y);
+        g.fillStyle(busy ? 0xff5a5a : 0x8f6bff, busy ? 0.12 : 0.1); g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x + 32, p.y + 16); g.lineTo(p.x, p.y + 32); g.lineTo(p.x - 32, p.y + 16); g.closePath(); g.fillPath(); g.strokePath();
+      }
+    }
     { const d = this.dest; // repère de destination : anneau discret qui pulse pendant le trajet, s'efface à l'arrivée ou à l'annulation
       if (d) {
         const av = this.world.avatar; const going = av.state === 'walk' || av.plan.length > 0 || (av.state === 'enter');

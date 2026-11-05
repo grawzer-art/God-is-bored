@@ -10,6 +10,10 @@ import type { SimChar } from '../sim/simchar';
 import { iconCanvas } from '../art/core';
 import { HumanUi, HUMAN_CSS } from './human';
 import { MobileUi } from './mobile';
+import { FicheUi } from './fiche';
+import { HudV2 } from './hudv2';
+import { GodBar } from './godbar';
+import { DecoUi } from './deco';
 import { DemoGuide } from './demoguide';
 import { CityHud } from './citylife';
 import { relationLabelToPlayer } from '../sim/interact';
@@ -54,7 +58,7 @@ const needCol = (v: number) => (v > 60 ? '#73cc8c' : v > 30 ? '#f2c761' : '#eb61
 const moodCol = (m: number) => (m > 20 ? '#73d18c' : m > -20 ? '#f2cc66' : '#eb6666');
 
 export class Hud {
-  root = document.getElementById('ui')!; el: Record<string, HTMLElement> = {}; demoGuide!: DemoGuide; cityHud!: CityHud; human!: HumanUi; mobile!: MobileUi; modeBtn!: HTMLElement; powerMode = ''; powerFirst = -1; acc = 0; toastT = 0; helpT = 14; selected = -1; feed: { t: number; text: string; kind: string }[] = [];
+  root = document.getElementById('ui')!; el: Record<string, HTMLElement> = {}; demoGuide!: DemoGuide; cityHud!: CityHud; fiche!: FicheUi; hv2!: HudV2; gbar!: GodBar; deco!: DecoUi; human!: HumanUi; mobile!: MobileUi; modeBtn!: HTMLElement; powerMode = ''; powerFirst = -1; acc = 0; toastT = 0; helpT = 14; selected = -1; feed: { t: number; text: string; kind: string }[] = [];
   constructor(public g: GameScene) {
     const st = document.createElement('style'); st.textContent = CSS + HUMAN_CSS; document.head.appendChild(st);
     this.root.innerHTML = `
@@ -80,7 +84,7 @@ export class Hud {
     for (const [id, d] of Object.entries(God.POWERS)) { const b = document.createElement('button'); b.className = 'btn'; b.style.flex = '1'; b.textContent = this.w.freePowers ? `${d.key} ${d.label}` : `${d.key} ${d.label} (${d.cost})`; b.title = d.desc; b.dataset.id = id; b.onclick = () => this.pickPower(id); this.el.pw.appendChild(b); }
     this.el.go.onclick = () => { this.el.help.style.display = 'none'; this.helpT = 1e9; };
     if (g.params.has('nohelp')) this.el.help.style.display = 'none';
-    this.buildPortraits(); this.demoGuide = new DemoGuide(g, this.root); this.cityHud = new CityHud(g, this.root); this.human = new HumanUi(g, this.root); this.mobile = new MobileUi(g, this); if (this.mobile.active) { this.el.help.style.display = 'none'; this.helpT = 1e9; this.toast('Croix : caméra · A : choisir · B : pouvoirs · Menu : le reste'); } this.rebind(); this.onSpeed(g.speedIndex);
+    this.buildPortraits(); this.demoGuide = new DemoGuide(g, this.root); this.cityHud = new CityHud(g, this.root); this.fiche = new FicheUi(g, this.root); this.hv2 = new HudV2(g, this.root); this.gbar = new GodBar(g, this.root); this.deco = new DecoUi(g, this.root); this.human = new HumanUi(g, this.root); this.mobile = new MobileUi(g, this); if (this.mobile.active) { this.el.help.style.display = 'none'; this.helpT = 1e9; this.toast('Croix : caméra · A : choisir · B : pouvoirs · Menu : le reste'); } this.rebind(); this.onSpeed(g.speedIndex);
     document.addEventListener('pointerdown', (e) => { if (!(e.target as HTMLElement).closest('#menu')) this.el.menu.style.display = 'none'; });
   }
   get w() { return this.g.world; }
@@ -119,7 +123,7 @@ export class Hud {
     else { this.powerMode = this.powerMode === id ? '' : id; this.powerFirst = -1; }
     this.syncPowers();
   }
-  escape() { if (this.w.homeEdit) { this.w.homeEdit = null; this.toast('Aménagement annulé'); return; } if (this.powerMode) { this.powerMode = ''; this.powerFirst = -1; this.syncPowers(); } else if (this.el.help.style.display !== 'none') this.el.help.style.display = 'none'; else this.g.selectChar(-1); this.el.menu.style.display = 'none'; }
+  escape() { if (this.w.decoMode) { this.deco.exit(); return; } if (this.fiche.isOpen()) { this.fiche.close(); return; } if (this.w.homeEdit) { this.w.homeEdit = null; this.toast('Aménagement annulé'); return; } if (this.powerMode) { this.powerMode = ''; this.powerFirst = -1; this.syncPowers(); } else if (this.el.help.style.display !== 'none') this.el.help.style.display = 'none'; else this.g.selectChar(-1); this.el.menu.style.display = 'none'; }
   toggleHelp() { if (this.mobile?.active) { this.mobile.sheet === 'Aide' ? this.mobile.closeSheet() : this.mobile.openHelp(); return; } this.el.help.style.display = this.el.help.style.display === 'none' ? 'block' : 'none'; this.helpT = 1e9; }
   /** Appelé quand le suivi de caméra change : met à jour les boutons « Suivre ». */
   onFollow?: () => void;
@@ -147,7 +151,7 @@ export class Hud {
   }
   update(dt: number) {
     this.human.update(dt); this.mobile.update(dt); this.demoGuide.update(dt); this.cityHud.update(dt); this.el.pause.style.display = this.g.speedIndex === 0 && !this.human.dialogueOpen() ? 'block' : 'none';
-    this.acc += dt;
+    this.acc += dt; this.fiche.update(dt); this.hv2.update(dt); this.gbar.update(dt); this.deco.update(dt);
     if (this.toastT > 0) { this.toastT -= dt; if (this.toastT < 0.5) this.el.toast.style.opacity = String(Math.max(0, this.toastT * 2)); }
     if (this.helpT < 1e8) { this.helpT -= dt; if (this.helpT < 0) { this.el.help.style.display = 'none'; this.helpT = 1e9; } }
     const show = this.g.hoverId >= 0 ? this.g.hoverId : this.selected;
@@ -157,7 +161,7 @@ export class Hud {
     this.el.ge.textContent = `${Math.floor(w.godEnergy)} / 100`; (this.el.gb as HTMLElement).style.width = w.godEnergy + '%'; (this.el.eb as HTMLElement).style.width = w.ennui + '%';
     this.el.fa.textContent = `Foi moyenne ${Math.floor(w.residents.reduce((s, c) => s + c.faith, 0) / w.residents.length)} %`; this.syncPowers();
     [...this.el.portraits.children].forEach((b, k) => {
-      const c = w.residents[k]; const i = b.querySelector('.bar i') as HTMLElement; i.style.width = (c.mood + 100) / 2 + '%'; i.style.background = moodCol(c.mood);
+      const c = w.chars[k]; if (!c) return; const i = b.querySelector('.bar i') as HTMLElement; i.style.width = (c.mood + 100) / 2 + '%'; i.style.background = moodCol(c.mood);
       const em = b.querySelector('img.em') as HTMLImageElement; const ico = c.isAsleep() ? 'zzz' : emotionIcon(c.emotion); em.style.display = ico ? 'block' : 'none'; if (ico) em.src = iconUrl(ico);
     });
     if (this.selected >= 0) this.renderPanel(w.chars[this.selected]);

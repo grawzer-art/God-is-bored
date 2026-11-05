@@ -66,6 +66,7 @@ const busy = (o: SimChar) => o.task?.kind === 'pursue' || (o.task?.kind === 'res
 /** Traite les appels, affecte l'agent disponible le plus proche, entretient le niveau de recherche et la garde à vue. Appelé à chaque pas. */
 export function tick(w: World, _dt: number, _dmin: number) {
   holdupTick(w); if (w.till < 220) w.till = Math.min(220, w.till + _dmin * 0.15);
+  if (!w.laws.police && w.reports.length) w.reports.length = 0;    // loi divine : plus de police, plus d'appels traités
   if (w.reports.length) {
     const due = w.reports.filter((r) => w.clock >= r.due); w.reports = w.reports.filter((r) => w.clock < r.due);
     for (const r of due) {

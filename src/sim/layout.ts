@@ -180,3 +180,9 @@ export const isOutdoor = (x: number, y: number) => OUTDOOR.includes(roomAt(x, y)
 /** Bâtiment qui reçoit façade, toit et ouverture à l'approche (pleins et coques). */
 export const closable = (b: Building | undefined) => !!b && (!!b.solid || !!b.shell);
 export function buildingAt(x: number, y: number) { return BUILDINGS.find((b) => x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1); }
+
+/** Nom du quartier à une position (affiché dans le HUD). */
+export function districtAt(x: number, y: number): string {
+  const cx = Math.floor(x), cy = Math.floor(y); if (cx >= 52) return cy <= 22 ? 'Centre-ville' : cy <= 32 ? 'Résidences' : cy <= 36 ? 'Rue du Marché' : 'Faubourg';
+  if (cy >= 33 && cy <= 36) return 'Rue du Marché'; if (cy >= 19 && cy <= 22) return 'Avenue de NORIA'; if (cy > 22) return 'Parc des Tilleuls'; return cx <= 29 ? 'La Colocation' : cx >= 52 ? 'Centre-ville' : 'Quartier du Cinquième Ciel';
+}
