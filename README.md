@@ -27,7 +27,13 @@ npm run dev
 Ouvrez **http://localhost:5173/** dans Safari. Modifiez un fichier de `src/` et enregistrez : la page se recharge seule et **la partie reprend là où elle en était** (même heure, même personnage sélectionné).
 Pour repartir de zéro : ajoutez `?fresh` à l'adresse.
 
-**Sur iPhone** (même Wi‑Fi) : `npm run dev` affiche une ligne `Network: http://192.168.x.x:5173/` ; ouvrez cette adresse dans Safari sur l'iPhone.
+**Sur iPhone** (même Wi‑Fi que le Mac) :
+
+```bash
+npm run dev:phone
+```
+
+Le script affiche l'adresse exacte à ouvrir dans Safari sur l'iPhone (du type `http://192.168.x.x:5173/`), un **QR code** à scanner avec l'appareil photo, et le nom Bonjour du Mac. Si la page ne s'ouvre pas : même Wi‑Fi ? pare-feu macOS (autoriser « node ») ? réseau invité / isolation des appareils ? Le jeu fonctionne en HTTP simple ; l'installation en PWA (plein écran) demandera du HTTPS ou l'accès via `localhost` et sera traitée à l'étape suivante.
 
 ## Contrôles
 
