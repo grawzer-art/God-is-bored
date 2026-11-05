@@ -19,7 +19,9 @@ const build = (sha) => execSync('npx vite build', { env: { ...process.env, VERCE
     console.log('\n== Installation');
     const html = await (await ctx.request.get(URL)).text(); ok(/id="boot"/.test(html) && /safe-area-inset-top/.test(html), 'écran de chargement présent dans la page (avec zones de sécurité)');
     await pg.goto(URL);
-    await ready();
+    let navs = 0; pg.on('framenavigated', (f) => { if (f === pg.mainFrame()) navs++; });
+    await ready(); await pg.evaluate(() => navigator.serviceWorker.ready); await pg.waitForTimeout(2500);
+    ok(navs === 0, 'première visite : aucun rechargement automatique de la page');
     ok(await pg.waitForFunction(() => !document.getElementById('boot'), null, { timeout: 5000 }).then(() => true, () => false), 'écran de chargement retiré une fois le jeu prêt');
     const man = await pg.evaluate(async () => { const l = document.querySelector('link[rel=manifest]'); return l ? (await fetch(l.href)).json() : null; });
     ok(man && man.display === 'standalone' && man.orientation === 'landscape' && man.icons.length >= 3, 'manifest valide (standalone, paysage, icônes)');

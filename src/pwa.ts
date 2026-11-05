@@ -21,10 +21,11 @@ let check: () => void = () => {};
 export function initPwa() {
   if (!('serviceWorker' in navigator) || !import.meta.env.PROD) return;
   window.addEventListener('load', async () => {
+    const hadController = !!navigator.serviceWorker.controller; // première visite : pas de rechargement quand le service worker prend la main
     let reg: ServiceWorkerRegistration;
     try { reg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }); } catch { return; }
     const apply = () => { const w = reg.waiting; if (w) w.postMessage('SKIP_WAITING'); else location.reload(); };
-    navigator.serviceWorker.addEventListener('controllerchange', () => { if (reloading) return; reloading = true; autosave(); location.reload(); });
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (reloading || !hadController) return; reloading = true; autosave(); location.reload(); });
     const watch = (w: ServiceWorker | null) => { if (!w) return; w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) showBanner(apply); }); };
     if (reg.waiting && navigator.serviceWorker.controller) showBanner(apply);
     reg.addEventListener('updatefound', () => watch(reg.installing));
