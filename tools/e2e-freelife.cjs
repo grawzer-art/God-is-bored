@@ -67,7 +67,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const fur = await E(() => { const g = window.__gib; const I = g.world; for (const [fi, nodes] of g.furnNodes) { const f = I.furn[fi]; if (f.def !== 'fridge') continue; const n = nodes[0]; const b = n.getBounds(); const s = g.worldToScreen(b.centerX, b.centerY); return { fi, x: s.x, y: s.y }; } return null; });
   console.log('   meuble de test :', JSON.stringify(fur));
   if (fur) { await tapAt(fur.x, fur.y); await sleep(300); const st = await E(() => ({ ctx: document.getElementById('ctx').style.display === 'block', walk: window.__gib.world.avatar.state })); ok(st.ctx || st.walk === 'walk' || st.walk === 'use', `toucher le frigo : ${st.ctx ? 'menu contextuel (plusieurs actions)' : 'le personnage s\'y rend'}`);
-    if (st.ctx) { await E(() => document.querySelector('#ctx button').click()); }
+    if (st.ctx) { await E(() => document.querySelector('#ctx button[data-c]').click()); }
     let used = false; for (let i = 0; i < 60 && !used; i++) { await sleep(300); used = await E((fi) => { const a = window.__gib.world.avatar; return a.state === 'use' && a.use_furn === fi; }, fur.fi); } ok(used, 'le personnage utilise le meuble une fois arrivé au point d\'accès'); }
   await settle();
   await E(() => { const w = window.__gib.world; const f = w.furn.find((x) => x.def === 'nightstand'); window.__ns = f ? f.i : -1; const c = w.nearestFreeCell({ x: f.x + 1, y: f.y + 2 }, 4); w.abortPlan(w.avatar, 't'); w.avatar.pos = { x: c.x + 0.5, y: c.y + 0.5 }; w.avatar.state = 'idle'; }); await settle();

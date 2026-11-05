@@ -149,7 +149,7 @@ export class MobileUi {
   private bindTop() {
     document.getElementById('mspeed')!.onclick = () => { this.g.setSpeed((this.g.speedIndex + 1) % SPEEDS_LABEL.length); };
     document.getElementById('mmode')!.onclick = () => this.g.toggleMode();
-    document.getElementById('mmenu')!.onclick = () => (this.sheet ? Nav.closeTop() : this.openMenu());
+    document.getElementById('mmenu')!.onclick = () => { if (Nav.tooSoon('mmenu')) return; this.sheet ? Nav.closeTop() : this.openMenu(); };
   }
   // ---- feuilles temporaires
   closeSheet() { this.sheet = ''; this.el.msheet.style.display = 'none'; Nav.closed('msheet'); }

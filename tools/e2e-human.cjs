@@ -45,7 +45,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(a3.money === m0 - 7, `paiement : ${m0} € -> ${a3.money} €`); ok(a3.drunk > 20, `ivresse : ${a3.drunk.toFixed(0)} %`);
   ok(await E(() => window.__gib.world.stats.drinks === 1 && window.__gib.world.barman.money > 300), 'les données persistantes changent (ventes, caisse du barman)');
   await pg.screenshot({ path: 'docs/shots/v2_a4_dialog.png' });
-  await pg.keyboard.press('Escape'); await pg.waitForTimeout(400);
+  await pg.keyboard.press('Escape'); await pg.waitForTimeout(300); if (await E(() => document.getElementById('dlg').style.display !== 'none')) { await pg.keyboard.press('Escape'); } await pg.waitForTimeout(400);
   ok(await E(() => document.getElementById('dlg').style.display === 'none' && window.__gib.speedIndex === 1), 'Échap : conversation fermée, le temps reprend');
   await pg.waitForTimeout(4000); ok((await E(() => window.__gib.world.avatar.stats.done_drink || 0)) >= 1, 'l\'avatar a bu son verre (animation réelle)');
 
@@ -62,7 +62,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const fam0 = await E((id) => window.__gib.world.getRel(id, 8).fam, target); const mem0 = await E((id) => window.__gib.world.chars[id].memories.length, target);
   console.log('   cible', await E((id) => { const g = window.__gib, w = g.world; const n = w.chars[id]; return JSON.stringify({ id, state: n.state, away: n.away, asleep: n.isAsleep(), d: Math.hypot(n.pos.x - w.avatar.pos.x, n.pos.y - w.avatar.pos.y).toFixed(2), canTalk: g.canTalkTo(id), av: w.avatar.state }); }, target));
   await pg.keyboard.press('e'); await pg.waitForFunction(() => document.getElementById('dlg').style.display === 'block' || document.getElementById('ctx').style.display === 'block', null, { timeout: 8000 }).catch(() => {});
-  if (await E(() => document.getElementById('ctx').style.display === 'block')) await pg.click('#ctx button:has-text("Parler")');
+  if (await E(() => document.getElementById('ctx').style.display === 'block')) await pg.click('#ctx button[data-c]:has-text("Parler")');
   await pg.waitForFunction(() => document.getElementById('dlg').style.display === 'block'); ok(true, 'E : la conversation avec l\'habitant s\'ouvre');
   for (const label of ['Bavarder', 'Comment ça va', 'Bavarder', 'Plaisanter']) { await pg.click(`#dlg button:has-text("${label}")`); await pg.waitForTimeout(200); }
   const fam1 = await E((id) => window.__gib.world.getRel(id, 8).fam, target); const mem1 = await E((id) => window.__gib.world.chars[id].memories.length, target);

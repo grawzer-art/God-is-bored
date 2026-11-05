@@ -15,13 +15,14 @@ const stack: NavEntry[] = []; const lastOpen = new Map<string, number>();
 export const list = () => stack.map((e) => e.id);
 export const has = (id: string) => stack.some((e) => e.id === id);
 export const top = () => stack[stack.length - 1];
-/** Ouvre : ferme d'abord les autres fenêtres non « enfant » (jamais deux panneaux l'un sur l'autre). Un double appui sur l'ouverture est ignoré (300 ms). */
+/** Ouvre : ferme d'abord les autres fenêtres non « enfant » (jamais deux panneaux l'un sur l'autre). L'enregistrement n'est jamais refusé. */
 export function open(e: NavEntry): boolean {
-  const now = performance.now(); if (has(e.id)) { stack.splice(stack.findIndex((x) => x.id === e.id), 1); } else if (now - (lastOpen.get(e.id) ?? -1e9) < 300) return false;
-  lastOpen.set(e.id, now);
+  if (has(e.id)) stack.splice(stack.findIndex((x) => x.id === e.id), 1);
   if (!e.child) for (const o of [...stack]) if (!o.child && o.id !== e.id) { try { o.close(); } catch { /* ignoré */ } closed(o.id); }
   stack.push(e); return true;
 }
+/** Anti double appui pour les BOUTONS d'ouverture (pas pour l'enregistrement) : vrai si l'appui précédent sur `key` date de moins de 250 ms. */
+export function tooSoon(key: string): boolean { const now = performance.now(); const t = lastOpen.get(key) ?? -1e9; lastOpen.set(key, now); return now - t < 250; }
 export function closed(id: string) { const i = stack.findIndex((x) => x.id === id); if (i >= 0) stack.splice(i, 1); }
 /** ✕ : ferme la fenêtre du dessus. */
 export function closeTop(): boolean { const t = top(); if (!t) return false; try { t.close(); } catch { /* ignoré */ } closed(t.id); return true; }

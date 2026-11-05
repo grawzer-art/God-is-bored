@@ -19,7 +19,7 @@ export class DecoUi {
   private btn: HTMLElement; private el: HTMLElement; private tab: 'mobilier' | 'sols' = 'mobilier'; private cat: Home.Cat = 'salon'; private room = 'j'; private acc = 0; private sig = '';
   constructor(private g: GameScene, root: HTMLElement) {
     installTheme(); const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
-    this.btn = document.createElement('button'); this.btn.id = 'decobtn'; this.btn.className = 'gp gp-btn gold'; this.btn.textContent = '✎ Décorer'; this.btn.onclick = () => this.enter(); root.appendChild(this.btn);
+    this.btn = document.createElement('button'); this.btn.id = 'decobtn'; this.btn.className = 'gp gp-btn gold'; this.btn.textContent = '✎ Décorer'; this.btn.onclick = () => { if (Nav.tooSoon('decobtn')) return; this.enter(); }; root.appendChild(this.btn);
     this.el = document.createElement('div'); this.el.id = 'deco'; this.el.className = 'gp'; root.appendChild(this.el); this.el.addEventListener('pointerdown', () => (this.pressed = true)); const up = () => setTimeout(() => (this.pressed = false), 120); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
   }
   private pressed = false;
