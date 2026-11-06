@@ -86,6 +86,10 @@ function floorColor(kind: string, a: number, b: number, v: number, x: number, y:
       return q === 0 ? wood(c(0.5, 0.33, 0.22), qa, qb, v, 3, true) : wood(c(0.45, 0.29, 0.2), qa, qb, v + 7, 3, false);
     }
     case 'concrete': { let base = shade(c(0.56, 0.58, 0.6), (hash2(x, y, v) - 0.5) * 0.12); if (a < 0.03 || b < 0.03) base = shade(base, -0.12); return base; }
+    case 'sand': { let col = shade(c(0.86, 0.77, 0.56), (hash2(x, y, v) - 0.5) * 0.1); if (hash2(x >> 1, y, v + 5) > 0.95) col = c(0.93, 0.85, 0.65); if (hash2(x, y, v + 9) > 0.985) col = c(0.7, 0.62, 0.45); return col; }
+    case 'wet_sand': { let col = shade(c(0.66, 0.58, 0.42), (hash2(x, y, v) - 0.5) * 0.08); if (hash2(x, y >> 1, v + 2) > 0.94) col = c(0.74, 0.68, 0.52); return col; }
+    case 'water': { const wv = Math.sin((a * 6 + b * 3 + v * 1.7)) * 0.5 + Math.sin(b * 9 - a * 2 + v) * 0.5; let col = shade(c(0.16, 0.5, 0.66), wv * 0.07 + (hash2(x, y, v) - 0.5) * 0.04); if (hash2(x >> 1, y >> 1, v + 4) > 0.93) col = c(0.5, 0.82, 0.9); return col; }
+    case 'boardwalk': { const pl = (b * 4) % 1; let col = wood(c(0.6, 0.45, 0.3), a, pl, v, 3, false); if (pl < 0.07) col = shade(col, -0.25); return col; }
     case 'grass': {
       let col = shade(c(0.27, 0.44, 0.26), (hash2(x, y, v) - 0.5) * 0.18);
       if (hash2(x >> 1, y, v + 1) > 0.93) col = c(0.4, 0.58, 0.32); if (hash2(x, y >> 1, v + 2) > 0.96) col = c(0.2, 0.34, 0.2); return col;
@@ -110,7 +114,7 @@ export function floorTile(kind: string, variant: number): HTMLCanvasElement {
   }
   g.putImageData(im, 0, 0); floorCache.set(key, cv); return cv;
 }
-export const FLOOR_STYLES: Record<string, string> = { a: 'wood_a', b: 'wood_b', c: 'wood_c', d: 'wood_d', h: 'wood_hall', k: 'tile_kitchen', l: 'parquet', j: 'parquet', m: 'wood_c', v: 'tile_bath', w: 'tile_bath', u: 'concrete', door: 'threshold', B: 'bar_floor', R: 'tile_dark', s: 'sidewalk', r: 'road', g: 'grass', M: 'tile_kitchen', Q: 'concrete', C: 'tile_dark', T: 'parquet', N: 'wood_hall', O: 'wood_hall', P: 'wood_hall' };
+export const FLOOR_STYLES: Record<string, string> = { a: 'wood_a', b: 'wood_b', c: 'wood_c', d: 'wood_d', h: 'wood_hall', k: 'tile_kitchen', l: 'parquet', j: 'parquet', m: 'wood_c', v: 'tile_bath', w: 'tile_bath', u: 'concrete', door: 'threshold', B: 'bar_floor', R: 'tile_dark', s: 'sidewalk', r: 'road', g: 'grass', y: 'sand', n: 'wet_sand', z: 'water', q: 'boardwalk', M: 'tile_kitchen', Q: 'concrete', C: 'tile_dark', T: 'parquet', N: 'wood_hall', O: 'wood_hall', P: 'wood_hall' };
 
 // ------------------------------------------------------------------ murs fins
 export interface FaceSpec { c: C; dec: 'none' | 'window' | 'picture' | 'door' | 'neon' | 'shopwin'; tiled: boolean; art: number; ext?: ExtSpec }

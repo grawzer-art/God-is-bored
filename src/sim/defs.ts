@@ -96,7 +96,8 @@ export const FURN: Record<string, FurnDef> = {
   park_bench: F(2, 1, true, [S(['sit'], [[0, 1]], 'sit', 3, [0.5, 0.45]), S(['sit'], [[1, 1]], 'sit', 3, [1.5, 0.45])]),
   streetlamp: F(1, 1, true, [], { light: { h: 84, r: 2.0 } }),
   street_bench: F(2, 1, true), bar_sign: F(1, 1, false, [], { light: { h: 70, r: 1.7 } }),
-  tree: F(1, 1, true), bush: F(1, 1, true),
+  tree: F(1, 1, true), bush: F(1, 1, true), palm: F(1, 1, true), parasol: F(1, 1, true),
+  lounger: F(2, 1, true, [S(['sit'], [[0, 1]], 'sit', 3, [0.5, 0.45]), S(['sit'], [[1, 1]], 'sit', 3, [1.5, 0.45])]),
   // --- mobilier de rue varié
   hydrant: F(1, 1, true), mailbox: F(1, 1, true), kiosk: F(2, 1, true), billboard: F(3, 1, true), dumpster: F(2, 1, true), vending: F(1, 1, true, [], { light: { h: 40, r: 1.0 } }),
   planter: F(2, 1, true), bike_rack: F(2, 1, true), car_p: F(3, 1, true), phone_booth: F(1, 1, true),

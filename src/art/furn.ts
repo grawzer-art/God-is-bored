@@ -6,7 +6,7 @@ export const PAD: Record<string, number> = {
   bed_y: 28, bed_yw: 28, nightstand: 34, wardrobe: 66, rug: 4, fridge: 58, counter: 38, counter_w: 38, stove: 64, sink_k: 44, table: 34,
   chair_s: 34, chair_n: 34, chair_e: 34, chair_w: 34, sofa_s: 40, armchair_e: 40, tv: 40, coffee_table: 18, bookshelf: 62, plant: 48, floor_lamp: 74,
   toilet: 34, shower: 78, sink_b: 70, bathtub: 26, washer: 40, basket: 24, bench: 22, coat_rack: 76, shoe_rack: 20, console: 50, bin: 22, altar: 40,
-  back_shelf: 70, bar_counter: 44, stool: 30, jukebox: 60, bar_table: 34, streetlamp: 100, street_bench: 30, bar_sign: 104, shelf3: 62, shelf4: 62, shop_counter: 46, desk: 42, park_bench: 30, bush: 40, hydrant: 22, mailbox: 36, kiosk: 62, billboard: 100, dumpster: 36, vending: 62, planter: 30, bike_rack: 22, car_p: 38, car_w: 38, phone_booth: 74, tree: 120, m_clothes: 12, m_book: 12, m_cup: 14, m_pizza: 12, m_trash: 16, m_dishes: 14, m_feast0: 30, m_feast1: 30, m_feast2: 30,
+  back_shelf: 70, bar_counter: 44, stool: 30, jukebox: 60, bar_table: 34, streetlamp: 100, street_bench: 30, bar_sign: 104, shelf3: 62, shelf4: 62, shop_counter: 46, desk: 42, park_bench: 30, bush: 40, hydrant: 22, mailbox: 36, kiosk: 62, billboard: 100, dumpster: 36, vending: 62, planter: 30, bike_rack: 22, car_p: 38, car_w: 38, phone_booth: 74, tree: 120, palm: 150, parasol: 96, lounger: 20, m_clothes: 12, m_book: 12, m_cup: 14, m_pizza: 12, m_trash: 16, m_dishes: 14, m_feast0: 30, m_feast1: 30, m_feast2: 30,
 };
 const OVERLAYS = ['shower', 'bathtub'];
 const WOOD = c(0.66, 0.47, 0.3), WOOD_D = c(0.4, 0.27, 0.18), WOOD_L = c(0.82, 0.64, 0.44), WHITE = c(0.93, 0.93, 0.95), STEEL = c(0.7, 0.74, 0.78), STONE = c(0.86, 0.84, 0.8);
@@ -216,6 +216,17 @@ function paint(def: string, style: number, w: number, d: number, overlay: boolea
       if (style % 2 === 0) { B(0.58, 0.18, 14, 0.7, 0.3, 18, c(0.95, 0.55, 0.65)); B(0.22, 0.6, 16, 0.34, 0.72, 20, c(0.98, 0.85, 0.4)); }
       break;
     }
+    case 'palm': {
+      // palmier dessiné à la main : tronc courbe, palmes en éventail (le canevas fait 64 px de large, comme la case)
+      const cx = 32, gy = PADV + 16, top = gy - 118; G.lineCap = 'round';
+      G.strokeStyle = 'rgb(112,84,58)'; G.lineWidth = 7; G.beginPath(); G.moveTo(cx - 1, gy - 2); G.quadraticCurveTo(cx - 6, gy - 60, cx + 3, top + 4); G.stroke();
+      G.strokeStyle = 'rgb(140,108,76)'; G.lineWidth = 3; G.beginPath(); G.moveTo(cx + 1, gy - 4); G.quadraticCurveTo(cx - 4, gy - 60, cx + 5, top + 4); G.stroke();
+      const fr: [number, number, string][] = [[-30, 8, '#2f7d3a'], [-24, -8, '#3a9446'], [-10, -22, '#2f7d3a'], [10, -22, '#3a9446'], [26, -8, '#2f7d3a'], [30, 10, '#3a9446'], [-12, 14, '#256a30'], [14, 15, '#256a30']];
+      for (const [dx, dy, col] of fr) { G.fillStyle = col; G.beginPath(); G.moveTo(cx + 3, top + 4); G.quadraticCurveTo(cx + 3 + dx * 0.5, top + 4 + Math.min(dy, 0) - 14, cx + 3 + dx, top + 4 + dy); G.quadraticCurveTo(cx + 3 + dx * 0.55, top + 4 + Math.min(dy, 0) - 3, cx + 3, top + 6); G.fill(); }
+      G.fillStyle = '#6b4a1e'; G.beginPath(); G.arc(cx + 1, top + 8, 3, 0, 7); G.arc(cx + 6, top + 8, 3, 0, 7); G.fill(); break;
+    }
+    case 'parasol': { const col = [c(0.9, 0.3, 0.3), c(0.95, 0.8, 0.25), c(0.25, 0.65, 0.85)][style % 3]; B(0.47, 0.47, 0, 0.53, 0.53, 66, c(0.85, 0.85, 0.85)); B(-0.35, -0.35, 66, 1.35, 1.35, 70, col); B(0, 0, 70, 1, 1, 76, shade(col, 0.1)); break; }
+    case 'lounger': B(0.05, 0.1, 0, w - 0.05, 0.9, 7, c(0.92, 0.92, 0.95)); B(w - 0.55, 0.1, 7, w - 0.05, 0.9, 16, c(0.28, 0.6, 0.85)); B(0.05, 0.1, 7, w - 0.55, 0.9, 10, c(0.28, 0.6, 0.85)); break;
     case 'tree': { const g2 = c(0.22, 0.46, 0.27); B(0.4, 0.4, 0, 0.6, 0.6, 44, c(0.4, 0.28, 0.2)); B(0, 0, 34, 1, 1, 62, g2); B(0.1, 0.1, 58, 0.9, 0.9, 86, shade(g2, 0.08)); B(0.2, 0.2, 82, 0.8, 0.8, 108, shade(g2, 0.16)); break; }
     case 'hydrant': B(0.34, 0.34, 0, 0.66, 0.66, 4, c(0.5, 0.1, 0.1)); B(0.38, 0.38, 4, 0.62, 0.62, 14, c(0.82, 0.16, 0.16)); B(0.3, 0.42, 9, 0.7, 0.58, 12, c(0.82, 0.16, 0.16)); B(0.4, 0.4, 14, 0.6, 0.6, 17, c(0.9, 0.3, 0.3)); break;
     case 'mailbox': B(0.36, 0.3, 0, 0.64, 0.7, 20, c(0.2, 0.34, 0.62)); B(0.34, 0.28, 20, 0.66, 0.72, 26, c(0.26, 0.42, 0.74)); B(0.4, 0.28, 12, 0.6, 0.3, 15, c(0.1, 0.12, 0.16)); break;

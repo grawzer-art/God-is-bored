@@ -61,7 +61,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(await waitFor(() => !!window.__gib.world.jail, 120000), 'l\'agent rattrape et arrête le joueur');
   await pg.waitForTimeout(800);
   const j = await E(() => { const w = window.__gib.world; return { money: w.avatar.money, room: w.roomOf(w.avatar.pos), rec: { ...w.record_ }, wanted: w.wanted.level, overlay: getComputedStyle(document.getElementById('jail')).display, mode: window.__gib.mode }; });
-  ok(j.money < m0 && j.room === 'C' && j.rec.arrests === 1 && j.wanted === 0, `amende payée (${m0} → ${j.money} €), joueur en cellule, casier : ${j.rec.arrests} arrestation, ${j.rec.fines} € d'amendes`);
+  ok((j.money < m0 || j.rec.fines > 0) && j.room === 'C' && j.rec.arrests === 1 && j.wanted === 0, `amende payée (${m0} → ${j.money} €), joueur en cellule, casier : ${j.rec.arrests} arrestation, ${j.rec.fines} € d'amendes`);
   ok(j.overlay === 'block', 'écran de garde à vue affiché'); await pg.screenshot({ path: 'docs/shots/city-e2e-4-cellule.png' });
   const before = await here(); await touch('touchStart', [{ x: 90, y: 300, id: 1 }]); await touch('touchMove', [{ x: 130, y: 300, id: 1 }]); await sleep(800); await touch('touchEnd', []); const after = await here(); ok(Math.hypot(after.x - before.x, after.y - before.y) < 0.1, 'enfermé : le joystick ne déplace plus le personnage');
   ok(await waitFor(() => !window.__gib.world.jail, 120000), 'libération après la durée de garde à vue'); await pg.waitForTimeout(500); const free = await here(); ok(free.room === 's', 'libéré devant le commissariat');

@@ -166,7 +166,7 @@ export class GameScene extends Phaser.Scene {
       if (L.isWall(cx, cy - 1)) { fill([o, P(o, 32, 16), P(o, 23, 20.5), P(o, -9, 4.5)], 0.16); fill([o, P(o, 32, 16), P(o, 12, 26), P(o, -20, 10)], 0.1); }
       if (L.isWall(cx - 1, cy)) { fill([o, P(o, -32, 16), P(o, -23, 20.5), P(o, 9, 4.5)], 0.16); fill([o, P(o, -32, 16), P(o, -12, 26), P(o, 20, 10)], 0.1); }
     }
-    const TALL = ['wardrobe', 'fridge', 'bookshelf', 'coat_rack', 'stove', 'shower', 'floor_lamp', 'plant', 'sink_b', 'back_shelf', 'jukebox', 'streetlamp', 'tree', 'bar_sign', 'shelf3', 'shelf4'];
+    const TALL = ['wardrobe', 'fridge', 'bookshelf', 'coat_rack', 'stove', 'shower', 'floor_lamp', 'plant', 'sink_b', 'back_shelf', 'jukebox', 'streetlamp', 'tree', 'palm', 'parasol', 'bar_sign', 'shelf3', 'shelf4'];
     for (const f of this.world.furn) {
       if (!f.blocks || f.x > r.a1 + 1 || f.x + f.w < r.a0 || f.y > r.b1 + 1 || f.y + f.d < r.b0) continue; const k = TALL.includes(f.def) ? 1.8 : 1; const sh = { x: 7 * k, y: 3.5 * k };
       for (let i = 0; i < f.w; i++) for (let j = 0; j < f.d; j++) { const o = toScreen(f.x + i, f.y + j); fill([P(o, sh.x, sh.y), P(o, 32 + sh.x, 16 + sh.y), P(o, sh.x, 32 + sh.y), P(o, -32 + sh.x, 16 + sh.y)], 0.17); }

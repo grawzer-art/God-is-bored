@@ -36,7 +36,7 @@ export const BUILDINGS: Building[] = [
   { name: 'flats2', x0: 70, y0: 24, x1: 82, y1: 32, front: 110, kind: 'apartment', solid: true, h: 136, wall: 'concrete', roof: '#5a606c', title: 'RÉSIDENCE ORION', door: [76, 32] },
   { name: 'flats3', x0: 84, y0: 24, x1: 94, y1: 32, front: 96, kind: 'apartment', solid: true, h: 112, wall: 'beige', roof: '#7a5a4a', title: 'LES TILLEULS', door: [89, 32] },
 ];
-export const OUTDOOR = 'srg';
+export const OUTDOOR = 'srgynzq';
 /** Pièces des nouveaux bâtiments : M épicerie, Q commissariat, C cellule, T café, N/O/P halls d'immeubles (une lettre par pièce : l'éclairage se calcule par lettre). */
 export const CITY_ROOMS = 'MQCTNOPjmv';
 function buildMap(): string[] {
@@ -51,9 +51,19 @@ function buildMap(): string[] {
   for (let x = 44; x <= 48; x++) g[13][x] = '#';
   g[13][46] = 'F'; g[18][38] = 'E';
   applyCity(g);
+  applyBeach(g);
   return g.map((r) => r.join(''));
 }
 
+/** NORIA BEACH : promenade (y23), sable (y24-27), sable mouillé (y28), océan non praticable (y29-32), de x0 à x51. */
+export const BEACH = { x0: 0, x1: 51, board: 23, sand0: 24, sand1: 27, wet: 28, sea0: 29, sea1: 32 };
+function applyBeach(g: string[][]) {
+  for (let x = BEACH.x0; x <= BEACH.x1; x++) {
+    g[BEACH.board][x] = 'q'; for (let y = BEACH.sand0; y <= BEACH.sand1; y++) g[y][x] = 'y'; g[BEACH.wet][x] = 'n'; for (let y = BEACH.sea0; y <= BEACH.sea1; y++) g[y][x] = 'z';
+  }
+}
+export const isWater = (x: number, y: number) => y >= 0 && y < H && x >= 0 && x < W && MAP[y][x] === 'z';
+export const isBeach = (x: number, y: number) => x >= BEACH.x0 && x <= BEACH.x1 && y >= BEACH.board && y <= BEACH.sea1;
 // ---------------------------------------------------------------- ville : rues, intersections, bâtiments
 function applyCity(g: string[][]) {
   const set = (x: number, y: number, ch: string) => { if (x >= 0 && x < W && y >= 0 && y < H) g[y][x] = ch; };
@@ -136,8 +146,10 @@ export function furniture(): FurnPlacement[] {
   // --- Halls d'immeubles
   for (const [x0, x1] of [[71, 81], [85, 93]]) { f.push(P('console', x0 + 1, 25), P('plant', x1, 25, { style: 1 }), P('plant', x0, 31, { style: 0 }), P('bench', Math.floor((x0 + x1) / 2), 29, { w: 2, d: 1 })); }
   // --- Parc (x2..48, y24..32) et rues
-  for (const [x, y] of [[4, 26], [9, 30], [16, 25], [22, 29], [28, 26], [33, 31], [39, 25], [44, 29], [47, 26], [12, 27], [24, 32]]) f.push(P('tree', x, y, { style: x * 5 + y }));
-  for (const [x, y] of [[7, 28], [19, 27], [31, 28], [42, 27]]) f.push(P('park_bench', x, y));
+  for (const [x, y] of [[3, 25], [10, 24], [17, 25], [25, 24], [30, 26], [37, 25], [44, 24], [49, 26], [9, 23], [33, 23]]) f.push(P('palm', x, y, { style: x * 5 + y }));
+  for (const [x, y] of [[6, 26], [21, 26], [40, 26]]) f.push(P('parasol', x, y, { style: x }));
+  for (const [x, y] of [[7, 26], [22, 25], [41, 26]]) f.push(P('lounger', x, y));
+  for (const [x, y] of [[14, 26], [28, 27], [46, 27]]) f.push(P('park_bench', x, y));
   for (const x of [8, 16, 24, 32, 40, 48]) f.push(P('streetlamp', x, 33));
   for (const x of [58, 66, 74, 82, 90]) f.push(P('streetlamp', x, 22), P('streetlamp', x, 33));
   for (const y of [4, 12, 26, 29]) f.push(P('streetlamp', 52, y));
@@ -184,5 +196,5 @@ export function buildingAt(x: number, y: number) { return BUILDINGS.find((b) => 
 /** Nom du quartier à une position (affiché dans le HUD). */
 export function districtAt(x: number, y: number): string {
   const cx = Math.floor(x), cy = Math.floor(y); if (cx >= 52) return cy <= 22 ? 'Centre-ville' : cy <= 32 ? 'Résidences' : cy <= 36 ? 'Rue du Marché' : 'Faubourg';
-  if (cy >= 33 && cy <= 36) return 'Rue du Marché'; if (cy >= 19 && cy <= 22) return 'Avenue de NORIA'; if (cy > 22) return 'Parc des Tilleuls'; return cx <= 29 ? 'La Colocation' : cx >= 52 ? 'Centre-ville' : 'Quartier du Cinquième Ciel';
+  if (cy >= 33 && cy <= 36) return 'Rue du Marché'; if (cy >= 19 && cy <= 22) return 'Avenue de NORIA'; if (cy > 22 && cy < 33 && cx < 52) return 'Noria Beach'; if (cy > 22) return 'Faubourg'; return cx <= 29 ? 'La Colocation' : cx >= 52 ? 'Centre-ville' : 'Quartier du Cinquième Ciel';
 }

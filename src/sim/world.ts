@@ -84,7 +84,7 @@ export class World {
   }
   private buildGrid() {
     this.astar = new AStar(L.W, L.H);
-    for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) if (L.isWall(x, y) || this.cellFurn.has(this.key(x, y))) this.astar.setSolid(x, y, true);
+    for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) if (L.isWall(x, y) || L.isWater(x, y) || this.cellFurn.has(this.key(x, y))) this.astar.setSolid(x, y, true);
   }
   private buildChars() {
     this.chars = [];

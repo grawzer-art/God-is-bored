@@ -23,7 +23,7 @@ export interface DivineEntry { t: number; power: string; target: number; text: s
 function note(w: World, power: string, target: number, text: string) { w.divine.push({ t: w.clock, power, target, text }); if (w.divine.length > 80) w.divine.shift(); w.emitLog(text, 'god', target); }
 export const PLACES: Record<string, { label: string; x: number; y: number }> = {
   flat: { label: 'Mon appartement', x: 66.5, y: 28.5 }, street: { label: 'Avenue', x: 70.5, y: 19.5 }, store: { label: 'Épicerie', x: 61.5, y: 14.5 }, bar: { label: 'Bar', x: 38.5, y: 15.5 },
-  station: { label: 'Commissariat', x: 75.5, y: 14.5 }, park: { label: 'Parc', x: 20.5, y: 28.5 }, house: { label: 'Maison', x: 14.5, y: 13.5 },
+  station: { label: 'Commissariat', x: 75.5, y: 14.5 }, park: { label: 'Plage', x: 20.5, y: 28.5 }, house: { label: 'Maison', x: 14.5, y: 13.5 },
 };
 /** Efface chez les témoins proches (vue directe, ≤ 9 cases) ce qu'ils savent de `subject` : souvenirs de délit, connaissances d'événements, appels en attente. Retourne le nombre de personnes touchées. */
 export function forget(w: World, center: { x: number; y: number }, subject: number): number {

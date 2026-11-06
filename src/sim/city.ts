@@ -63,7 +63,7 @@ function entryAt(c: SimChar, h: number): { from: number; to: number; where: Wher
 function nextStart(c: SimChar, h: number): number { const s = sched(c).sched; for (const [a] of s) if (a > h) return a; return s[0][0] + 24; }
 
 const inBuilding = (c: SimChar, name: string) => L.buildingAt(c.cell().x, c.cell().y)?.name === name;
-const isPark = (c: Furn) => c.def === 'park_bench';
+const isPark = (c: Furn) => c.def === 'park_bench' || c.def === 'lounger';
 function nearestSlot(w: World, c: SimChar, tag: string, ok: (f: Furn) => boolean) {
   let best: { f: number; s: number; stand: V2 } | null = null, bd = 1e9;
   for (const s of w.freeSlots(tag)) { const f = w.furn[s.f]; if (!ok(f)) continue; const d = dist(c.pos, { x: s.stand.x + 0.5, y: s.stand.y + 0.5 }) + w.rng.randf() * 4; if (d < bd) { bd = d; best = s; } }
