@@ -54,7 +54,7 @@ const CSS = `
 @keyframes rot{0%,20%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
 #ui.mobile #fps{left:calc(var(--sl) + 14px);top:calc(var(--st) + 62px);font-size:11px;text-shadow:0 0 3px #000,0 0 3px #000}
 #ui.mobile #toast{top:calc(var(--st) + 52px);font-size:12px;max-width:60vw} #ui.mobile #prompt{font-size:11px}
-#ui.mobile #dlg{bottom:auto;top:calc(var(--st) + 6px);width:min(640px,calc(100vw - var(--sl) - var(--sr) - 24px));max-height:calc(var(--vh,100vh) - var(--st) - 12px);overflow:auto;touch-action:pan-y;font-size:12px;padding:8px 10px}
+#ui.mobile #dlg{box-sizing:border-box;bottom:auto;top:calc(var(--st) + 6px);width:min(640px,calc(100vw - var(--sl) - var(--sr) - 24px));max-height:calc(var(--vh,100vh) - var(--st) - 12px);overflow:auto;touch-action:pan-y;font-size:12px;padding:8px 10px}
 #ui.mobile #dlg .txt{font-size:13px;min-height:0;margin:2px 0 6px} #ui.mobile #dlg .choices{gap:5px} #ui.mobile #dlg .btn{min-height:44px} #ui.mobile #dlg img.pp{width:44px;height:52px} #ui.mobile #dlg .small.dim:last-child{display:none}
 #ui.mobile #inv,#ui.mobile #ctx{touch-action:pan-y;max-height:calc(var(--vh,100vh) - 24px);overflow:auto} #ui.mobile #ctx{top:50%;min-width:min(300px,70vw)} #ui.mobile #ctx .btn{min-height:42px}
 #ui.mobile #help{max-height:calc(var(--vh,100vh) - 20px);overflow:auto;font-size:12px;touch-action:pan-y} #ui.mobile #tag{font-size:11px}
