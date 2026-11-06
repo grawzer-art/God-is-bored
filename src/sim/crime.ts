@@ -11,7 +11,7 @@ import { dist, type World } from './world';
 export interface Dispatch { id: number; t: number; pos: V2; kind: string; perp: number; sev: number; officer: number; closed: boolean }
 export interface Report { due: number; pos: V2; perp: number; sev: number; kind: string; by: number }
 export interface Wanted { level: number; heat: number; last: V2 | null }
-export interface Record_ { arrests: number; fines: number; crimes: number; jailMin: number }
+export interface Record_ { arrests: number; fines: number; crimes: number; jailMin: number; assaults?: number; knockouts?: number }
 
 export const STATION_DOOR: V2 = { x: 75, y: 19 };      // trottoir devant le commissariat
 export const CELL: V2 = { x: 79.5, y: 11.5 };          // cellule de garde à vue
@@ -36,14 +36,14 @@ export function onCrime(w: World, perp: SimChar, kind: 'theft' | 'shoplift' | 'a
   const wits = viewers(w, pos, [perp.id], kind === 'shoplift' ? 14 : kind === 'robbery' ? 12 : 8);
   const ev = addEvent(w, { kind, actor: perp.id, target: victim >= 0 ? victim : (w.clerk?.id ?? -1), x: pos.x, y: pos.y, amount, sig: 0.8 });
   for (const o of wits) {
-    w.showEmote(o, 'alert', 2.6); o.addMemory(w.clock, 'crime', kind === 'shoplift' ? `J'ai vu ${nm(perp)} partir sans payer.` : kind === 'robbery' ? `J'ai vu ${nm(perp)} braquer l'épicerie.` : `J'ai vu ${nm(perp)} commettre un vol.`, kind === 'robbery' ? -0.9 : -0.6, kind === 'robbery' ? 1 : 0.9, perp.id, { src: 'lived', ev: ev.id, conf: 1, subj: perp.id });
+    w.showEmote(o, 'alert', 2.6); o.addMemory(w.clock, 'crime', kind === 'shoplift' ? `J'ai vu ${nm(perp)} partir sans payer.` : kind === 'robbery' ? `J'ai vu ${nm(perp)} braquer l'épicerie.` : kind === 'assault' ? `J'ai vu ${nm(perp)} frapper quelqu'un.` : `J'ai vu ${nm(perp)} commettre un vol.`, kind === 'robbery' ? -0.9 : -0.6, kind === 'robbery' ? 1 : 0.9, perp.id, { src: 'lived', ev: ev.id, conf: 1, subj: perp.id });
     if (o.kind === 'resident') learn(w, o, ev, 'lived', 1, -1, perp.id);
     if (o.kind === 'police') { alertOfficer(w, o, perp); continue; }
     const rel = w.getRel(o.id, perp.id); let p = o.kind === 'clerk' ? 0.97 : 0.2 + 0.5 * moral(o) + (o.id === victim ? 0.35 : 0);
     if (rel.aff > 40) p *= 0.3; if (o.trait('neuroticism') > 0.7 && rel.fear > 30) p *= 0.5;
     if (w.rng.randf() < Math.min(0.98, p)) w.reports.push({ due: w.clock + w.rng.range(3, 10), pos: { ...pos }, perp: perp.id, sev, kind, by: o.id });
   }
-  w.emitLog(`${nm(perp)} ${kind === 'shoplift' ? 'quitte la boutique sans payer' : kind === 'robbery' ? 'braque l\'épicerie' : 'commet un vol'}${wits.length ? ` — vu par ${wits.map((o) => o.first).join(', ')}` : ' — personne ne semble avoir vu'}.`, 'drama', perp.id);
+  w.emitLog(`${nm(perp)} ${kind === 'shoplift' ? 'quitte la boutique sans payer' : kind === 'robbery' ? 'braque l\'épicerie' : kind === 'assault' ? 'frappe quelqu\'un' : 'commet un vol'}${wits.length ? ` — vu par ${wits.map((o) => o.first).join(', ')}` : ' — personne ne semble avoir vu'}.`, 'drama', perp.id);
   return ev;
 }
 /** Un témoin (résident, qui connaît le coupable) prévient la police après coup. */

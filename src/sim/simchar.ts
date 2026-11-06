@@ -32,7 +32,7 @@ export class SimChar {
   talk_session = -1; talk_with = -1; talking = false;
   avoid: Record<number, number> = {}; pref: Record<string, number> = {};
   /** Ville (NORIA open world) : santé, articles non payés, domicile, emploi du temps, mission de police. */
-  hp = 100; unpaid: Record<string, number> = {}; home: V2 | null = null; place = ''; agendaAt = 0; task: PoliceTask | null = null; dutyPost: V2 | null = null;
+  hp = 100; ko_until = 0; unpaid: Record<string, number> = {}; home: V2 | null = null; place = ''; agendaAt = 0; task: PoliceTask | null = null; dutyPost: V2 | null = null;
   /** Vie autonome : savoirs par événement, intention, emploi (horaires, paie), sortie en cours. */
   known: Record<number, Know> = {}; intent: Intent | null = null; shift: Shift | null = null;
   lifeAct = ''; lifeWhy = ''; jobPhase: '' | 'working' | 'searching' | 'out' | 'jail' = ''; jobUntil = 0; jobStart = 0; outing: '' | 'bar' = ''; outUntil = 0; lifeT = 0;

@@ -1,0 +1,34 @@
+// COMBAT : dialogue → « Frapper » → blessure, riposte, témoins, KO, réveil — dans le vrai jeu (iPhone émulé, mode Descendre).
+const { chromium, devices } = require('playwright');
+const URL = process.env.GAME_URL || 'http://localhost:5173/';
+let fails = 0; const ok = (c, m) => { if (!c) fails++; console.log(c ? '  [OK]   ' : '  [FAIL] ', m); };
+(async () => {
+  const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  const ctx = await b.newContext({ ...devices['iPhone 13 landscape'], viewport: { width: 844, height: 390 }, deviceScaleFactor: 2 });
+  const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', (e) => errs.push(String(e))); const E = (f, a) => pg.evaluate(f, a);
+  await pg.goto(URL + '?fresh&nohelp&human&simulate=620&speed=1&zoom=1.2'); await pg.waitForFunction(() => window.__gib && window.__gib.world, null, { timeout: 60000 }); await pg.waitForTimeout(1500);
+  console.log('\n== Mise en place : Tommy Blake sur la plage, à côté du joueur');
+  await E(() => { const g = window.__gib, w = g.world; const t = w.chars.find((c) => c.name === 'Tommy Blake'); w.abortPlan(w.avatar, 't'); w.abortPlan(t, 't'); t.away = false; t.jobPhase = 'out'; t.state = 'idle'; t.decision_cooldown = 99; w.avatar.pos = { x: 20.5, y: 26.5 }; t.pos = { x: 21.4, y: 26.5 }; window.__t = t.id; g.hud.openDialogue(t); });
+  await pg.waitForFunction(() => document.getElementById('dlg').style.display === 'block', null, { timeout: 10000 });
+  ok((await E(() => document.getElementById('dlg').textContent)).includes('Frapper'), 'le dialogue propose « Frapper » (avec avertissement)');
+  const hp0 = await E(() => window.__gib.world.chars[window.__t].hp);
+  await pg.click('#dlg button:has-text("Frapper")'); await pg.waitForTimeout(600);
+  const s1 = await E(() => { const w = window.__gib.world, t = w.chars[window.__t]; return { hp: t.hp, mem: t.memories.some((m) => m.kind === 'assault'), crime: w.record_.assaults, dlg: document.getElementById('dlg').style.display, nav: window.__nav.list() }; });
+  ok(s1.hp < hp0 && s1.mem && s1.crime === 1, `le coup blesse (${hp0} → ${Math.round(s1.hp)} PV), souvenir et délit enregistrés`); ok(s1.dlg === 'none' && s1.nav.length === 0, 'la conversation se ferme, le temps reprend, aucune fenêtre fantôme');
+  await pg.screenshot({ path: 'docs/shots/combat-1-coup.png' });
+  console.log('\n== Riposte, KO, réveil');
+  await E(() => { const w = window.__gib.world, t = w.chars[window.__t]; t.traits.neuroticism = 0.05; t.traits.agreeableness = 0.05; while (window.__nav.list().length) window.__nav.closeTop(); w.abortPlan(t, 't'); w.fights = []; t.state = 'idle'; t.pos = { x: w.avatar.pos.x + 0.9, y: w.avatar.pos.y }; t.hp = 3; window.__gib.setSpeed(1); w.avatar.stats.punch_at = -1e9; window.__gib.hud.openDialogue(t); });
+  await pg.waitForFunction(() => document.getElementById('dlg').style.display === 'block'); await pg.click('#dlg button:has-text("Frapper")'); await pg.waitForTimeout(800);
+  const s2 = await E(() => { const t = window.__gib.world.chars[window.__t]; return { st: t.state, pose: t.pose }; });
+  ok(s2.st === 'ko' && s2.pose === 'lie', 'à bout de forces, Tommy est assommé (KO, allongé)'); await pg.screenshot({ path: 'docs/shots/combat-2-ko.png' });
+  await E(() => { const w = window.__gib.world; w.clock += 40; });
+  await pg.waitForFunction(() => window.__gib.world.chars[window.__t].state !== 'ko', null, { timeout: 20000 }); ok(true, 'il se relève plus tard');
+  console.log('\n== Le joueur est mis KO');
+  await E(() => { window.__nav.closeAll?.(); while (window.__nav.list().length) window.__nav.closeTop(); window.__gib.setSpeed(1); });
+  await E(() => { const w = window.__gib.world, t = w.chars[window.__t]; const av = w.avatar; t.pos = { x: av.pos.x + 0.8, y: av.pos.y }; t.state = 'idle'; t.hp = 90; av.hp = 4; av.money = 200; t.stats.punch_at = -1e9; w.fights.push({ a: t.id, b: av.id, t: 0.1, rounds: 0 }); });
+  await pg.waitForTimeout(2500);
+  await pg.waitForFunction(() => window.__gib.world.record_.knockouts === 1, null, { timeout: 20000 });
+  const s3 = await E(() => { const w = window.__gib.world; return { hp: w.avatar.hp, money: w.avatar.money, y: w.avatar.pos.y }; });
+  ok(s3.hp >= 40 && s3.money < 200 && s3.y > 32, `KO du joueur : réveil devant chez lui (PV ${Math.round(s3.hp)}, argent ${Math.round(s3.money)} €)`);
+  ok(errs.length === 0, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs[0] : '')); console.log(fails ? `\n${fails} ÉCHEC(S)` : '\nCOMBAT : tout est vert'); await b.close(); process.exit(fails ? 1 : 0);
+})();

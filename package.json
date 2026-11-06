@@ -27,7 +27,8 @@
     "e2e:scenario": "node tools/e2e-scenario.cjs",
     "e2e:ui2": "node tools/e2e-ui2.cjs",
     "e2e:start": "node tools/e2e-start.cjs",
-    "e2e:nav": "node tools/e2e-nav.cjs"
+    "e2e:nav": "node tools/e2e-nav.cjs",
+    "e2e:combat": "node tools/e2e-combat.cjs"
   },
   "dependencies": {
     "phaser": "3.90.0"

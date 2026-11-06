@@ -15,6 +15,7 @@ import * as Social from './social';
 import * as Life from './life';
 import * as City from './city';
 import * as Crime from './crime';
+import * as Combat from './combat';
 import { lineClear, screenDirToGrid, smoothPath, stepBody } from './movement';
 
 export interface Furn { i: number; def: string; x: number; y: number; w: number; d: number; opts: L.FurnPlacement['opts']; id: string; users: number[]; on: boolean; water: number; slots: SlotDef[]; blocks: boolean; flat: boolean; gone?: boolean; ox?: number; oy?: number }
@@ -54,7 +55,7 @@ export class World {
   profile: import('./profile').Profile | null = null; profileVersion = 0; property: { id: string; name: string; building: string; rent: number; since: number } | null = null;
   quests: Record<string, Quests.QState> = {}; progress: Quests.Progress = Quests.newProgress(); narrations: Quests.Narration[] = []; questLog: { t: number; text: string }[] = []; questToasts: string[] = []; questDone: string[] = [];
   job: { to: number; pay: number; t0: number } | null = null;
-  traffic?: Traffic; till = 160; freePowers = true; laws: God.Laws = { police: true }; divine: God.DivineEntry[] = []; holdup: Crime.Holdup | null = null;
+  traffic?: Traffic; till = 160; freePowers = true; laws: God.Laws = { police: true }; divine: God.DivineEntry[] = []; holdup: Crime.Holdup | null = null; fights: Combat.Fight[] = [];
   build() {
     this.buildFurniture(); this.buildGrid(); this.buildChars(); this.buildExtras(); Life.init(this); this.traffic = new Traffic(this);
     for (const m of L.INITIAL_MESS) this.addMess(m[0], { x: m[1], y: m[2] }, 0);
@@ -219,7 +220,7 @@ export class World {
     if (this.day() !== this.lastDay) { this.lastDay = this.day(); this.emitLog(`Jour ${this.day()}.`, 'info'); this.chars.forEach((c) => (c.stats.days = this.day())); }
     this.updateWorld(dmin);
     for (const c of this.chars) this.updateChar(c, dt, dmin);
-    Life.tick(this, dmin); Crime.tick(this, dt, dmin); this.traffic?.tick(dt); Quests.tick(this);
+    Life.tick(this, dmin); Crime.tick(this, dt, dmin); Combat.tick(this, dt, dmin); this.traffic?.tick(dt); Quests.tick(this);
     Social.updateSessions(this, dmin);
     Social.ambient(this, dmin);
   }
