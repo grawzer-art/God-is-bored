@@ -4,6 +4,7 @@ import { ACT, type V2 } from './defs';
 import * as L from './layout';
 import * as Shop from './shop';
 import * as Social from './social';
+import * as Weather from './weather';
 import type { Look } from './roster';
 import { SimChar } from './simchar';
 import { dist, type Furn, type World } from './world';
@@ -80,6 +81,7 @@ function planCafe(w: World, c: SimChar): boolean {
   c.plan = [{ type: 'goto', cell: s.stand }, { type: 'use', furn: s.f, slot: s.s, act: a, stand: s.stand, dur: w.rng.range(a === 'eat' ? 22 : 28, a === 'eat' ? 32 : 70) }]; w.startNextStep(c); return true;
 }
 function planPark(w: World, c: SimChar): boolean {
+  if (Weather.isWet(w)) return false;   // personne ne flâne sur la plage sous la pluie
   const s = nearestSlot(w, c, 'sit', isPark); if (!s) return false;
   c.plan = [{ type: 'goto', cell: s.stand }, { type: 'use', furn: s.f, slot: s.s, act: 'rest', stand: s.stand, dur: w.rng.range(25, 65) }]; w.startNextStep(c); return true;
 }

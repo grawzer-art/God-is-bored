@@ -1,5 +1,7 @@
 /** Barre divine (maquette finale) : CRÉER · MODIFIER · ÉVÉNEMENTS · POUVOIRS · LOIS. Chaque entrée appelle un vrai système ; ce qui n'existe pas encore n'est pas proposé. */
 import type { GameScene } from '../view/scene';
+import * as Quests from '../sim/quests';
+import * as Weather from '../sim/weather';
 import * as God from '../sim/god';
 import { installTheme } from './theme';
 import * as Nav from './nav';
@@ -36,6 +38,7 @@ export class GodBar {
     } else if (this.open === 'evenements') {
       t.appendChild(this.btn('Festin céleste', () => hud.toast(God.feast(w) ? 'Un festin céleste apparaît !' : 'Un festin est déjà servi')));
       t.appendChild(this.btn('Scandale', () => { if (!sel) hud.toast('Sélectionnez d\'abord la personne visée'); else { const n = God.scandal(w, sel); hud.toast(n ? `Le secret de ${sel.first} se répand (${n} personnes)` : `${sel.first} n'a pas de secret à révéler`); } }));
+      for (const k of ['clear', 'rain', 'storm'] as const) t.appendChild(this.btn(`Météo : ${Weather.LABEL[k]}${w.weather.kind === k ? ' ✓' : ''}`, () => { Weather.set(w, k, k === 'clear' ? 360 : 150); Quests.emit(w, 'power', 'weather'); hud.toast(Weather.LABEL[k]); }, w.weather.kind === k ? 'gold' : ''));
       hint('Panne, catastrophe : pas encore disponibles.');
     } else if (this.open === 'pouvoirs') {
       for (const [id, d] of Object.entries(God.POWERS)) t.appendChild(this.btn(d.label, () => { this.open = ''; hud.pickPower(id); }));

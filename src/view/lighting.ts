@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import * as Weather from '../sim/weather';
 import type { World } from '../sim/world';
 import { FURN } from '../sim/defs';
 import * as L from '../sim/layout';
@@ -39,7 +40,7 @@ export class Lighting {
   }
   resize(w: number, h: number) { this.rt.setSize(w, h); }
   update(dt: number) {
-    const w = this.world; const hour = w.hour(); const amb = ambientAt(hour); const lum = amb[0] * 0.3 + amb[1] * 0.59 + amb[2] * 0.11;
+    const w = this.world; const hour = w.hour(); const wi = Weather.intensity(w); this.wdim += (1 - 0.34 * wi - this.wdim) * (dt > 0 ? 1 - Math.exp(-dt * 0.8) : 1); const amb = ambientAt(hour); const lum = (amb[0] * 0.3 + amb[1] * 0.59 + amb[2] * 0.11) * this.wdim;
     this.darkness = Math.max(0, Math.min(1, (0.97 - lum) / 0.55)); this.daylight = Math.max(0, Math.min(1, (hour - 6.8) / 2)) * Math.max(0, Math.min(1, (19 - hour) / 2.5));
     const awake = new Set<string>(), asleep = new Set<string>(); for (const c of w.chars) { if (c.away) continue; (c.isAsleep() ? asleep : awake).add(w.roomOf(c.pos)); }
     const k = dt > 0 ? 1 - Math.exp(-dt * 2.5) : 1; this.flick += dt * 11; const dk = this.darkness;
@@ -60,12 +61,12 @@ export class Lighting {
       if (l.kind === 'tv') this.tvColor = Phaser.Display.Color.Interpolate.ColorWithColor(new Phaser.Display.Color(128, 184, 255), new Phaser.Display.Color(217, 153, 255), 100, Math.floor((0.5 + 0.5 * Math.sin(this.flick * 0.5)) * 50));
     }
   }
-  tvColor: any = null;
+  tvColor: any = null; wdim = 1; flash = 0;
   /** Dessine la carte de lumière pour la caméra courante. */
   render() {
     const cam = this.scene.cameras.main; const z = cam.zoom; const wv = cam.worldView;
     this.rt.setPosition(wv.x, wv.y).setScale(1 / z);
-    const a = ambientAt(this.world.hour()); this.rt.fill(Phaser.Display.Color.GetColor(a[0] * 255, a[1] * 255, a[2] * 255), 1);
+    const a0 = ambientAt(this.world.hour()); const d = this.wdim, f = Math.min(1, this.flash); const a = [Math.min(1, a0[0] * d * 0.95 + f), Math.min(1, a0[1] * d + f), Math.min(1, a0[2] * d * 1.06 + f)]; this.rt.fill(Phaser.Display.Color.GetColor(a[0] * 255, a[1] * 255, a[2] * 255), 1);
     this.active = 0;
     for (const l of this.lights) {
       if (l.energy < 0.02) continue; this.active++;
