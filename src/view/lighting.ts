@@ -16,6 +16,8 @@ export function ambientAt(h: number): RGB {
   for (let i = 0; i < STOPS.length - 1; i++) { const [a, ca] = STOPS[i], [b, cb] = STOPS[i + 1]; if (h >= a && h <= b) { const t = (h - a) / (b - a); return [ca[0] + (cb[0] - ca[0]) * t, ca[1] + (cb[1] - ca[1]) * t, ca[2] + (cb[2] - ca[2]) * t]; } }
   return STOPS[0][1];
 }
+/** Résolution de la carte de lumière (0,5 = moitié : lumière douce, quatre fois moins de pixels à remplir). */
+const RS = 0.5;
 interface Light { x: number; y: number; r: number; color: number; energy: number; room?: string; kind: string; fid?: number }
 
 /** Jour/nuit : une carte de lumière (ambiance + halos additifs) multipliée sur la scène, comme Light2D de Godot. */
@@ -23,7 +25,7 @@ export class Lighting {
   rt!: Phaser.GameObjects.RenderTexture; stamp: Phaser.GameObjects.Image; lights: Light[] = []; darkness = 0; daylight = 1; flick = 0; active = 0;
   constructor(public scene: Phaser.Scene, public world: World) {
     this.stamp = scene.make.image({ key: texKey(scene, glowCanvas()), add: false }).setBlendMode(Phaser.BlendModes.ADD);
-    this.rt = scene.add.renderTexture(0, 0, scene.scale.width, scene.scale.height).setOrigin(0, 0).setDepth(8000).setBlendMode(Phaser.BlendModes.MULTIPLY);
+    this.rt = scene.add.renderTexture(0, 0, Math.ceil(scene.scale.width * RS), Math.ceil(scene.scale.height * RS)).setOrigin(0, 0).setDepth(8000).setBlendMode(Phaser.BlendModes.MULTIPLY);
     const bounds = new Map<string, { x0: number; y0: number; x1: number; y1: number }>();
     for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) { const r = L.roomAt(x, y); if (!r || L.OUTDOOR.includes(r)) continue; const b = bounds.get(r); if (!b) bounds.set(r, { x0: x, y0: y, x1: x, y1: y }); else { b.x0 = Math.min(b.x0, x); b.y0 = Math.min(b.y0, y); b.x1 = Math.max(b.x1, x); b.y1 = Math.max(b.y1, y); } }
     for (const [r, b] of bounds) {
@@ -40,7 +42,7 @@ export class Lighting {
       if (f.def === 'altar') { const s = toScreen(f.x + 0.5, f.y + 0.5); this.lights.push({ x: s.x, y: s.y - 26, r: 80, color: 0xffd973, energy: 0, kind: 'altar' }); }
     }
   }
-  resize(w: number, h: number) { this.rt.setSize(w, h); }
+  resize(w: number, h: number) { this.rt.setSize(Math.ceil(w * RS), Math.ceil(h * RS)); }
   update(dt: number) {
     const w = this.world; const hour = w.hour(); const wi = Weather.intensity(w); this.wdim += (1 - 0.34 * wi - this.wdim) * (dt > 0 ? 1 - Math.exp(-dt * 0.8) : 1); const amb = ambientAt(hour); const lum = (amb[0] * 0.3 + amb[1] * 0.59 + amb[2] * 0.11) * this.wdim;
     this.darkness = Math.max(0, Math.min(1, (0.97 - lum) / 0.55)); this.daylight = Math.max(0, Math.min(1, (hour - 6.8) / 2)) * Math.max(0, Math.min(1, (19 - hour) / 2.5));
@@ -69,14 +71,14 @@ export class Lighting {
   /** Dessine la carte de lumière pour la caméra courante. */
   render() {
     const cam = this.scene.cameras.main; const z = cam.zoom; const wv = cam.worldView;
-    this.rt.setPosition(wv.x, wv.y).setScale(1 / z);
+    this.rt.setPosition(wv.x, wv.y).setScale(1 / (z * RS));
     const a0 = ambientAt(this.world.hour()); const d = this.wdim, f = Math.min(1, this.flash); const a = [Math.min(1, a0[0] * d * 0.95 + f), Math.min(1, a0[1] * d + f), Math.min(1, a0[2] * d * 1.06 + f)]; this.rt.fill(Phaser.Display.Color.GetColor(a[0] * 255, a[1] * 255, a[2] * 255), 1);
     this.active = 0;
     for (const l of this.lights) {
       if (l.energy < 0.02) continue; this.active++;
       let col = l.color; if (l.kind === 'tv' && this.tvColor) col = Phaser.Display.Color.GetColor(this.tvColor.r, this.tvColor.g, this.tvColor.b);
-      const sx = (l.x - wv.x) * z, sy = (l.y - wv.y) * z; const s = (l.r / 128) * z;
-      if (sx < -l.r * z || sy < -l.r * z || sx > this.scene.scale.width + l.r * z || sy > this.scene.scale.height + l.r * z) continue;
+      const sx = (l.x - wv.x) * z * RS, sy = (l.y - wv.y) * z * RS; const s = (l.r / 128) * z * RS;
+      if (sx < -l.r * z * RS || sy < -l.r * z * RS || sx > this.scene.scale.width * RS + l.r * z * RS || sy > this.scene.scale.height * RS + l.r * z * RS) continue;
       this.stamp.setTint(col).setAlpha(Math.min(1, l.energy)).setScale(s, s * 0.62).setOrigin(0.5, 0.5);
       this.rt.draw(this.stamp, sx, sy);
     }
