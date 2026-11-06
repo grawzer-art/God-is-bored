@@ -23,6 +23,8 @@ const CSS = `
 .mob.pill{background:rgba(12,14,22,.78);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:#e6e9f2;font-size:12px}
 .mbtn{font:inherit;color:#e6e9f2;background:rgba(12,14,22,.78);border:1px solid rgba(255,255,255,.16);border-radius:10px;min-width:44px;min-height:44px;padding:0 12px;touch-action:none;transition:none;-webkit-tap-highlight-color:transparent}
 .mbtn:active,.mbtn.on,.mbtn.pressed,#ui.mobile .btn.pressed{transform:scale(.95);background:rgba(250,205,92,.35);border-color:#fccd5c}
+#ui.mobile.god-mode #dpad{display:none!important}
+#ui.hud-hidden #mtr,#ui.hud-hidden #gbar,#ui.hud-hidden #mmap,#ui.hud-hidden #hv2,#ui.hud-hidden #hv2m,#ui.hud-hidden #dpad,#ui.hud-hidden #abtn,#ui.hud-hidden #bbtn,#ui.hud-hidden #qcard,#ui.hud-hidden #decobtn{display:none!important}
 #mtl{left:calc(var(--sl) + 8px);top:calc(var(--st) + 6px);display:flex;gap:6px;align-items:center;padding:3px 4px 3px 9px}
 #mtl b{font-weight:600;color:#fff;white-space:nowrap}
 #mtr{right:calc(var(--sr) + 8px);top:calc(var(--st) + 6px);display:flex;gap:6px}
@@ -78,7 +80,7 @@ export class MobileUi {
     const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
     const p = g.params.get('safe'); if (p) { const [l, t, r, b] = p.split(',').map(Number); const s = document.documentElement.style; s.setProperty('--safe-l', (l || 0) + 'px'); s.setProperty('--safe-t', (t || 0) + 'px'); s.setProperty('--safe-r', (r || 0) + 'px'); s.setProperty('--safe-b', (b || 0) + 'px'); }
     const root = hud.root; const add = (id: string, cls: string, html = '') => { const d = document.createElement('div'); d.id = id; d.className = cls; d.innerHTML = html; root.appendChild(d); this.el[id] = d; return d; };
-    add('mtl', 'mob pill', '<b id="mclock">J1 07:00</b><button class="mbtn" id="mspeed">1x</button>');
+    add('mtl', 'mob pill', '<b id="mclock">J1 07:00</b><button class="mbtn" id="mspeed">1x</button><button class="mbtn" id="mhudtog" aria-label="Masquer ou afficher interface">◐</button>');
     add('mtr', 'mob', '<button class="mbtn mode" id="mmode">DIEU</button><button class="mbtn" id="mmenu" aria-label="Menu">Menu</button>');
     add('dpad', 'mob', '<div class="jbase"></div><div class="jknob"></div>');
     add('abtn', 'mob', 'A<small id="alab"></small>'); add('bbtn', 'mob', 'B<small id="blab"></small>');
@@ -149,6 +151,7 @@ export class MobileUi {
   private bindTop() {
     document.getElementById('mspeed')!.onclick = () => { this.g.setSpeed((this.g.speedIndex + 1) % SPEEDS_LABEL.length); };
     document.getElementById('mmode')!.onclick = () => this.g.toggleMode();
+    document.getElementById('mhudtog')!.onclick = () => { if (Nav.tooSoon('hudtog')) return; const ui = this.hud.root; const hide = !ui.classList.contains('hud-hidden'); ui.classList.toggle('hud-hidden', hide); document.getElementById('mhudtog')!.textContent = hide ? '◑' : '◐'; this.g.hud.toast(hide ? 'Interface masquée — touchez ◑ pour la rétablir' : 'Interface affichée'); };
     document.getElementById('mmenu')!.onclick = () => { if (Nav.tooSoon('mmenu')) return; this.sheet ? Nav.closeTop() : this.openMenu(); };
   }
   // ---- feuilles temporaires
@@ -206,7 +209,7 @@ export class MobileUi {
     const human = this.g.mode === 'human'; const mm = document.getElementById('mmode')!; mm.textContent = human ? 'HUMAIN' : 'DIEU'; mm.classList.toggle('human', human);
     let alab = human ? 'agir' : 'choisir'; if (human && !this.g.hud.dialogueOpen()) { const n = Act.nearby(this.g.world, this.g.world.avatar)[0]; if (n) alab = n.kind === 'npc' ? 'parler' : 'utiliser'; }
     this.el.abtn.classList.toggle('rdy', human && alab !== 'agir'); document.getElementById('alab')!.textContent = alab; document.getElementById('blab')!.textContent = human ? 'inventaire' : 'pouvoirs';
-    document.getElementById('mspeed')!.textContent = SPEEDS_LABEL[this.g.speedIndex];
+    document.getElementById('mspeed')!.textContent = SPEEDS_LABEL[this.g.speedIndex]; this.hud.root.classList.toggle('god-mode', !human);
   }
   update(dt: number) {
     if (!this.active) return; this.acc += dt; if (this.acc < 0.25) return; this.acc = 0; const w = this.g.world;

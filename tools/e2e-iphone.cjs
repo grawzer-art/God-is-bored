@@ -24,7 +24,7 @@ const MODELS = [['iPhone SE', 667, 375, [0, 0, 0, 0]], ['iPhone 12 mini', 812, 3
     ok(Math.abs(full.cw - w) < 1.5 && Math.abs(full.ch - h) < 1.5 && full.cl === 0 && full.ct === 0, `le canvas couvre tout l'écran (${Math.round(full.cw)}x${Math.round(full.ch)})`);
     ok(full.sw <= w && full.sh <= h && full.bodyPos === 'fixed', 'aucun débordement ni défilement de page');
     // zones de sécurité
-    const names = ['#mtl', '#mtr', '#dpad', '#abtn', '#bbtn']; let inside = true;
+    const names = ['#mtl', '#mtr', '#abtn', '#bbtn']; let inside = true;
     for (const sel of names) { const r = await rect(sel); if (r.l < sl - 0.5 || r.r > w - sr + 0.5 || r.t < st - 0.5 || r.b > h - sb + 0.5) { inside = false; console.log('      hors zone :', sel, JSON.stringify(r)); } }
     ok(inside, 'commandes essentielles (menu, mode, vitesse, croix, A, B) hors de la Dynamic Island et du bandeau du bas');
     // cibles tactiles

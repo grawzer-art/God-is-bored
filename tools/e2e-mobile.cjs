@@ -21,21 +21,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(await E(() => document.getElementById('ui').classList.contains('mobile')), 'iPhone détecté : interface mobile activée sans paramètre');
   ok(await E(() => ['clock', 'god', 'powers', 'portraits', 'feed'].every((id) => getComputedStyle(document.getElementById(id)).display === 'none')), 'panneaux permanents du Mac masqués (date, DIEU, pouvoirs, habitants, journal)');
   const vp = await E(() => ({ w: innerWidth, h: innerHeight })); let inside = true, listed = [];
-  for (const sel of ['#mtl', '#mtr', '#dpad', '#abtn', '#bbtn']) { const r = await rect(sel); const okr = r.l >= 47 - 0.5 && r.r <= vp.w - 47 + 0.5 && r.t >= 0 && r.b <= vp.h - 21 + 0.5; inside = inside && okr; listed.push(`${sel}[${Math.round(r.l)},${Math.round(r.t)},${Math.round(r.r)},${Math.round(r.b)}]`); }
+  for (const sel of ['#mtl', '#mtr', '#abtn', '#bbtn', '#mhudtog']) { const r = await rect(sel); const okr = r.l >= 47 - 0.5 && r.r <= vp.w - 47 + 0.5 && r.t >= 0 && r.b <= vp.h - 21 + 0.5; inside = inside && okr; listed.push(`${sel}[${Math.round(r.l)},${Math.round(r.t)},${Math.round(r.r)},${Math.round(r.b)}]`); }
   ok(inside, 'tous les contrôles restent dans les zones de sécurité ' + listed.join(' '));
   ok(await E(() => document.scrollingElement.scrollWidth <= innerWidth && document.scrollingElement.scrollHeight <= innerHeight && getComputedStyle(document.body).position === 'fixed'), 'aucun défilement horizontal ni vertical');
-  const big = await Promise.all(['#dpad', '#abtn', '#bbtn'].map(rect)); ok(big.every((r) => r.w >= 60 && r.h >= 60), `cibles tactiles suffisantes (croix ${Math.round(big[0].w)} px, A ${Math.round(big[1].w)} px, B ${Math.round(big[2].w)} px)`);
+  const big = await Promise.all(['#abtn', '#bbtn'].map(rect)); ok(big.every((r) => r.w >= 60 && r.h >= 60), `cibles tactiles suffisantes (A ${Math.round(big[0].w)} px, B ${Math.round(big[1].w)} px)`); ok(await E(() => getComputedStyle(document.getElementById('dpad')).display === 'none'), 'mode Dieu : le joystick de déplacement est retiré (caméra tactile)');
   const cov = await E(() => { let a = 0; for (const id of ['mtl', 'mtr', 'dpad', 'abtn', 'bbtn']) { const r = document.getElementById(id).getBoundingClientRect(); a += r.width * r.height; } return a / (innerWidth * innerHeight); }); ok(cov < 0.18, `l'interface couvre ${(cov * 100).toFixed(0)} % de l'écran (< 18 %)`);
   ok(await E(() => getComputedStyle(document.getElementById('help')).display === 'none'), 'l\'aide du Mac ne s\'ouvre pas sur iPhone (aucun panneau ne couvre l\'écran au démarrage)');
   await pg.setViewportSize({ width: 390, height: 844 }); await pg.waitForTimeout(500); ok(await E(() => getComputedStyle(document.getElementById('rotate')).display === 'flex'), 'portrait : invitation à tourner le téléphone');
   await pg.setViewportSize({ width: 844, height: 390 }); await pg.waitForTimeout(500); ok(await E(() => getComputedStyle(document.getElementById('rotate')).display === 'none'), 'paysage : l\'invitation disparaît');
 
   await tap('#mmenu'); await tap('#msheet [data-k="help"]'); { const hr = await rect('#msheet'); ok(await E(() => document.getElementById('msheet').textContent.includes('CROIX') || document.getElementById('msheet').textContent.includes('Croix')) && hr.b <= 390 && hr.t >= 0, 'Menu → Aide : aide tactile compacte, entièrement visible'); } await tap('#mclose');
-  console.log('\n== Croix directionnelle en mode DIEU (caméra)');
-  await load('?fresh&nohelp&simulate=420'); const x0 = await E(() => window.__gib.tx);
-  await touch('touchStart', [await arm('right')]); await sleep(600); const mid = await E(() => ({ x: window.__gib.tx, keys: [...window.__gib.keys], an: window.__gib.analog.mag })); await touch('touchEnd', []); await sleep(200);
-  ok(mid.x > x0 + 20 && mid.an > 0.3, `appui sur →: la caméra se déplace (${x0.toFixed(0)} -> ${mid.x.toFixed(0)})`); ok(await E(() => window.__gib.analog.mag === 0 && window.__gib.keys.size === 0), 'relâcher arrête le mouvement');
-  const y0 = await E(() => window.__gib.ty); await touch('touchStart', [await arm('down')]); await sleep(500); await touch('touchEnd', []); ok((await E(() => window.__gib.ty)) > y0 + 15, 'appui sur ↓ : la caméra descend');
+  console.log('\n== Caméra tactile en mode DIEU (le joystick est retiré : on fait glisser le doigt)');
+  await load('?fresh&nohelp&simulate=420'); const x0 = await E(() => window.__gib.tx), y0 = await E(() => window.__gib.ty);
+  await touch('touchStart', [{ x: 520, y: 220 }]); for (let s = 1; s <= 8; s++) { await touch('touchMove', [{ x: 520 - s * 25, y: 220 - s * 10 }]); await sleep(40); } await touch('touchEnd', []); await sleep(300);
+  { const x1 = await E(() => window.__gib.tx), y1 = await E(() => window.__gib.ty); ok(Math.abs(x1 - x0) > 20 || Math.abs(y1 - y0) > 10, `glisser un doigt déplace la caméra (${x0.toFixed(0)},${y0.toFixed(0)} -> ${x1.toFixed(0)},${y1.toFixed(0)})`); }
 
   const waitForF = async (fn, ms, f0) => { await E((v) => { window.__f0 = v; }, f0); const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await E(fn)) return true; await sleep(250); } return false; };
   const pgWaitNear = async () => { for (let i = 0; i < 25; i++) { if (await E(() => window.__gib.nearestToCenter() === window.__tid)) return; await sleep(200); } };
