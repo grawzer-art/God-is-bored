@@ -202,7 +202,7 @@ export class GameScene extends Phaser.Scene {
   }
   /** Description d'une case de façade (matériau, vitrine ou fenêtres, affiches) : déterministe, donc stable entre deux sessions. */
   extSpec(b: L.Building, cx: number, cy: number, se: boolean, h: number): ExtSpec {
-    const k = (b.kind === 'home' ? 'home' : b.kind) as ExtSpec['k']; const m = ({ brick: 'brick', concrete: 'concrete', beige: 'plaster', cream: 'plaster', blue: 'blue' } as Record<string, ExtSpec['m']>)[b.wall ?? 'concrete'];
+    const k = (b.kind === 'home' ? 'home' : b.kind) as ExtSpec['k']; const m = ({ brick: 'brick', concrete: 'concrete', beige: b.kind === 'apartment' ? 'deco' : b.kind === 'cafe' ? 'seaside' : 'plaster', cream: 'plaster', blue: 'blue' } as Record<string, ExtSpec['m']>)[b.wall ?? 'concrete'];
     const front = !se; const rel = se ? cy - b.y0 : cx - b.x0; const len = se ? b.y1 - b.y0 : b.x1 - b.x0; const dh = hashStr(b.name);
     const dx = b.door ? Math.abs((front ? cx : cy) - (front ? b.door[0] : b.door[1])) : 99; const nearDoor = front && dx <= 1;
     const v = Math.floor(hash2(cx * 3 + 1, cy * 5 + 2, dh) * 16); let pane: ExtSpec['pane'] = 'none'; let poster = 0;

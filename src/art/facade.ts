@@ -3,7 +3,7 @@
 import { hash2, mix, shade, type C } from './core';
 const c = (r: number, g: number, b: number): C => [r, g, b];
 
-export type Material = 'brick' | 'concrete' | 'plaster' | 'cream' | 'blue';
+export type Material = 'brick' | 'concrete' | 'plaster' | 'cream' | 'blue' | 'deco' | 'seaside';
 export type Pane = 'none' | 'shop' | 'win';
 export interface ExtSpec {
   m: Material; k: 'store' | 'cafe' | 'bar' | 'police' | 'apartment' | 'home';
@@ -54,6 +54,24 @@ function concrete(fp: FP, h: number, base: C, cell: number) {
   for (let r = 0; r < 3; r++) { const u = hash2(cell, r, 17) * 0.8, z = hash2(cell, r, 19) * (h - 30) + 6; fp(u, u + 0.12, z, z + 12, shade(base, -0.07), 0.8); }
 }
 
+/** Art déco californien : pilastres, couronnement en gradins, frise en chevrons turquoise. */
+function deco(fp: FP, h: number, base: C, cell: number) {
+  fp(0, 1, 0, h, base);
+  const acc = c(0.2, 0.62, 0.62), gold = c(0.92, 0.76, 0.34);
+  for (const u of [0.02, 0.49]) { fp(u, u + 0.07, 6, h - 12, shade(base, 0.14)); fp(u + 0.07, u + 0.09, 6, h - 12, shade(base, -0.2)); }
+  fp(0, 1, h - 20, h - 14, acc); for (let u = 0; u < 1; u += 0.125) { fp(u, u + 0.0625, h - 20, h - 17, shade(acc, 0.22)); fp(u + 0.0625, u + 0.125, h - 17, h - 14, shade(acc, 0.22)); }
+  fp(0, 1, h - 21, h - 20, gold);
+  fp(0.1, 0.9, h - 3, h + 3, shade(base, 0.28)); fp(0.25, 0.75, h + 3, h + 7, shade(base, 0.34)); fp(0.4, 0.6, h + 7, h + 10, gold);
+  for (let r = 0; r < 3; r++) { const u = hash2(cell, r, 31) * 0.7, z = hash2(cell, r, 33) * (h - 40) + 10; fp(u, u + 0.16, z, z + 5, shade(base, -0.05), 0.7); }
+}
+/** Architecture balnéaire : bandes horizontales pastel et frise de festons. */
+function seaside(fp: FP, h: number, base: C, cell: number) {
+  fp(0, 1, 0, h, base);
+  for (let z = 6, i = 0; z < h - 10; z += 14, i++) { fp(0, 1, z, z + 7, i % 2 ? c(0.96, 0.95, 0.9) : c(0.42, 0.78, 0.84)); fp(0, 1, z + 7, z + 8, shade(base, -0.25)); }
+  for (let u = 0; u < 1; u += 0.125) fp(u, u + 0.1, h - 14, h - 9, c(0.98, 0.62, 0.55));
+  for (let r = 0; r < 3; r++) { const u = hash2(cell, r, 41) * 0.7, z = hash2(cell, r, 43) * (h - 40) + 10; fp(u, u + 0.12, z, z + 4, shade(base, 0.08), 0.8); }
+}
+
 function windowFrame(fp: FP, p: PaneRect, v: number, night: boolean) {
   const frame = c(0.95, 0.94, 0.9), dark = c(0.22, 0.24, 0.3);
   fp(p.u0 - 0.04, p.u1 + 0.04, p.zb - 1, p.zt + 1, frame); fp(p.u0, p.u1, p.zb + 1, p.zt - 1, dark);
@@ -91,7 +109,7 @@ function storefront(fp: FP, h: number, spec: ExtSpec, p: PaneRect) {
 
 /** Corps de la façade ; renvoie sans dessiner d'ouvertures si `pane` vaut « none ». */
 export function drawExterior(fp: FP, h: number, base: C, spec: ExtSpec, night = false) {
-  switch (spec.m) { case 'brick': brick(fp, h, base, spec.cell); break; case 'concrete': concrete(fp, h, base, spec.cell); break; default: plaster(fp, h, base, spec.cell); }
+  switch (spec.m) { case 'brick': brick(fp, h, base, spec.cell); break; case 'concrete': concrete(fp, h, base, spec.cell); break; case 'deco': deco(fp, h, base, spec.cell); break; case 'seaside': seaside(fp, h, base, spec.cell); break; default: plaster(fp, h, base, spec.cell); }
   // plinthe, bandeau d'étage, corniche
   fp(0, 1, 0, 5, shade(base, -0.22)); fp(0, 1, 5, 6, shade(base, 0.12)); fp(0, 1, 0, 1, c(0.2, 0.2, 0.22), 0.5);
   const { floors, sh } = storeys(h, spec.k);

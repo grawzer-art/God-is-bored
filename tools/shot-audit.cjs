@@ -2,7 +2,7 @@
 const { chromium, devices } = require('playwright');
 const URL = process.env.GAME_URL || 'http://localhost:5173/';
 const pre = process.argv[2] || 'audit';
-const SPOTS = [['plage', '26,26', 0.9], ['avenue', '40,21', 0.9], ['centre', '72,21', 0.8], ['immeubles', '70,30', 0.8], ['tiki', '14,26', 1.1]];
+const SPOTS = [['plage', '26,26', 0.9], ['avenue', '40,21', 0.9], ['centre', '72,21', 0.8], ['immeubles', '70,30', 0.8], ['tiki', '14,26', 1.1], ['deco', '89,29', 0.9], ['cafe', '88,18', 1.0]];
 const HOURS = [['midi', 12.5], ['couchant', 18.6], ['nuit', 22.3]];
 (async () => {
   const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
