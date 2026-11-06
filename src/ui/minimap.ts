@@ -7,7 +7,7 @@ import * as Nav from './nav';
 import { installTheme } from './theme';
 
 const CSS = `
-#mmap{position:absolute;z-index:5;left:50%;transform:translateX(-50%);top:calc(var(--st,0px) + 6px);padding:3px;border-radius:10px;pointer-events:auto;display:none;cursor:pointer}
+#mmap{position:absolute;z-index:5;right:calc(var(--sr,0px) + 10px);top:calc(var(--st,0px) + 160px);padding:3px;border-radius:10px;pointer-events:auto;display:none;cursor:pointer}
 #mmap canvas{display:block;image-rendering:pixelated;border-radius:7px}
 #bigmap{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(6,4,14,.72);padding:calc(var(--st,0px) + 8px) calc(var(--sr,0px) + 8px) calc(var(--sb,0px) + 8px) calc(var(--sl,0px) + 8px)}
 #bigmap .box{position:relative;padding:10px;border-radius:16px;max-width:100%;max-height:100%;display:flex;flex-direction:column;gap:6px;align-items:center}
