@@ -10,6 +10,7 @@ import { furnSprite, rugCanvas } from '../art/furn';
 import { CharView } from './charview';
 import { WeatherFx } from './weatherfx';
 import { SeaFx } from './seafx';
+import { Skyline } from './skyline';
 import { Lighting } from './lighting';
 import { cellKey, toGrid, toScreen, zOf } from './iso';
 import { texKey } from './texreg';
@@ -100,7 +101,7 @@ export class GameScene extends Phaser.Scene {
     this.bakeFloor(); this.buildWalls(); this.buildFurniture(); this.doors = new Doors(this, this.world, (x, y) => this.wallHeight(x, y)); this.buildRoofs(); this.buildDecor();
     this.chars = this.world.chars.map((c) => new CharView(this, c, this.world));
     this.fx = this.add.graphics().setDepth(3800);
-    this.lighting = new Lighting(this, this.world); this.wfx = new WeatherFx(this, this.world, this.lighting, () => this.lowQuality); this.sea = new SeaFx(this, this.world, () => this.lowQuality);
+    this.lighting = new Lighting(this, this.world); this.wfx = new WeatherFx(this, this.world, this.lighting, () => this.lowQuality); this.sea = new SeaFx(this, this.world, () => this.lowQuality); new Skyline(this, this.lowQuality);
     this.world.listeners.log = []; this.world.listeners.emote = [];
   }
   destroyView() {
