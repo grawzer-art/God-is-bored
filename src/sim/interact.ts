@@ -12,6 +12,7 @@ import * as Home from './home';
 import * as Shop from './shop';
 import * as Crime from './crime';
 import * as Combat from './combat';
+import * as Romance from './romance';
 
 export const ITEMS: Record<string, { label: string; hunger?: number; fun?: number; gift: number; desc: string }> = {
   parcel: { label: 'Colis scellé', gift: 0, desc: 'Un colis à remettre en main propre. Ne l\'ouvrez pas.' },
@@ -74,7 +75,7 @@ export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: C
     { id: 'secret', label: 'Poser une question personnelle', enabled: true, hint: r.aff >= 45 && r.fam >= 40 ? '' : 'trop tôt ?' });
   if (inBar(w, npc) && w.barman && !w.barman.away) ch.push({ id: 'drink', label: 'Offrir un verre (4 €)', enabled: av.money >= 4 });
   if (w.job && w.job.to === npc.id && av.inventory.parcel > 0) ch.unshift({ id: 'deliver', label: 'Remettre le colis', enabled: true, hint: `+${w.job.pay} €` });
-  ch.push({ id: 'steal', label: 'Faire les poches', enabled: npc.money >= 5, hint: 'très risqué' }, { id: 'punch', label: 'Frapper', enabled: true, hint: 'violence : témoins, police, riposte' }, { id: 'bye', label: 'Partir', enabled: true });
+  ch.push({ id: 'steal', label: 'Faire les poches', enabled: npc.money >= 5, hint: 'très risqué' }, ...romanceChoices(w, av, npc), { id: 'punch', label: 'Frapper', enabled: true, hint: 'violence : témoins, police, riposte' }, { id: 'bye', label: 'Partir', enabled: true });
   return { line, choices: ch };
 }
 
@@ -98,6 +99,14 @@ const pickLine = (w: World, pool: string[][], who: 0 | 1) => w.rng.pick(pool)[wh
 export function pickDeliveryTarget(w: World): SimChar | null { const cs = w.citizens.filter((c) => !c.away); return cs.find((c) => c.job.toLowerCase().includes('café')) ?? cs[0] ?? null; }
 /** Une conversation s'ouvre avec `npc` : événements de quête (parler à un habitant). */
 export function noteTalk(w: World, npc: SimChar) { if (npc.kind === 'resident' || npc.kind === 'citizen') { Quests.emit(w, 'talk', 'person'); w.progress.flags.lastTalk = npc.id; } Quests.emit(w, 'talk', npc.id); Quests.emit(w, 'talk', npc.first); }
+/** Choix de romance proposés seulement entre adultes compatibles (le reste n'apparaît pas). */
+function romanceChoices(w: World, av: SimChar, npc: SimChar): Choice[] {
+  if (npc.kind !== 'resident' && npc.kind !== 'citizen') return []; if (!Romance.adult(av) || !Romance.adult(npc) || !Romance.compatible(av, npc)) return [];
+  const rm = Romance.get(w, av.id, npc.id); const out: Choice[] = [];
+  if (!rm || rm.state === 'ex') { out.push({ id: 'flirt', label: 'Flirter', enabled: true, hint: 'un non est un non' }); if (!rm) out.push({ id: 'date', label: 'Proposer un rendez-vous', enabled: Romance.canDate(w, av, npc) === '', hint: Romance.canDate(w, av, npc) || 'adultes consentants' }); }
+  else { out.push({ id: 'date', label: 'Proposer une sortie', enabled: true }); if (rm.state === 'dating') out.push({ id: 'couple', label: 'Proposer de sortir ensemble', enabled: Romance.canCouple(w, av, npc) === '', hint: Romance.canCouple(w, av, npc) }); else out.push({ id: 'evening', label: 'Passer la soirée ensemble', enabled: true, hint: 'si l\'autre en a envie' }); out.push({ id: 'breakup', label: 'Rompre', enabled: true }); }
+  return out;
+}
 export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
   if (id !== 'bye' && id !== 'sheet') Quests.emit(w, 'choice');
   const av = w.avatar; const r = rel(w, npc.id, av.id); w.stats.player_talks = (w.stats.player_talks ?? 0) + 1;
@@ -117,6 +126,11 @@ export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
     case 'pay': { const n = Shop.pay(w, av); return { line: n > 0 ? `Vous payez ${n} €. « Merci, bonne journée. »` : "Vous n'avez rien à payer." }; }
     case 'surrender': { const off = npc.kind === 'police' ? npc : w.police[0]; Crime.arrest(w, off, av, true); return { line: 'Vous levez les mains. On vous emmène.', close: true }; }
     case 'steal': { const r = Life.playerSteal(w, av, npc); if (r.ok) Quests.emit(w, 'steal'); return { line: r.line, close: r.ok && npc.isAsleep() }; }
+    case 'flirt': { const r = Romance.flirt(w, av, npc); return { line: r.line }; }
+    case 'date': { const r = Romance.get(w, av.id, npc.id) ? Romance.again(w, av, npc) : Romance.date(w, av, npc); return { line: r.line }; }
+    case 'couple': { const r = Romance.ask(w, av, npc); return { line: r.line }; }
+    case 'evening': { const r = Romance.evening(w, av, npc); return { line: r.line, close: r.ok }; }
+    case 'breakup': { const r = Romance.breakUp(w, av, npc); return { line: r.line, close: r.ok }; }
     case 'punch': { const r = Combat.punch(w, av, npc); return { line: r.ok ? `${r.line}` : r.line, close: r.ok }; }
     case 'wake': {
       bump(w, npc, -6, 1, 15); npc.anger = clamp(npc.anger + 25, 0, 100); remember(npc, w, 'wake', 'Quelqu\'un m\'a réveillé en pleine nuit.', -0.6, 0.6); w.showEmote(npc, 'anger', 3);
