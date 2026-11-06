@@ -25,7 +25,7 @@ describe('1. un quartier extérieur cohérent et des bâtiments à entrées fonc
     }
   });
   it('chaque entrée est une porte réelle sur la façade, et mène à la bonne pièce', () => {
-    for (const b of L.BUILDINGS.filter((x) => x.solid)) { const [dx, dy] = b.door!; expect(L.isDoor(dx, dy)).toBe(true); expect(L.isOutdoor(dx, dy + 1)).toBe(true); expect('MQTNOP'.includes(L.roomAt(dx, dy))).toBe(true); expect(L.buildingAt(dx, dy)?.name).toBe(b.name); }
+    for (const b of L.BUILDINGS.filter((x) => x.solid && !x.decor)) { const [dx, dy] = b.door!; expect(L.isDoor(dx, dy)).toBe(true); expect(L.isOutdoor(dx, dy + 1)).toBe(true); expect('MQTNOP'.includes(L.roomAt(dx, dy))).toBe(true); expect(L.buildingAt(dx, dy)?.name).toBe(b.name); }
     expect(L.roomAt(61, 12)).toBe('M'); expect(L.roomAt(75, 12)).toBe('Q'); expect(L.roomAt(88, 13)).toBe('T'); expect(L.roomAt(79, 11)).toBe('C');
   });
   it('aucun meuble dans un mur ni sur une porte ; tous les emplacements d\'usage sont atteignables', () => {

@@ -6,7 +6,7 @@ const c = (r: number, g: number, b: number): C => [r, g, b];
 export type Material = 'brick' | 'concrete' | 'plaster' | 'cream' | 'blue' | 'deco' | 'seaside';
 export type Pane = 'none' | 'shop' | 'win';
 export interface ExtSpec {
-  m: Material; k: 'store' | 'cafe' | 'bar' | 'police' | 'apartment' | 'home';
+  m: Material; k: 'store' | 'cafe' | 'bar' | 'police' | 'apartment' | 'home' | 'hotel';
   pane: Pane; v: number; /** variante (déterministe par cellule) */
   floors: number; /** nombre d'étages visibles */
   poster: number; /** 0 = rien ; sinon motif d'affiche / tag */
@@ -22,7 +22,7 @@ const CURT: C[] = [c(0.95, 0.9, 0.78), c(0.86, 0.5, 0.5), c(0.6, 0.72, 0.9), c(0
 
 /** Hauteur de la bande de sol (plinthe/vitrine) et des étages. */
 export function storeys(h: number, k: ExtSpec['k']) {
-  const floors = k === 'apartment' ? (h >= 130 ? 3 : 2) : k === 'home' ? (h >= 90 ? 2 : 1) : k === 'police' ? (h >= 100 ? 2 : 1) : 1;
+  const floors = k === 'hotel' ? (h >= 160 ? 5 : 4) : k === 'apartment' ? (h >= 130 ? 3 : 2) : k === 'home' ? (h >= 90 ? 2 : 1) : k === 'police' ? (h >= 100 ? 2 : 1) : 1;
   const top = h - 8; const sh = (top - 6) / floors; return { floors, sh };
 }
 
@@ -116,12 +116,18 @@ export function drawExterior(fp: FP, h: number, base: C, spec: ExtSpec, night = 
   for (let f = 1; f < floors; f++) { const z = 6 + f * sh - 3; fp(0, 1, z, z + 3, shade(base, 0.2)); fp(0, 1, z - 1, z, shade(base, -0.28)); }
   fp(0, 1, h - 7, h - 3, shade(base, 0.2)); fp(0, 1, h - 3, h, shade(base, 0.32)); fp(0, 1, h - 8, h - 7, shade(base, -0.3));
   for (let d = 0; d < 8; d++) fp(d / 8 + 0.01, d / 8 + 0.06, h - 10, h - 8, shade(base, 0.12));
+  // néons de façade : club (rose / cyan) et hôtel (or)
+  if (spec.k === 'bar') { fp(0, 1, h - 12, h - 10, c(1, 0.3, 0.75)); fp(0, 1, 26, 27.4, c(0.4, 0.9, 1)); for (let u = 0.1; u < 1; u += 0.3) fp(u, u + 0.03, 28, h - 14, c(0.7, 0.35, 1)); }
+  if (spec.k === 'hotel') { fp(0, 1, h - 12, h - 10, c(1, 0.78, 0.35)); fp(0, 1, 6, 8, c(0.95, 0.8, 0.4)); }
   // ouvertures
   const ps = panes(spec, h);
   if (spec.pane === 'shop') storefront(fp, h, spec, ps[0]);
   else if (spec.pane === 'win') {
     ps.forEach((p, i) => windowFrame(fp, p, spec.v + i * 5, night));
-    if ((spec.k === 'apartment') && floors > 1 && spec.v % 3 === 0) { // balcon à l'étage
+    if (spec.k === 'hotel') { // balcon filant à chaque étage, garde-corps vitré, stores
+      ps.forEach((p, i) => { if (i === 0) return; fp(0.08, 0.92, p.zb - 8, p.zb - 3, shade(base, 0.25)); fp(0.08, 0.92, p.zb - 3, p.zb - 2, shade(base, -0.4)); fp(0.08, 0.92, p.zb - 2, p.zb + 6, c(0.6, 0.85, 0.9), 0.35); fp(0.08, 0.92, p.zb + 6, p.zb + 7.4, c(0.85, 0.7, 0.3));
+        if ((spec.v + i) % 3 === 0) { fp(0.14, 0.86, p.zt, p.zt + 3, [c(0.9, 0.45, 0.4), c(0.3, 0.7, 0.75), c(0.95, 0.8, 0.4)][(spec.v + i) % 3]); } });
+    } else if ((spec.k === 'apartment') && floors > 1 && spec.v % 3 === 0) { // balcon à l'étage
       const p = ps[ps.length - 1]; fp(0.12, 0.88, p.zb - 8, p.zb - 3, shade(base, 0.3)); fp(0.12, 0.88, p.zb - 3, p.zb - 2, shade(base, -0.4));
       for (let u = 0.14; u < 0.88; u += 0.1) fp(u, u + 0.02, p.zb - 3, p.zb + 7, c(0.15, 0.16, 0.2)); fp(0.12, 0.88, p.zb + 7, p.zb + 8.4, c(0.15, 0.16, 0.2));
     }

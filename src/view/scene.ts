@@ -202,17 +202,17 @@ export class GameScene extends Phaser.Scene {
   }
   /** Description d'une case de façade (matériau, vitrine ou fenêtres, affiches) : déterministe, donc stable entre deux sessions. */
   extSpec(b: L.Building, cx: number, cy: number, se: boolean, h: number): ExtSpec {
-    const k = (b.kind === 'home' ? 'home' : b.kind) as ExtSpec['k']; const m = ({ brick: 'brick', concrete: 'concrete', beige: b.kind === 'apartment' ? 'deco' : b.kind === 'cafe' ? 'seaside' : 'plaster', cream: 'plaster', blue: 'blue' } as Record<string, ExtSpec['m']>)[b.wall ?? 'concrete'];
+    const k = (b.style === 'hotel' ? 'hotel' : b.kind === 'home' ? 'home' : b.kind) as ExtSpec['k']; const m = ({ brick: 'brick', concrete: 'concrete', beige: b.kind === 'apartment' ? 'deco' : b.kind === 'cafe' ? 'seaside' : 'plaster', cream: 'plaster', blue: 'blue' } as Record<string, ExtSpec['m']>)[b.wall ?? 'concrete']; const mm: ExtSpec['m'] = b.style === 'hotel' ? 'deco' : m;
     const front = !se; const rel = se ? cy - b.y0 : cx - b.x0; const len = se ? b.y1 - b.y0 : b.x1 - b.x0; const dh = hashStr(b.name);
     const dx = b.door ? Math.abs((front ? cx : cy) - (front ? b.door[0] : b.door[1])) : 99; const nearDoor = front && dx <= 1;
     const v = Math.floor(hash2(cx * 3 + 1, cy * 5 + 2, dh) * 16); let pane: ExtSpec['pane'] = 'none'; let poster = 0;
     const shopKind = k === 'store' || k === 'cafe' || k === 'bar';
     if (rel > 0 && rel < len) {
       if (shopKind) { if (front && !nearDoor && rel % 2 === 1) pane = 'shop'; else if (!front && rel % 3 === 1) pane = 'win'; }
-      else if (rel % 3 === 1 && !nearDoor) pane = 'win';
+      else if (k === 'hotel') { if (rel % 2 === 1 && !(front && nearDoor)) pane = 'win'; } else if (rel % 3 === 1 && !nearDoor) pane = 'win';
     }
     if (pane === 'none' && !nearDoor) { const q = Math.floor(hash2(cx + 17, cy + 29, dh) * 9); poster = [0, 1, 0, 2, 0, 3, 0, 4, 0][q]; }
-    return { m, k, pane, v, floors: storeys(h, k).floors, poster, cell: cx * 31 + cy * 17, awning: dh };
+    return { m: mm, k, pane, v, floors: storeys(h, k).floors, poster, cell: cx * 31 + cy * 17, awning: dh };
   }
   /** Bâtiment dans lequel se trouve le point d'attention (avatar en mode humain, habitant observé en mode Dieu) : ses murs avant s'abaissent, son toit disparaît. */
   insideBuilding = ''; peek = false;
@@ -281,6 +281,7 @@ export class GameScene extends Phaser.Scene {
   /** Style de toit par bâtiment : coque d'habitation à quatre pans, immeubles plats avec réservoirs, commissariat avec mât, panneaux publicitaires satiriques. */
   private roofPlan(b: L.Building): { style: RoofStyle; extras: string; ad: number } {
     const dh = hashStr(b.name);
+    if (b.style === 'hotel') return { style: 'flat', extras: 'terrace', ad: -1 };
     switch (b.kind) {
       case 'home': return { style: 'hip', extras: '', ad: -1 };
       case 'bar': return { style: 'flat', extras: 'ac', ad: 4 };

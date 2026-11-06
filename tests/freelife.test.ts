@@ -49,11 +49,11 @@ describe('2-3. toucher pour se déplacer : traverser une rue, contourner un bât
     expect(Math.hypot(av.pos.x - 10.5, av.pos.y - 22.5)).toBeLessThan(0.5); expect(av.state).toBe('idle');
   });
   it('contourne le bar (aucune case de mur traversée)', () => {
-    const w = mk(); const av = w.avatar; put(w, av, 29.5, 15.5); const target = { x: 41, y: 6 };
-    expect(lineClear({ x: 29.5, y: 15.5 }, { x: 41.5, y: 6.5 })).toBe(false); // la ligne droite traverse le bar
+    const w = mk(); const av = w.avatar; put(w, av, 29.5, 15.5); const target = { x: 40, y: 7 };
+    expect(lineClear({ x: 29.5, y: 15.5 }, { x: 40.5, y: 7.5 })).toBe(false); // la ligne droite traverse le bar
     walkPlan(w, target); let len = 0, prev = { ...av.pos };
     tick(w, 40, () => { expect(cellOk(w, av.pos)).toBe(true); len += Math.hypot(av.pos.x - prev.x, av.pos.y - prev.y); prev = { ...av.pos }; });
-    expect(Math.hypot(av.pos.x - 41.5, av.pos.y - 6.5)).toBeLessThan(0.5); expect(len).toBeGreaterThan(Math.hypot(12, 9) + 1);
+    expect(Math.hypot(av.pos.x - 40.5, av.pos.y - 7.5)).toBeLessThan(0.5); expect(len).toBeGreaterThan(Math.hypot(11, 8) + 1);
   });
   it('un toucher sur un mur vise la case libre voisine ; hors carte : refusé', () => {
     const w = mk(); const av = w.avatar; put(w, av, 10.5, 19.5);

@@ -23,7 +23,7 @@ export function adCanvas(ad: number, w = 128, h = 40): HTMLCanvasElement {
 /** Toit d'un bâtiment de w x d cases : retourne le canevas et le décalage de son coin haut-gauche par rapport à toScreen(x0, y0) (au niveau du sol, avant d'ajouter la hauteur). */
 export function roofCanvas(w: number, d: number, colorHex: string, seed: number, style: RoofStyle = 'flat', extras = 'ac', ad = -1): { cv: HTMLCanvasElement; ox: number; oy: number } {
   const key = `${w}|${d}|${colorHex}|${seed}|${style}|${extras}|${ad}`; const hit = cache.get(key); if (hit) return hit;
-  const base = hex(colorHex); const PAD = style === 'hip' ? Math.min(w, d) * 9 + 8 : 8 + (ad >= 0 ? 52 : 0) + (extras === 'mast' ? 30 : 0) + (extras === 'tank' ? 18 : 0);
+  const base = hex(colorHex); const PAD = style === 'hip' ? Math.min(w, d) * 9 + 8 : 8 + (ad >= 0 ? 52 : 0) + (extras === 'mast' ? 30 : 0) + (extras === 'tank' ? 18 : 0) + (extras === 'terrace' ? 14 : 0);
   const P = (x: number, y: number, z = 0) => ({ x: (x - y) * 32 + d * 32 + 4, y: (x + y) * 16 + 4 + PAD - z });
   const cv = canvas((w + d) * 32 + 8, (w + d) * 16 + 14 + PAD); const g = ctx2(cv);
   const lo = shade(base, -0.28), hi = shade(base, 0.16), mid = base;
@@ -65,6 +65,14 @@ export function roofCanvas(w: number, d: number, colorHex: string, seed: number,
   for (let k = 0; k < n; k++) { const bx = 0.8 + hash2(seed + k, 3) * (w - 2.2), by = 0.8 + hash2(seed + k, 7) * (d - 2.2); box(bx, by, 0.9, 0.7, 7, c(0.7, 0.72, 0.76)); line(g, { x: P(bx, by + 0.7).x, y: P(bx, by + 0.7).y - 7 }, { x: P(bx + 0.9, by + 0.7).x, y: P(bx + 0.9, by + 0.7).y - 7 }, c(0.95, 0.96, 0.98), 0.5); }
   box(w - 2.4, 0.7, 1.3, 1.2, 9, shade(mid, 0.1)); // sortie d'escalier
   if (extras === 'tank') { const t = P(1.6, d - 2.2); for (let k = 0; k < 2; k++) { const tx = t.x + k * 22, ty = t.y; poly(g, [{ x: tx - 8, y: ty }, { x: tx + 8, y: ty }, { x: tx + 8, y: ty - 18 }, { x: tx - 8, y: ty - 18 }], c(0.55, 0.38, 0.28)); poly(g, [{ x: tx + 2, y: ty }, { x: tx + 8, y: ty }, { x: tx + 8, y: ty - 18 }, { x: tx + 2, y: ty - 18 }], c(0.4, 0.27, 0.2)); poly(g, [{ x: tx - 9, y: ty - 18 }, { x: tx, y: ty - 25 }, { x: tx + 9, y: ty - 18 }], c(0.3, 0.3, 0.34)); } }
+  if (extras === 'terrace') { // rooftop d'hôtel : deck bois, piscine, parasols, transats, garde-corps vitré
+    const deck = c(0.62, 0.46, 0.3); poly(g, [P(0.6, 0.6), P(w - 0.6, 0.6), P(w - 0.6, d - 0.6), P(0.6, d - 0.6)], deck);
+    for (let i = 1; i < w - 1; i++) line(g, P(i, 0.6), P(i, d - 0.6), shade(deck, -0.14), 0.5);
+    const px0 = 1.6, py0 = 1.4, pw = Math.min(5, w - 4), pd = Math.min(3, d - 3); poly(g, [P(px0 - 0.2, py0 - 0.2), P(px0 + pw + 0.2, py0 - 0.2), P(px0 + pw + 0.2, py0 + pd + 0.2), P(px0 - 0.2, py0 + pd + 0.2)], c(0.9, 0.92, 0.95)); poly(g, [P(px0, py0), P(px0 + pw, py0), P(px0 + pw, py0 + pd), P(px0, py0 + pd)], c(0.25, 0.75, 0.9));
+    for (let k = 0; k < 4; k++) { const a = P(px0 + 0.4 + k * (pw / 4), py0 + 0.4 + (k % 2) * 0.8); line(g, a, { x: a.x + 5, y: a.y + 1 }, c(0.8, 0.95, 1), 0.7); }
+    for (let k = 0; k < 3; k++) { const u = P(w - 2.6 + (k % 2) * 0.1, 1.4 + k * 1.3); line(g, u, { x: u.x, y: u.y - 16 }, c(0.9, 0.9, 0.9)); poly(g, [{ x: u.x - 11, y: u.y - 16 }, { x: u.x + 11, y: u.y - 16 }, { x: u.x + 6, y: u.y - 22 }, { x: u.x - 6, y: u.y - 22 }], [c(0.95, 0.4, 0.4), c(0.98, 0.8, 0.35), c(0.35, 0.75, 0.85)][k]); const l = P(w - 3.8, 1.4 + k * 1.3); poly(g, [{ x: l.x - 8, y: l.y }, { x: l.x + 8, y: l.y + 3 }, { x: l.x + 8, y: l.y - 1 }, { x: l.x - 8, y: l.y - 4 }], c(0.96, 0.96, 0.98)); }
+    line(g, P(0.2, d - 0.2), P(w - 0.2, d - 0.2), c(0.6, 0.9, 0.95)); line(g, P(w - 0.2, 0.2), P(w - 0.2, d - 0.2), c(0.6, 0.9, 0.95)); line(g, P(w / 2 - 2, d - 0.5), P(w / 2 + 2, d - 0.5), c(1, 0.45, 0.8));
+  }
   if (extras === 'mast') { const m = P(w * 0.5, d * 0.5); line(g, m, { x: m.x, y: m.y - 38 }, c(0.8, 0.82, 0.86)); for (let k = 0; k < 3; k++) line(g, { x: m.x - 8 + k, y: m.y - 14 - k * 8 }, { x: m.x + 8 - k, y: m.y - 14 - k * 8 }, c(0.8, 0.82, 0.86)); poly(g, [{ x: m.x - 1, y: m.y - 42 }, { x: m.x + 2, y: m.y - 42 }, { x: m.x + 2, y: m.y - 39 }, { x: m.x - 1, y: m.y - 39 }], c(0.95, 0.2, 0.2)); }
   if (ad >= 0) { // panneau publicitaire sur pieds, face sud-ouest
     const bw = Math.min(5, w - 3), a0 = P(1.4, d - 0.9), a1 = P(1.4 + bw, d - 0.9); const hb = 28, z0 = 12; const ac = adCanvas(ad, 128, 40);

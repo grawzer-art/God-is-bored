@@ -33,8 +33,8 @@ export class Lighting {
       const rad = r === 'h' ? 330 : (Math.max(sw, sh) * 0.5 + 2.6) * 46;
       for (const p of pts) { const s = toScreen(p.x, p.y); this.lights.push({ x: s.x, y: s.y - 34, r: rad, color: r === 'B' ? 0xff9a55 : 0xffd694, energy: 0, room: r, kind: 'room' }); }
     }
-    const NEON: Record<string, number> = { bar: 0xff4fb0, cafe: 0xffb347, store: 0x59f0a0, police: 0x5b8cff, apartment: 0xffd694 };
-    for (const b of L.BUILDINGS) { if (!b.door || !b.title || !b.solid) continue; const s = toScreen(b.door[0] + 0.5, b.door[1] + 1.2); const col = NEON[b.kind ?? 'apartment'] ?? 0xffd694; this.lights.push({ x: s.x, y: s.y - 46, r: b.kind === 'apartment' ? 90 : 150, color: col, energy: 0, kind: 'shopneon', room: b.kind ?? '' }); }
+    const NEON: Record<string, number> = { hotel: 0xffc86b, club: 0xff3fd0, bar: 0xff4fb0, cafe: 0xffb347, store: 0x59f0a0, police: 0x5b8cff, apartment: 0xffd694 };
+    for (const b of L.BUILDINGS) { if (!b.door || !b.title || !(b.solid || b.style === 'club')) continue; const s = toScreen(b.door[0] + 0.5, b.door[1] + 1.2); const col = NEON[b.style ?? b.kind ?? 'apartment'] ?? 0xffd694; this.lights.push({ x: s.x, y: s.y - 46, r: b.style === 'hotel' ? 200 : b.style === 'club' ? 230 : b.kind === 'apartment' ? 90 : 150, color: col, energy: 0, kind: 'shopneon', room: b.kind ?? '' }); }
     for (const f of world.furn) {
       const d = FURN[f.def];
       if (d.light) { const s = toScreen(f.x + f.w * 0.5, f.y + f.d * 0.5); const kind = f.def === 'nightstand' ? 'nightstand' : f.def === 'streetlamp' ? 'street' : f.def === 'bar_sign' ? 'sign' : f.def === 'jukebox' ? 'juke' : f.def === 'tiki_bar' || f.def === 'icecream' ? 'neon' : 'lamp'; this.lights.push({ x: s.x, y: s.y - d.light.h, r: 165 * d.light.r, color: f.def === 'icecream' ? 0x6fe3ff : kind === 'neon' ? 0xff5ec8 : kind === 'sign' ? 0xff5ec8 : kind === 'juke' ? 0xff4fa0 : kind === 'street' ? 0xffe2a0 : 0xffd185, energy: 0, room: L.roomAt(f.x, f.y), kind, fid: f.i }); }
@@ -76,7 +76,8 @@ export class Lighting {
     this.active = 0;
     for (const l of this.lights) {
       if (l.energy < 0.02) continue; this.active++;
-      let col = l.color; if (l.kind === 'tv' && this.tvColor) col = Phaser.Display.Color.GetColor(this.tvColor.r, this.tvColor.g, this.tvColor.b);
+      let col = l.color; if (l.kind === 'room' && l.room === 'B') { const m = 0.5 + 0.5 * Math.sin(this.flick * 0.35); const r = Math.round(0xff * (1 - m) + 0x8a * m), gg = Math.round(0x4f * (1 - m) + 0x5c * m), bb = Math.round(0xb0 * (1 - m) + 0xff * m); col = (r << 16) | (gg << 8) | bb; }
+      if (l.kind === 'tv' && this.tvColor) col = Phaser.Display.Color.GetColor(this.tvColor.r, this.tvColor.g, this.tvColor.b);
       const sx = (l.x - wv.x) * z * RS, sy = (l.y - wv.y) * z * RS; const s = (l.r / 128) * z * RS;
       if (sx < -l.r * z * RS || sy < -l.r * z * RS || sx > this.scene.scale.width * RS + l.r * z * RS || sy > this.scene.scale.height * RS + l.r * z * RS) continue;
       this.stamp.setTint(col).setAlpha(Math.min(1, l.energy)).setScale(s, s * 0.62).setOrigin(0.5, 0.5);
