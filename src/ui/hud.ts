@@ -14,6 +14,7 @@ import { MobileUi } from './mobile';
 import { FicheUi } from './fiche';
 import { HudV2 } from './hudv2';
 import { GodBar } from './godbar';
+import { MiniMap } from './minimap';
 import { DecoUi } from './deco';
 import { JournalUi } from './journal';
 import { DemoGuide } from './demoguide';
@@ -60,7 +61,7 @@ const needCol = (v: number) => (v > 60 ? '#73cc8c' : v > 30 ? '#f2c761' : '#eb61
 const moodCol = (m: number) => (m > 20 ? '#73d18c' : m > -20 ? '#f2cc66' : '#eb6666');
 
 export class Hud {
-  root = document.getElementById('ui')!; el: Record<string, HTMLElement> = {}; demoGuide!: DemoGuide; cityHud!: CityHud; fiche!: FicheUi; hv2!: HudV2; gbar!: GodBar; deco!: DecoUi; journal!: JournalUi; human!: HumanUi; mobile!: MobileUi; modeBtn!: HTMLElement; powerMode = ''; powerFirst = -1; acc = 0; toastT = 0; helpT = 14; selected = -1; feed: { t: number; text: string; kind: string }[] = [];
+  root = document.getElementById('ui')!; el: Record<string, HTMLElement> = {}; demoGuide!: DemoGuide; cityHud!: CityHud; fiche!: FicheUi; hv2!: HudV2; mmap!: MiniMap; gbar!: GodBar; deco!: DecoUi; journal!: JournalUi; human!: HumanUi; mobile!: MobileUi; modeBtn!: HTMLElement; powerMode = ''; powerFirst = -1; acc = 0; toastT = 0; helpT = 14; selected = -1; feed: { t: number; text: string; kind: string }[] = [];
   constructor(public g: GameScene) {
     const st = document.createElement('style'); st.textContent = CSS + HUMAN_CSS; document.head.appendChild(st);
     this.root.innerHTML = `
@@ -86,7 +87,7 @@ export class Hud {
     for (const [id, d] of Object.entries(God.POWERS)) { const b = document.createElement('button'); b.className = 'btn'; b.style.flex = '1'; b.textContent = this.w.freePowers ? `${d.key} ${d.label}` : `${d.key} ${d.label} (${d.cost})`; b.title = d.desc; b.dataset.id = id; b.onclick = () => this.pickPower(id); this.el.pw.appendChild(b); }
     this.el.go.onclick = () => { this.el.help.style.display = 'none'; this.helpT = 1e9; };
     if (g.params.has('nohelp')) this.el.help.style.display = 'none';
-    Nav.installKeys(); this.buildPortraits(); this.demoGuide = new DemoGuide(g, this.root); this.cityHud = new CityHud(g, this.root); this.fiche = new FicheUi(g, this.root); this.hv2 = new HudV2(g, this.root); this.gbar = new GodBar(g, this.root); this.deco = new DecoUi(g, this.root); this.journal = new JournalUi(g, this.root); this.human = new HumanUi(g, this.root); this.mobile = new MobileUi(g, this); if (this.mobile.active) { this.el.help.style.display = 'none'; this.helpT = 1e9; this.toast('Croix : caméra · A : choisir · B : pouvoirs · Menu : le reste'); } this.rebind(); this.onSpeed(g.speedIndex);
+    Nav.installKeys(); this.buildPortraits(); this.demoGuide = new DemoGuide(g, this.root); this.cityHud = new CityHud(g, this.root); this.fiche = new FicheUi(g, this.root); this.hv2 = new HudV2(g, this.root); this.mmap = new MiniMap(g, this.root); this.gbar = new GodBar(g, this.root); this.deco = new DecoUi(g, this.root); this.journal = new JournalUi(g, this.root); this.human = new HumanUi(g, this.root); this.mobile = new MobileUi(g, this); if (this.mobile.active) { this.el.help.style.display = 'none'; this.helpT = 1e9; this.toast('Croix : caméra · A : choisir · B : pouvoirs · Menu : le reste'); } this.rebind(); this.onSpeed(g.speedIndex);
     document.addEventListener('pointerdown', (e) => { if (!(e.target as HTMLElement).closest('#menu')) this.el.menu.style.display = 'none'; });
   }
   get w() { return this.g.world; }
@@ -154,7 +155,7 @@ export class Hud {
   }
   update(dt: number) {
     this.human.update(dt); this.mobile.update(dt); this.demoGuide.update(dt); this.cityHud.update(dt); this.el.pause.style.display = this.g.speedIndex === 0 && !this.human.dialogueOpen() ? 'block' : 'none';
-    this.acc += dt; this.fiche.update(dt); this.hv2.update(dt); this.gbar.update(dt); this.deco.update(dt); this.journal.update(dt);
+    this.acc += dt; this.fiche.update(dt); this.hv2.update(dt); this.mmap.update(dt); this.gbar.update(dt); this.deco.update(dt); this.journal.update(dt);
     if (this.toastT > 0) { this.toastT -= dt; if (this.toastT < 0.5) this.el.toast.style.opacity = String(Math.max(0, this.toastT * 2)); }
     if (this.helpT < 1e8) { this.helpT -= dt; if (this.helpT < 0) { this.el.help.style.display = 'none'; this.helpT = 1e9; } }
     const show = this.g.hoverId >= 0 ? this.g.hoverId : this.selected;
