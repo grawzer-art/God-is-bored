@@ -9,7 +9,7 @@ import { SimChar } from './simchar';
 import { dist, type Furn, type World } from './world';
 
 type Where = 'home' | 'office' | 'cafeWork' | 'cafe' | 'store' | 'park' | 'route';
-interface Spec { name: string; age: number; gender: 'F' | 'M'; job: string; bio: string; look: Look; traits: SimChar['traits']; money: number; home: 'flats1' | 'flats2' | 'flats3'; wage: number; sched: [number, number, Where][]; chrono: number }
+interface Spec { secret?: string; name: string; age: number; gender: 'F' | 'M'; job: string; bio: string; look: Look; traits: SimChar['traits']; money: number; home: 'flats1' | 'flats2' | 'flats3'; wage: number; sched: [number, number, Where][]; chrono: number }
 const LK = (o: Partial<Look>): Look => ({ skin: 1, hair: 'short', hair_color: 'darkbrown', top: 'tee', top_color: 'gray', bottom: 'jeans', bottom_color: 'dark', shoes: 'brown', build: 0, height: 0, acc: 'none', ...o });
 const T = (extraversion: number, agreeableness: number, neuroticism: number, orderliness: number, openness: number) => ({ extraversion, agreeableness, neuroticism, orderliness, openness });
 export const DOORS: Record<string, V2> = { flats1: { x: 62, y: 33 }, flats2: { x: 76, y: 33 }, flats3: { x: 89, y: 33 } };   // trottoir devant la porte de chaque immeuble
@@ -27,12 +27,12 @@ export const CITIZENS: Spec[] = [
     look: LK({ skin: 0, hair: 'bald', hair_color: 'silver', top: 'cardigan', top_color: 'green', bottom: 'jeans', bottom_color: 'dark', shoes: 'brown', acc: 'stubble' }), sched: [[6.8, 9.5, 'park'], [9.5, 10.3, 'store'], [10.4, 11.9, 'cafe'], [12, 16.5, 'park'], [16.6, 17.4, 'store'], [17.5, 19.5, 'cafe']] },
   { name: 'Yasmine Haddad', age: 22, gender: 'F', job: 'Étudiante', bio: 'Révise au café, rêve de partir, parle trop vite.', home: 'flats2', wage: 0, money: 30, chrono: 0.6, traits: T(0.55, 0.7, 0.65, 0.45, 0.85),
     look: LK({ skin: 3, hair: 'afro', hair_color: 'black', top: 'jacket', top_color: 'purple', bottom: 'jeans', bottom_color: 'light', shoes: 'white' }), sched: [[8.5, 11, 'cafe'], [11, 11.8, 'store'], [12, 13.5, 'park'], [13.6, 17.5, 'cafe'], [17.5, 20.5, 'park']] },
-  { name: 'Ibrahim Keita', age: 39, gender: 'M', job: 'Livreur', bio: 'Toujours en mouvement, toujours à court d\'argent. Rend service, parfois contre mieux.', home: 'flats3', wage: 0, money: 3, chrono: -0.1, traits: T(0.5, 0.35, 0.6, 0.3, 0.5),
-    look: LK({ skin: 4, hair: 'short', hair_color: 'black', top: 'jacket', top_color: 'red', bottom: 'jeans', bottom_color: 'dark', shoes: 'black', acc: 'beanie', build: 1 }), sched: [[7.6, 19.5, 'route'], [19.5, 21.2, 'park']] },
+  { name: 'Tommy Blake', age: 26, gender: 'M', job: 'Livreur', bio: "Drôle, impulsif, toujours un mot pour rire. Livre des colis sur la plage et rêve d'ouvrir un garage.", secret: "Il livre des colis dont il ne connaît pas le contenu, et doit de l'argent à Victor Kane.", home: 'flats1', wage: 0, money: 3, chrono: 0.1, traits: T(0.85, 0.6, 0.55, 0.2, 0.7),
+    look: LK({ skin: 3, hair: 'short', hair_color: 'black', top: 'tee', top_color: 'orange', bottom: 'shorts', bottom_color: 'navy', shoes: 'white', acc: 'cap', build: 0 }), sched: [[8.8, 19, 'route'], [19, 22.5, 'park']] },
 ];
 const POLICE: { name: string; gender: 'F' | 'M'; age: number; look: Look; patrol: boolean }[] = [
   { name: 'Léa Lemaire', gender: 'F', age: 34, patrol: true, look: LK({ skin: 1, hair: 'ponytail', hair_color: 'auburn', top: 'uniform', top_color: 'navy', bottom: 'jeans', bottom_color: 'dark', shoes: 'black', acc: 'cap' }) },
-  { name: 'Sam Okafor', gender: 'M', age: 41, patrol: false, look: LK({ skin: 4, hair: 'short', hair_color: 'black', top: 'uniform', top_color: 'navy', bottom: 'jeans', bottom_color: 'dark', shoes: 'black', acc: 'cap', build: 1, height: 1 }) },
+  { name: 'Elena Reyes', gender: 'F', age: 41, patrol: false, look: LK({ skin: 3, hair: 'bun', hair_color: 'black', top: 'uniform', top_color: 'navy', bottom: 'jeans', bottom_color: 'dark', shoes: 'black', acc: 'cap', build: 0, height: 0 }) },
 ];
 
 function mkChar(w: World, id: number, name: string, kind: SimChar['kind'], gender: 'F' | 'M', age: number, job: string, look: Look, traits: SimChar['traits'], money: number, pos: V2, bio: string): SimChar {
@@ -45,10 +45,10 @@ export function populate(w: World) {
   let id = w.chars.length; // 10
   const clerk = mkChar(w, id++, 'Nono Bellamy', 'clerk', 'M', 62, 'Épicier', LK({ skin: 2, hair: 'bald', hair_color: 'gray', top: 'cardigan', top_color: 'green', bottom: 'jeans', bottom_color: 'dark', shoes: 'brown', acc: 'glasses', build: 1 }), T(0.6, 0.55, 0.4, 0.8, 0.4), 250, { x: 61.5, y: 19.5 }, "Tient l'épicerie depuis trente ans. Retient les visages, pas les noms.");
   clerk.away = true; clerk.jobPhase = 'out'; clerk.place = 'store'; clerk.dutyPost = { ...STORE_POST };
-  for (const p of POLICE) { const c = mkChar(w, id++, p.name, 'police', p.gender, p.age, 'Agent de police', p.look, T(0.5, 0.55, 0.3, 0.9, 0.35), 90, { x: 75.5, y: 15.5 }, 'Patrouille de NORIA. A tout vu, ne dit pas tout.'); c.dutyPost = { ...STATION_DESK }; c.speed = 2.0; c.place = p.patrol ? 'patrol' : 'desk'; }
+  for (const p of POLICE) { const c = mkChar(w, id++, p.name, 'police', p.gender, p.age, p.name === 'Elena Reyes' ? 'Capitaine de police' : 'Agent de police', p.look, T(0.5, 0.55, 0.3, 0.9, 0.35), 90, { x: 75.5, y: 15.5 }, 'Patrouille de NORIA. A tout vu, ne dit pas tout.'); c.dutyPost = { ...STATION_DESK }; c.speed = 2.0; c.place = p.patrol ? 'patrol' : 'desk'; }
   const door = (k: string) => DOORS[k];
   CITIZENS.forEach((sp, i) => {
-    const c = mkChar(w, id++, sp.name, 'citizen', sp.gender, sp.age, sp.job, sp.look, sp.traits, sp.money, door(sp.home), sp.bio);
+    const c = mkChar(w, id++, sp.name, 'citizen', sp.gender, sp.age, sp.job, sp.look, sp.traits, sp.money, door(sp.home), sp.bio); c.secret = sp.secret ?? '';
     c.home = { ...door(sp.home) }; c.place = sp.home; c.chrono = sp.chrono; c.shift = sp.wage > 0 ? { from: sp.sched[0][0], to: sp.sched[0][1], pay: sp.wage, place: sp.job } : null;
     c.away = true; c.jobPhase = 'out'; c.jobUntil = (Math.floor(w.clock / 1440) * 1440) + sp.sched[0][0] * 60 + (i % 3) * 7;   // chacun sort de chez lui à sa propre heure
     if (c.jobUntil < w.clock) c.jobUntil = w.clock + 5 + i * 3;

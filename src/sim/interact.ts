@@ -96,7 +96,7 @@ const pickLine = (w: World, pool: string[][], who: 0 | 1) => w.rng.pick(pool)[wh
 /** Destinataire d'une livraison : la serveuse du café si elle est là, sinon un autre citoyen présent. */
 export function pickDeliveryTarget(w: World): SimChar | null { const cs = w.citizens.filter((c) => !c.away); return cs.find((c) => c.job.toLowerCase().includes('café')) ?? cs[0] ?? null; }
 /** Une conversation s'ouvre avec `npc` : événements de quête (parler à un habitant). */
-export function noteTalk(w: World, npc: SimChar) { if (npc.kind === 'resident' || npc.kind === 'citizen') { Quests.emit(w, 'talk', 'person'); w.progress.flags.lastTalk = npc.id; } Quests.emit(w, 'talk', npc.id); }
+export function noteTalk(w: World, npc: SimChar) { if (npc.kind === 'resident' || npc.kind === 'citizen') { Quests.emit(w, 'talk', 'person'); w.progress.flags.lastTalk = npc.id; } Quests.emit(w, 'talk', npc.id); Quests.emit(w, 'talk', npc.first); }
 export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
   if (id !== 'bye' && id !== 'sheet') Quests.emit(w, 'choice');
   const av = w.avatar; const r = rel(w, npc.id, av.id); w.stats.player_talks = (w.stats.player_talks ?? 0) + 1;
