@@ -6,7 +6,7 @@ export const PAD: Record<string, number> = {
   bed_y: 28, bed_yw: 28, nightstand: 34, wardrobe: 66, rug: 4, fridge: 58, counter: 38, counter_w: 38, stove: 64, sink_k: 44, table: 34,
   chair_s: 34, chair_n: 34, chair_e: 34, chair_w: 34, sofa_s: 40, armchair_e: 40, tv: 40, coffee_table: 18, bookshelf: 62, plant: 48, floor_lamp: 74,
   toilet: 34, shower: 78, sink_b: 70, bathtub: 26, washer: 40, basket: 24, bench: 22, coat_rack: 76, shoe_rack: 20, console: 50, bin: 22, altar: 40,
-  back_shelf: 70, bar_counter: 44, stool: 30, jukebox: 60, bar_table: 34, streetlamp: 100, street_bench: 30, bar_sign: 104, shelf3: 62, shelf4: 62, shop_counter: 46, desk: 42, park_bench: 30, bush: 40, hydrant: 22, mailbox: 36, kiosk: 62, billboard: 100, dumpster: 36, vending: 62, planter: 30, bike_rack: 22, car_p: 38, car_w: 38, phone_booth: 74, tree: 120, palm: 150, parasol: 96, lounger: 20, m_clothes: 12, m_book: 12, m_cup: 14, m_pizza: 12, m_trash: 16, m_dishes: 14, m_feast0: 30, m_feast1: 30, m_feast2: 30,
+  back_shelf: 70, bar_counter: 44, stool: 30, jukebox: 60, bar_table: 34, streetlamp: 100, street_bench: 30, bar_sign: 104, shelf3: 62, shelf4: 62, shop_counter: 46, desk: 42, park_bench: 30, bush: 40, hydrant: 22, mailbox: 36, kiosk: 62, billboard: 100, dumpster: 36, vending: 62, planter: 30, bike_rack: 22, car_p: 38, car_w: 38, phone_booth: 74, tree: 120, palm: 150, tiki_bar: 100, lifeguard: 118, volley_net: 70, surf_rack: 64, towel: 6, icecream: 84, parasol: 96, lounger: 20, m_clothes: 12, m_book: 12, m_cup: 14, m_pizza: 12, m_trash: 16, m_dishes: 14, m_feast0: 30, m_feast1: 30, m_feast2: 30,
 };
 const OVERLAYS = ['shower', 'bathtub'];
 const WOOD = c(0.66, 0.47, 0.3), WOOD_D = c(0.4, 0.27, 0.18), WOOD_L = c(0.82, 0.64, 0.44), WHITE = c(0.93, 0.93, 0.95), STEEL = c(0.7, 0.74, 0.78), STONE = c(0.86, 0.84, 0.8);
@@ -216,6 +216,14 @@ function paint(def: string, style: number, w: number, d: number, overlay: boolea
       if (style % 2 === 0) { B(0.58, 0.18, 14, 0.7, 0.3, 18, c(0.95, 0.55, 0.65)); B(0.22, 0.6, 16, 0.34, 0.72, 20, c(0.98, 0.85, 0.4)); }
       break;
     }
+    case 'tiki_bar': { const wd = c(0.45, 0.3, 0.18), th = c(0.82, 0.68, 0.36); B(0.02, 0.35, 0, w - 0.02, 0.95, 26, wd); B(0, 0.3, 26, w, 1, 30, shade(wd, 0.18)); B(0.1, 0.4, 30, w - 0.1, 0.9, 34, c(0.95, 0.9, 0.8));
+      for (const px of [0.08, w - 0.2]) B(px, 0.1, 0, px + 0.12, 0.22, 74, c(0.5, 0.36, 0.22)); B(0, 0, 70, w, 1, 76, th); B(0.04, 0.05, 76, w - 0.04, 0.95, 82, shade(th, 0.12)); for (let u = 0.1; u < w; u += 0.25) B(u, 0, 64, u + 0.1, 0.12, 70, shade(th, -0.2));
+      B(0.2, 0.42, 82, w - 0.2, 0.52, 92, c(1, 0.35, 0.72), 0, true); for (let u = 0.35; u < w - 0.3; u += 0.4) B(u, 0.5, 40, u + 0.14, 0.7, 54, [c(0.95, 0.5, 0.2), c(0.3, 0.8, 0.5), c(0.9, 0.3, 0.4)][Math.floor(u * 2.5) % 3]); break; }
+    case 'lifeguard': { const wd = c(0.95, 0.95, 0.92), rd = c(0.9, 0.25, 0.25); for (const [a, b2] of [[0.1, 0.1], [0.8, 0.1], [0.1, 0.8], [0.8, 0.8]]) B(a, b2, 0, a + 0.1, b2 + 0.1, 58, c(0.55, 0.4, 0.28)); B(0.05, 0.05, 58, 0.95, 0.95, 62, wd); B(0.12, 0.12, 62, 0.88, 0.88, 82, wd); B(0.2, 0.12, 68, 0.8, 0.14, 78, c(0.45, 0.7, 0.85)); B(0.1, 0.1, 82, 0.9, 0.9, 88, rd); B(0.2, 0.2, 88, 0.8, 0.8, 94, shade(rd, 0.1)); break; }
+    case 'volley_net': { for (const px of [0.05, w - 0.12]) B(px, 0.4, 0, px + 0.07, 0.5, 60, c(0.8, 0.8, 0.82)); B(0.1, 0.43, 34, w - 0.1, 0.47, 58, c(0.92, 0.92, 0.95), 0); B(0.1, 0.42, 56, w - 0.1, 0.48, 59, c(0.95, 0.95, 0.98)); break; }
+    case 'surf_rack': { B(0, 0.4, 0, w, 0.6, 6, c(0.45, 0.32, 0.2)); const cols = [c(0.95, 0.4, 0.3), c(0.3, 0.75, 0.9), c(0.98, 0.85, 0.3), c(0.4, 0.85, 0.55)]; for (let i = 0; i < 4; i++) { const u = 0.1 + i * (w - 0.3) / 3; B(u, 0.42, 6, u + 0.14, 0.58, 52 + (i % 2) * 6, cols[i]); } break; }
+    case 'towel': { const col = [c(0.95, 0.4, 0.5), c(0.3, 0.7, 0.9), c(0.98, 0.8, 0.3), c(0.55, 0.85, 0.5)][style % 4]; B(0.1, 0.1, 0, 0.9, 0.9, 1.6, col); for (let u = 0.2; u < 0.9; u += 0.2) B(u, 0.1, 1.6, u + 0.1, 0.9, 2, shade(col, 0.25)); break; }
+    case 'icecream': { B(0.1, 0.1, 0, 0.9, 0.9, 30, c(0.96, 0.92, 0.86)); B(0.05, 0.05, 30, 0.95, 0.95, 34, c(0.4, 0.8, 0.9)); B(0.45, 0.45, 34, 0.55, 0.55, 66, c(0.9, 0.9, 0.9)); B(-0.1, -0.1, 66, 1.1, 1.1, 72, c(0.95, 0.5, 0.65)); B(0.15, 0.15, 72, 0.85, 0.85, 78, c(0.98, 0.95, 0.9)); B(0.2, 0.86, 8, 0.8, 0.92, 24, c(1, 0.6, 0.8), 0, true); break; }
     case 'palm': {
       // palmier dessiné à la main : tronc courbe, palmes en éventail (le canevas fait 64 px de large, comme la case)
       const cx = 32, gy = PADV + 16, top = gy - 118; G.lineCap = 'round';

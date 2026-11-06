@@ -147,6 +147,8 @@ export function furniture(): FurnPlacement[] {
   for (const [x0, x1] of [[71, 81], [85, 93]]) { f.push(P('console', x0 + 1, 25), P('plant', x1, 25, { style: 1 }), P('plant', x0, 31, { style: 0 }), P('bench', Math.floor((x0 + x1) / 2), 29, { w: 2, d: 1 })); }
   // --- Parc (x2..48, y24..32) et rues
   for (const [x, y] of [[3, 25], [10, 24], [17, 25], [25, 24], [30, 26], [37, 25], [44, 24], [49, 26], [9, 23], [33, 23]]) f.push(P('palm', x, y, { style: x * 5 + y }));
+  f.push(P('tiki_bar', 12, 24), P('lifeguard', 36, 27), P('volley_net', 31, 25), P('surf_rack', 19, 24), P('icecream', 46, 25));
+  for (const [x, y] of [[5, 25], [8, 27], [24, 26], [38, 27], [42, 25], [27, 25]]) f.push(P('towel', x, y, { style: x }));
   for (const [x, y] of [[6, 26], [21, 26], [40, 26]]) f.push(P('parasol', x, y, { style: x }));
   for (const [x, y] of [[7, 26], [22, 25], [41, 26]]) f.push(P('lounger', x, y));
   for (const [x, y] of [[14, 26], [28, 27], [46, 27]]) f.push(P('park_bench', x, y));

@@ -94,9 +94,10 @@ export const FURN: Record<string, FurnDef> = {
   shelf4: F(4, 1, true, [0, 1, 2, 3].map((i) => S(['shop'], [[i, 1]], 'stand', 3))),
   shop_counter: F(4, 1, true), desk: F(2, 1, true),
   park_bench: F(2, 1, true, [S(['sit'], [[0, 1]], 'sit', 3, [0.5, 0.45]), S(['sit'], [[1, 1]], 'sit', 3, [1.5, 0.45])]),
-  streetlamp: F(1, 1, true, [], { light: { h: 84, r: 2.0 } }),
+  streetlamp: F(1, 1, true, [], { light: { h: 84, r: 1.15 } }),
   street_bench: F(2, 1, true), bar_sign: F(1, 1, false, [], { light: { h: 70, r: 1.7 } }),
   tree: F(1, 1, true), bush: F(1, 1, true), palm: F(1, 1, true), parasol: F(1, 1, true),
+  tiki_bar: F(3, 1, true, [], { light: { h: 74, r: 1.5 } }), lifeguard: F(1, 1, true), volley_net: F(3, 1, false), surf_rack: F(2, 1, true), towel: F(1, 1, false), icecream: F(1, 1, true, [], { light: { h: 60, r: 1.0 } }),
   lounger: F(2, 1, true, [S(['sit'], [[0, 1]], 'sit', 3, [0.5, 0.45]), S(['sit'], [[1, 1]], 'sit', 3, [1.5, 0.45])]),
   // --- mobilier de rue varié
   hydrant: F(1, 1, true), mailbox: F(1, 1, true), kiosk: F(2, 1, true), billboard: F(3, 1, true), dumpster: F(2, 1, true), vending: F(1, 1, true, [], { light: { h: 40, r: 1.0 } }),

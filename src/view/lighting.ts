@@ -9,8 +9,8 @@ import { toScreen } from './iso';
 
 type RGB = [number, number, number];
 const STOPS: [number, RGB][] = [
-  [0, [0.27, 0.31, 0.52]], [5, [0.3, 0.34, 0.55]], [6.5, [0.8, 0.64, 0.66]], [8, [1, 0.93, 0.84]], [11, [1, 1, 0.98]], [16, [1, 0.97, 0.9]],
-  [18.5, [1, 0.76, 0.56]], [20, [0.56, 0.44, 0.66]], [21.5, [0.34, 0.35, 0.56]], [24, [0.27, 0.31, 0.52]],
+  [0, [0.15, 0.18, 0.36]], [5, [0.18, 0.21, 0.4]], [6.2, [0.78, 0.52, 0.58]], [7.5, [1, 0.88, 0.78]], [9, [1, 0.97, 0.9]], [11, [1, 1, 0.98]], [16, [1, 0.95, 0.86]],
+  [17.8, [1, 0.74, 0.5]], [18.8, [1, 0.58, 0.46]], [19.8, [0.64, 0.38, 0.6]], [21, [0.32, 0.28, 0.52]], [22.5, [0.19, 0.21, 0.4]], [24, [0.15, 0.18, 0.36]],
 ];
 export function ambientAt(h: number): RGB {
   for (let i = 0; i < STOPS.length - 1; i++) { const [a, ca] = STOPS[i], [b, cb] = STOPS[i + 1]; if (h >= a && h <= b) { const t = (h - a) / (b - a); return [ca[0] + (cb[0] - ca[0]) * t, ca[1] + (cb[1] - ca[1]) * t, ca[2] + (cb[2] - ca[2]) * t]; } }
@@ -31,9 +31,11 @@ export class Lighting {
       const rad = r === 'h' ? 330 : (Math.max(sw, sh) * 0.5 + 2.6) * 46;
       for (const p of pts) { const s = toScreen(p.x, p.y); this.lights.push({ x: s.x, y: s.y - 34, r: rad, color: r === 'B' ? 0xff9a55 : 0xffd694, energy: 0, room: r, kind: 'room' }); }
     }
+    const NEON: Record<string, number> = { bar: 0xff4fb0, cafe: 0xffb347, store: 0x59f0a0, police: 0x5b8cff, apartment: 0xffd694 };
+    for (const b of L.BUILDINGS) { if (!b.door || !b.title || !b.solid) continue; const s = toScreen(b.door[0] + 0.5, b.door[1] + 1.2); const col = NEON[b.kind ?? 'apartment'] ?? 0xffd694; this.lights.push({ x: s.x, y: s.y - 46, r: b.kind === 'apartment' ? 90 : 150, color: col, energy: 0, kind: 'shopneon', room: b.kind ?? '' }); }
     for (const f of world.furn) {
       const d = FURN[f.def];
-      if (d.light) { const s = toScreen(f.x + f.w * 0.5, f.y + f.d * 0.5); const kind = f.def === 'nightstand' ? 'nightstand' : f.def === 'streetlamp' ? 'street' : f.def === 'bar_sign' ? 'sign' : f.def === 'jukebox' ? 'juke' : 'lamp'; this.lights.push({ x: s.x, y: s.y - d.light.h, r: 165 * d.light.r, color: kind === 'sign' ? 0xff5ec8 : kind === 'juke' ? 0xff4fa0 : kind === 'street' ? 0xffe2a0 : 0xffd185, energy: 0, room: L.roomAt(f.x, f.y), kind, fid: f.i }); }
+      if (d.light) { const s = toScreen(f.x + f.w * 0.5, f.y + f.d * 0.5); const kind = f.def === 'nightstand' ? 'nightstand' : f.def === 'streetlamp' ? 'street' : f.def === 'bar_sign' ? 'sign' : f.def === 'jukebox' ? 'juke' : f.def === 'tiki_bar' || f.def === 'icecream' ? 'neon' : 'lamp'; this.lights.push({ x: s.x, y: s.y - d.light.h, r: 165 * d.light.r, color: f.def === 'icecream' ? 0x6fe3ff : kind === 'neon' ? 0xff5ec8 : kind === 'sign' ? 0xff5ec8 : kind === 'juke' ? 0xff4fa0 : kind === 'street' ? 0xffe2a0 : 0xffd185, energy: 0, room: L.roomAt(f.x, f.y), kind, fid: f.i }); }
       if (f.def === 'tv') { const s = toScreen(f.x + 1, f.y - 0.2); this.lights.push({ x: s.x, y: s.y - 26, r: 190, color: 0x80b8ff, energy: 0, kind: 'tv' }); }
       if (f.def === 'altar') { const s = toScreen(f.x + 0.5, f.y + 0.5); this.lights.push({ x: s.x, y: s.y - 26, r: 80, color: 0xffd973, energy: 0, kind: 'altar' }); }
     }
@@ -51,7 +53,9 @@ export class Lighting {
         case 'room': t = r === 'h' ? dk * (awake.has(r) ? 0.55 : 0.38) : 'abcd'.includes(r) ? dk * (awake.has(r) ? 0.8 : asleep.has(r) ? 0 : 0.1) : dk * (awake.has(r) ? 0.85 : 0.28); break;
         case 'nightstand': t = dk * (awake.has(r) ? 0.8 : asleep.has(r) ? 0 : 0.25); break;
         case 'lamp': t = dk * (hour < 23.8 && hour > 5 ? 0.85 : 0.25); break;
-        case 'street': t = dk * 0.95; break;
+        case 'street': t = dk * 0.8; break;
+        case 'shopneon': t = dk * (l.room === 'police' ? 0.8 : l.room === 'apartment' ? 0.45 : 0.9 + 0.08 * Math.sin(this.flick * 0.5 + l.x)); break;
+        case 'neon': t = dk * (0.85 + 0.12 * Math.sin(this.flick * 0.8 + l.x * 0.1)); break;
         case 'sign': t = w.barOpen() ? dk * (0.8 + 0.12 * Math.sin(this.flick * 0.7) * Math.sin(this.flick * 2.9)) : 0; break;
         case 'juke': t = w.furn[l.fid!].on ? 0.6 + 0.25 * Math.sin(this.flick * 0.9) : dk * 0.1; break;
         case 'tv': t = tvOn ? 0.75 + 0.18 * Math.sin(this.flick) * Math.sin(this.flick * 0.37) + 0.06 * Math.sin(this.flick * 2.3) : 0; break;

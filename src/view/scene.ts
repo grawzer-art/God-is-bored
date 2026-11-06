@@ -9,6 +9,7 @@ import { panes, storeys, type ExtSpec } from '../art/facade';
 import { furnSprite, rugCanvas } from '../art/furn';
 import { CharView } from './charview';
 import { WeatherFx } from './weatherfx';
+import { SeaFx } from './seafx';
 import { Lighting } from './lighting';
 import { cellKey, toGrid, toScreen, zOf } from './iso';
 import { texKey } from './texreg';
@@ -40,7 +41,7 @@ const OUTSIDE = c(0.7, 0.66, 0.62);
 const hashStr = (t: string) => { let h = 7; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return Math.abs(h); };
 
 export class GameScene extends Phaser.Scene {
-  world!: World; hud!: Hud; lighting!: Lighting; wfx?: WeatherFx; fx!: Phaser.GameObjects.Graphics;
+  world!: World; hud!: Hud; lighting!: Lighting; wfx?: WeatherFx; sea?: SeaFx; fx!: Phaser.GameObjects.Graphics;
   walls: { s: Phaser.GameObjects.Image; x: number; y: number }[] = []; furnNodes = new Map<number, Phaser.GameObjects.Image[]>();
   propNodes = new Map<number, Phaser.GameObjects.Image>(); feastNodes: Phaser.GameObjects.Image[] = []; chars: CharView[] = []; staticNodes: Phaser.GameObjects.GameObject[] = [];
   floorSprite?: Phaser.GameObjects.Image;
@@ -99,7 +100,7 @@ export class GameScene extends Phaser.Scene {
     this.bakeFloor(); this.buildWalls(); this.buildFurniture(); this.doors = new Doors(this, this.world, (x, y) => this.wallHeight(x, y)); this.buildRoofs(); this.buildDecor();
     this.chars = this.world.chars.map((c) => new CharView(this, c, this.world));
     this.fx = this.add.graphics().setDepth(3800);
-    this.lighting = new Lighting(this, this.world); this.wfx = new WeatherFx(this, this.world, this.lighting, () => this.lowQuality);
+    this.lighting = new Lighting(this, this.world); this.wfx = new WeatherFx(this, this.world, this.lighting, () => this.lowQuality); this.sea = new SeaFx(this, this.world, () => this.lowQuality);
     this.world.listeners.log = []; this.world.listeners.emote = [];
   }
   destroyView() {
@@ -608,7 +609,7 @@ export class GameScene extends Phaser.Scene {
     // vue
     this.syncProps(); this.syncFeast(); this.syncPlants(); this.doors.update(dt); this.updateCity(dt); this.syncCars(); if (this.profSeen !== this.world.profileVersion) { this.profSeen = this.world.profileVersion; this.chars[this.world.avatar.id]?.refreshLook(); } if (this.furnSeen !== this.world.furnVersion) this.refreshFurniture(); if (this.styleSeen !== this.world.styleVersion) this.refreshStyle();
     for (const cv of this.chars) cv.update(dt, cv.sim.id === this.selectedId || (this.mode === 'human' && cv.sim.kind === 'avatar'), cv.sim.id === this.hoverId, Math.max(1, Math.min(SPEEDS[this.speedIndex], 3)));
-    this.lighting.update(dt); this.wfx?.update(dt); this.lighting.render(); this.sunSprite.setAlpha(this.lighting.daylight * 0.9);
+    this.lighting.update(dt); this.wfx?.update(dt); this.sea?.update(dt); this.lighting.render(); this.sunSprite.setAlpha(this.lighting.daylight * 0.9);
     this.drawFx(dt); this.hud.update(dt);
     { const a = this.world.avatar; const f = this.mode === 'human' ? a.pos : toGrid(this.cx, this.cy); this.world.focus = { x: f.x, y: f.y }; } // simulation détaillée près du joueur
     this.autosave += dt; if (this.autosave > 120) { this.autosave = 0; if (!this.demo) Save.save(this.world); }
