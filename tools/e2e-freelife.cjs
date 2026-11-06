@@ -42,9 +42,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   console.log('\n== 3. Contourner un bâtiment');
   await E(() => { window.__gib.tz = window.__gib.cz = 0.55; }); await place(29.5, 15.5); await settle();
-  const far = await cellXY(41.5, 6.5); ok(far.x > 0 && far.x < 844 && far.y > 0 && far.y < 390, `destination au nord du bar visible à l'écran (${Math.round(far.x)}, ${Math.round(far.y)})`);
+  const far = await cellXY(50.5, 13.5); ok(far.x > 0 && far.x < 844 && far.y > 0 && far.y < 390, `destination à l'est du bar visible à l'écran (${Math.round(far.x)}, ${Math.round(far.y)})`);
   await tapAt(far.x, far.y); let bad = 0, arrived = false;
-  for (let i = 0; i < 70; i++) { await sleep(300); const ok2 = await E(() => { const a = window.__gib.world.avatar; return window.__gib.world.isWalkable({ x: Math.floor(a.pos.x), y: Math.floor(a.pos.y) }); }); if (!ok2) bad++; const q = await pos(); if (Math.hypot(q.x - 41.5, q.y - 6.5) < 0.6) { arrived = true; break; } }
+  for (let i = 0; i < 70; i++) { await sleep(300); const ok2 = await E(() => { const a = window.__gib.world.avatar; return window.__gib.world.isWalkable({ x: Math.floor(a.pos.x), y: Math.floor(a.pos.y) }); }); if (!ok2) bad++; const q = await pos(); if (Math.hypot(q.x - 50.5, q.y - 13.5) < 0.6) { arrived = true; break; } }
   ok(bad === 0 && arrived, `le bar est contourné, aucun mur traversé, destination atteinte`);
 
   console.log('\n== 4. Du déplacement automatique au joystick');

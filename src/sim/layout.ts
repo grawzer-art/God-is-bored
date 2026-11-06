@@ -141,7 +141,7 @@ export function furniture(): FurnPlacement[] {
   for (const x of [5, 12, 22, 29, 37, 45]) f.push(P('streetlamp', x, 22));
   f.push(P('street_bench', 8, 22), P('street_bench', 26, 22), P('street_bench', 41, 22), P('bin', 20, 22), P('bin', 34, 22), P('bar_sign', 40, 19, { id: 'bar_sign' }));
   for (const [x, y] of [[30, 2], [30, 6], [30, 12], [30, 16], [51, 3], [51, 9], [51, 15], [29, 3], [29, 6], [50, 3]]) f.push(P('tree', x, y, { style: x + y }));
-  for (const [x, y] of [[29, 9], [29, 14], [50, 6], [50, 12], [29, 12], [50, 9], [3, 23], [10, 23], [18, 23], [27, 23], [35, 23], [44, 23], [50, 23]]) f.push(P('bush', x, y, { style: x * 3 + y }));
+  for (const [x, y] of [[29, 9], [29, 14], [50, 6], [50, 12], [50, 15], [50, 9], [3, 23], [10, 23], [18, 23], [27, 23], [35, 23], [44, 23], [50, 23]]) f.push(P('bush', x, y, { style: x * 3 + y }));
   // --- Épicerie (x58..65, y11..17) : rayons, caisse
   f.push(P('shelf3', 58, 11, { id: 'shelf_a' }), P('shelf4', 62, 11, { id: 'shelf_b' }), P('shelf3', 59, 14, { id: 'shelf_c' }), P('shop_counter', 62, 16, { id: 'shop_counter' }), P('plant', 65, 17, { style: 1 }), P('bin', 58, 17));
   // --- Commissariat (x69..81, y9..17) : accueil, bureaux, cellule
