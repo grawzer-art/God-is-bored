@@ -34,6 +34,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('\n== PARCOURS B — en mode Descendre, toucher un habitant : sa fiche, puis retour immédiat au gameplay');
   const npc = await E(() => { const g = window.__gib, w = g.world; const c = w.residents.find((x) => !x.away); g.world.clock = Math.floor(w.clock / 1440) * 1440 + 12 * 60; c.pos = { x: 14.5, y: 19.5 }; c.state = 'idle'; c.plan = []; c.decision_cooldown = 999; const a = w.avatar; a.pos = { x: 15.5, y: 19.5 }; g.descend(false); g.setSpeed(1); g.tz = g.cz = 2.2; return { id: c.id, first: c.first }; }); await pg.waitForTimeout(2500);
   await E((id) => { const g = window.__gib; g.hud.openDialogue(g.world.chars[id]); }, npc.id); await pg.waitForTimeout(400);
+  await E(() => { const b = [...document.querySelectorAll('#dlg button')].find((x) => /Discuter/.test(x.textContent)); if (b) b.click(); }); await pg.waitForTimeout(200);
   const hasBtn = await E(() => [...document.querySelectorAll('#dlg button')].some((x) => /fiche/i.test(x.textContent))); ok(hasBtn, 'dialogue : bouton « Consulter sa fiche » présent');
   await E(() => { [...document.querySelectorAll('#dlg button')].find((x) => /fiche/i.test(x.textContent)).click(); }); await pg.waitForTimeout(500);
   let f = await fiche(); ok(f.shown && f.tabs.length === 4, `la fiche s'ouvre avec ses 4 onglets (${f.tabs.join(' · ')})`); ok(f.right <= f.vw && f.bottom <= f.vh && f.w > 250, `la fiche tient dans l'écran (${Math.round(f.w)}×${Math.round(f.h)} sur ${f.vw}×${f.vh})`);

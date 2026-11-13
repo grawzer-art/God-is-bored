@@ -13,7 +13,7 @@ const ok = (c, m) => { n++; if (!c) fails++; console.log(c ? '  [OK]   ' : '  [F
   const G = (f) => pg.evaluate(f);
   console.log('\n== Démarrage');
   ok(await G(() => !!document.querySelector('canvas')), 'le canvas du jeu est présent');
-  ok(await G(() => window.__gib.world.residents.length === 8 && window.__gib.chars.length === 19), 'huit habitants + avatar + barman créés et affichés');
+  ok(await G(() => window.__gib.world.residents.length === 8 && window.__gib.chars.length === 21), 'huit habitants + avatar + barman créés et affichés');
   console.log('\n== Temps et vitesse');
   const c0 = await G(() => window.__gib.world.clock); await pg.waitForTimeout(2000); const c1 = await G(() => window.__gib.world.clock);
   ok(c1 - c0 > 1.0, `le temps s'écoule à 1x (+${(c1 - c0).toFixed(1)} min en 2 s ; idéal 4, le rendu logiciel du navigateur de test cale parfois plus d'une seconde)`);

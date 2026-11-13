@@ -112,12 +112,13 @@ function applyHit(w: World, att: SimChar, af: Fighter, tgt: SimChar, tf: Fighter
   const spec = T[af.kind]; const finisher = af.kind === 'quick' && af.step >= 3; let dmg = spec.dmg * (af.kind === 'quick' ? [1, 1.25, 1.9][af.step - 1] ?? 1 : 1) * (0.88 + w.rng.randf() * 0.24); dmg += (att.look.build > 0 ? 1.5 : 0) - (tgt.look.build > 0 ? 1 : 0);
   const toAtt = norm({ x: att.pos.x - tgt.pos.x, y: att.pos.y - tgt.pos.y }); const heavy = af.kind === 'heavy' || finisher; const mid = { x: tgt.pos.x, y: tgt.pos.y };
   // esquive : invulnérable
-  if (tf.state === 'dodge' && tf.t < T.dodgeI) { w.fightFx.push({ type: 'dodge', x: mid.x, y: mid.y, heavy: false, att: att.id, tgt: tgt.id }); w.showEmote(tgt, 'spark', 1); tf.whiffed++; af.hit = true; return; }
+  if (tf.state === 'dodge' && tf.t < T.dodgeI) { w.fightFx.push({ type: 'dodge', x: mid.x, y: mid.y, heavy: false, att: att.id, tgt: tgt.id }); w.showEmote(tgt, 'spark', 1); tf.whiffed++; af.hit = true; w.stats.fight_dodges = (w.stats.fight_dodges ?? 0) + 1; return; }
   // garde : de face seulement
   const front = tf.state === 'block' && (tf.aim.x * -toAtt.x + tf.aim.y * -toAtt.y) < 0.2;   // la garde regarde vers l'attaquant
   const blocking = tf.state === 'block' && ((tf.aim.x * toAtt.x + tf.aim.y * toAtt.y) > 0.1 || front);
   af.hit = true; w.stats.fight_hits = (w.stats.fight_hits ?? 0) + 1;
   if (blocking) {
+    w.stats.fight_blocks = (w.stats.fight_blocks ?? 0) + 1;
     tf.stamina -= heavy ? 24 : 11; tgt.hp = Math.max(1, tgt.hp - dmg * T.blockDmg); push(w, tgt, toAtt, -0.2); w.fightFx.push({ type: 'block', x: mid.x, y: mid.y, heavy, att: att.id, tgt: tgt.id }); w.audio?.push('block');
     if (tf.stamina <= 0) { tf.stamina = 0; setState(tf, 'stun'); tf.guard = false; w.fightFx.push({ type: 'guardbreak', x: mid.x, y: mid.y, heavy: true, att: att.id, tgt: tgt.id }); w.showEmote(tgt, 'sweat', 2); }
     af.comboT = 0; return;

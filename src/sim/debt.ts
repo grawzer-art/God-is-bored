@@ -81,7 +81,7 @@ export function tick(w: World, dt: number) {
   const a = (acc.get(w) ?? 0) + dt; if (a < 0.5) { acc.set(w, a); return; } acc.set(w, 0);
   const d = w.debt; const t = tommy(w), v = victor(w); if (!d || !t || !v || d.stage === 'resolved') return;
   const hour = w.hour(); const present = (c: SimChar) => !c.away && c.state !== 'ko' && c.state !== 'enter' && c.state !== 'exit';
-  if (v.state === 'ko' && !d.vendetta && d.stage !== 'resolved' && !w.fighters.has(v.id)) { afterFight(w); return; }
+  if (v.state === 'ko' && !d.vendetta && !w.fighters.has(v.id)) { afterFight(w); return; }
   if (d.reportAt > 0 && w.clock >= d.reportAt) resolveReport(w);
   if (w.debt.stage === 'resolved') return;
   // miracle ou économies : Tommy rembourse tout seul s'il en a les moyens

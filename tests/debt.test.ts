@@ -49,7 +49,7 @@ describe('la dette de Tommy (scénario émergent)', () => {
     expect(outcomes.has('police')).toBe(true); expect(outcomes.has('shielded')).toBe(true);
   });
   it('incarner Tommy : on paie Victor de sa poche (mêmes règles du monde)', () => {
-    const { w, t, v } = setup(); expect(Possess.canPossess ? true : true).toBe(true); const av0 = w.avatar; Possess.start(w, t.id); expect(w.avatar.name).toBe('Tommy Blake'); w.avatar.money = 6000; const ch = Act.dialogueOpen(w, v).choices.map((c) => c.id); expect(ch).toContain('v_pay_me');
+    const { w, t, v } = setup(); const av0 = w.avatar; Possess.start(w, t.id); expect(w.avatar.name).toBe('Tommy Blake'); w.avatar.money = 6000; const ch = Act.dialogueOpen(w, v).choices.map((c) => c.id); expect(ch).toContain('v_pay_me');
     const r = Act.choose(w, v, 'v_pay_me'); expect(w.debt.stage).toBe('resolved'); void r; void av0;
   });
   it('parler à Victor fait avancer la quête ; sauvegarde et rechargement conservent l\'état', () => {
