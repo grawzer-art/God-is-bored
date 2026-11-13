@@ -20,13 +20,14 @@ export const HUMAN_CSS = `
 #dlg{left:50%;bottom:16px;transform:translateX(-50%);width:640px;max-width:calc(100vw - 24px);display:none;z-index:5}
 #dlg .head{display:flex;gap:12px;align-items:flex-start} #dlg img.pp{width:66px;height:78px;image-rendering:pixelated;object-fit:contain}
 #dlg .txt{white-space:pre-line;line-height:1.5;min-height:46px;margin:6px 0 8px;font-size:14px}
-#dlg .choices{display:grid;grid-template-columns:1fr 1fr;gap:6px} #dlg .choices .btn{text-align:left} #dlg .hint{color:#98a2b8;font-size:11px;margin-left:6px}
+#dlg .choices .btn.sel{outline:2px solid #fccd5c;outline-offset:-2px;background:rgba(252,205,92,.14)} #dlg .choices{display:grid;grid-template-columns:1fr 1fr;gap:6px} #dlg .choices .btn{text-align:left} #dlg .hint{color:#98a2b8;font-size:11px;margin-left:6px}
 #dlg .menu .btn{display:flex;justify-content:space-between;width:100%;margin-bottom:5px}
 #inv{left:50%;top:50%;transform:translate(-50%,-50%);width:420px;max-width:calc(100vw - 24px);display:none;max-height:80vh;overflow:auto;z-index:4}
 #ctx{left:50%;top:40%;transform:translate(-50%,-50%);min-width:260px;display:none;z-index:4} #ctx .btn{display:block;width:100%;text-align:left;margin:4px 0}
 #flash{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:20;background:radial-gradient(circle,rgba(255,236,170,.95),rgba(255,214,110,.55) 45%,rgba(255,214,110,0) 75%);transition:opacity .45s ease-out}
 .drunk{filter:none}
 `;
+const CATS: Record<string, { label: string; ids: string[] }> = { talk: { label: 'Discuter', ids: ['how', 'chat', 'joke', 'dark', 'secret', 'sheet'] }, love: { label: 'Séduire', ids: ['flirt', 'date', 'couple', 'evening', 'breakup'] }, trade: { label: 'Échanger', ids: ['gift', 'give', 'ask_money', 'steal', 'wake'] }, fight: { label: 'Provoquer', ids: ['punch'] } };
 export class HumanUi {
   sig = ''; building = ''; open: SimChar | null = null; barMode = ''; prevSpeed = 1; last = ''; ctxItems: I.Interactable[] = []; hudAcc = 0;
   el!: { hhud: HTMLElement; prompt: HTMLElement; dlg: HTMLElement; inv: HTMLElement; ctx: HTMLElement; flash: HTMLElement };
@@ -38,13 +39,31 @@ export class HumanUi {
   // ---- dialogue
   dialogueOpen() { return this.open !== null; }
   openDialogue(npc: SimChar) {
-    if (this.open) return; I.noteTalk(this.w, npc); this.open = npc; this.barMode = ''; this.prevSpeed = this.g.speedIndex; this.g.setSpeed(0); this.hideContext(); this.hideInv();
+    if (this.open) return; I.noteTalk(this.w, npc); this.open = npc; this.barMode = ''; this.sel = 0; this.typed = ''; this.prevSpeed = this.g.speedIndex; this.g.setSpeed(0); this.hideContext(); this.hideInv();
     const av = this.w.avatar; npc.facing = this.w.dirFrom({ x: av.pos.x - npc.pos.x, y: av.pos.y - npc.pos.y }, npc.facing);
     const d = I.dialogueOpen(this.w, npc); this.last = `${npc.first} : « ${d.line} »`; this.render(); this.el.dlg.style.display = 'block';
     Nav.open({ id: 'dlg', close: () => this.close(), back: () => { if (this.barMode) { this.barMode = ''; this.render(); return true; } return false; } });
   }
   close() { Nav.closed('dlg'); if (!this.open) return; this.open = null; this.el.dlg.style.display = 'none'; this.g.setSpeed(this.prevSpeed || 1); }
   private choices: { id: string; arg?: string; enabled: boolean }[] = [];
+  sel = 0; private typed = ''; private typer = 0; private typing = false; private navT = 0;
+  /** Texte qui s'écrit vite (≈ 70 caractères/s) ; un toucher sur le texte ou A l'affiche d'un coup. */
+  private typeText() {
+    const el = this.el.dlg.querySelector<HTMLElement>('.txt'); if (!el) return; const full = this.last; window.clearInterval(this.typer);
+    if (this.typed === full) { el.textContent = full; this.typing = false; return; }
+    this.typed = full; this.typing = true; let n = 0; el.textContent = ''; this.typer = window.setInterval(() => { n += 3; el.textContent = full.slice(0, n); if (n >= full.length) { window.clearInterval(this.typer); this.typing = false; } }, 40);
+    el.onclick = () => this.finishTyping();
+  }
+  finishTyping(): boolean { if (!this.typing) return false; window.clearInterval(this.typer); this.typing = false; const el = this.el.dlg.querySelector<HTMLElement>('.txt'); if (el) el.textContent = this.last; return true; }
+  /** Bouton A pendant une conversation : termine le texte, sinon valide l'option en surbrillance. */
+  dialogueA() { if (!this.open || this.finishTyping()) return; this.pickDialogue(this.sel); }
+  private focusSel() { const bs = this.el.dlg.querySelectorAll<HTMLButtonElement>('button[data-i]'); if (!bs.length) return; this.sel = Math.max(0, Math.min(bs.length - 1, this.sel)); bs.forEach((b, i) => b.classList.toggle('sel', i === this.sel)); }
+  /** Croix / joystick haut-bas ou flèches : déplace la surbrillance des choix. */
+  navDialogue(dt: number) {
+    if (!this.open) return; this.navT -= dt; if (this.navT > 0) return; const a = this.g.analog; const k = this.g.keys; let d = 0;
+    if (k.has('arrowdown') || (a.mag > 0.5 && a.y > 0.6)) d = 1; else if (k.has('arrowup') || (a.mag > 0.5 && a.y < -0.6)) d = -1; if (!d) return; this.navT = 0.22;
+    const n = this.el.dlg.querySelectorAll('button[data-i]').length; if (n) { this.sel = (this.sel + d + n) % n; this.focusSel(); }
+  }
   render() {
     const npc = this.open!; const w = this.w; const cv = this.g.chars[npc.id]; const rl = npc.kind === 'resident' ? I.relationLabelToPlayer(w, npc) : npc.job;
     let body = '';
@@ -55,19 +74,27 @@ export class HumanUi {
       const items = Object.entries(w.avatar.inventory).filter(([, n]) => n > 0);
       body = `<div class="menu">${items.map(([id, n]) => this.opt('give_item:' + id, I.ITEMS[id]?.label ?? id, `×${n}`, true)).join('') || '<span class="dim">Vous n\'avez rien à offrir.</span>'}${this.opt('back', 'Retour', '', true)}</div>`;
     } else {
-      const d = I.dialogueOpen(w, npc);
-      const all = [...d.choices]; all.splice(Math.max(0, all.length - 1), 0, { id: 'sheet', label: 'Consulter sa fiche', hint: 'profil, relations, souvenirs', enabled: true } as any);
-      body = `<div class="choices">${all.map((c) => this.opt(c.id, c.label, c.hint ?? '', c.enabled)).join('')}</div>`;
+      const d = I.dialogueOpen(w, npc); const all = [...d.choices]; all.splice(Math.max(0, all.length - 1), 0, { id: 'sheet', label: 'Consulter sa fiche', hint: 'profil, relations, souvenirs', enabled: true } as any);
+      const catOf = (id: string) => Object.entries(CATS).find(([, c]) => c.ids.includes(id))?.[0];
+      if (this.barMode.startsWith('cat:')) {
+        const k = this.barMode.slice(4); const items = all.filter((c) => catOf(c.id) === k);
+        body = `<div class="choices">${items.map((c) => this.opt(c.id, c.label, c.hint ?? '', c.enabled)).join('')}${this.opt('back', 'Retour', 'B', true)}</div>`;
+      } else if (all.length <= 5) body = `<div class="choices">${all.map((c) => this.opt(c.id, c.label, c.hint ?? '', c.enabled)).join('')}</div>`;
+      else {
+        const direct = all.filter((c) => !catOf(c.id) && c.id !== 'bye'); const cats = Object.entries(CATS).filter(([k]) => all.some((c) => catOf(c.id) === k)); const bye = all.find((c) => c.id === 'bye');
+        body = `<div class="choices">${direct.map((c) => this.opt(c.id, c.label, c.hint ?? '', c.enabled)).join('')}${cats.map(([k, c]) => this.opt('cat:' + k, c.label + ' ▸', '', true)).join('')}${bye ? this.opt(bye.id, bye.label, 'B', bye.enabled) : ''}</div>`;
+      }
     }
     this.el.dlg.innerHTML = `<button class="btn nvx" data-nvx="1" aria-label="Fermer" style="position:absolute;right:8px;top:8px;min-width:44px;min-height:40px">✕</button><div class="head"><img class="pp" src="${cv.assets.portrait.toDataURL()}"><div style="flex:1"><div class="row" style="justify-content:space-between"><b style="font-size:17px;color:#fff">${esc(npc.name)}</b><span class="dim small">${esc(rl)} · ${EMOTIONS[npc.emotion] ?? ''}${npc.drunk > 15 ? ' · éméché' : ''}</span></div>
       <div class="txt">${esc(this.last)}</div></div></div>${body}<div class="small dim" style="margin-top:6px">Le monde est en pause pendant la conversation</div>`;
-    this.el.dlg.querySelectorAll<HTMLButtonElement>('button[data-i]').forEach((b) => (b.onclick = () => this.pickDialogue(Number(b.dataset.i)))); this.el.dlg.querySelector('[data-nvx]')!.addEventListener('click', () => Nav.back());
+    this.el.dlg.querySelectorAll<HTMLButtonElement>('button[data-i]').forEach((b) => (b.onclick = () => this.pickDialogue(Number(b.dataset.i)))); this.typeText(); this.focusSel(); this.el.dlg.querySelector('[data-nvx]')!.addEventListener('click', () => Nav.back());
   }
   private opt(id: string, label: string, hint: string, enabled: boolean) { const i = this.choices.length; this.choices.push({ id, enabled }); return `<button class="btn" data-i="${i}" ${enabled ? '' : 'disabled'}><span><span class="dim small">${i + 1}</span> ${esc(label)}</span><span class="hint">${esc(hint)}</span></button>`; }
   pickDialogue(i: number) {
     const npc = this.open; const c = this.choices[i]; if (!npc || !c || !c.enabled) return; const w = this.w;
-    if (this.barMode) {
-      if (c.id === 'back') { this.barMode = ''; this.render(); return; }
+    if (c.id === 'back') { this.barMode = ''; this.render(); return; }
+    if (c.id.startsWith('cat:')) { this.barMode = c.id; this.sel = 0; this.render(); return; }
+    if (this.barMode === 'bar' || this.barMode === 'gift') {
       if (this.barMode === 'bar') { const r = I.orderDrink(w, c.id); this.last = `${npc.first} : « ${r.ok ? 'Et voilà.' : 'Désolé.'} »\n${r.msg}`; }
       else { const id = c.id.split(':')[1]; const r = I.choose(w, npc, 'give_item', id); this.last = r.line; this.barMode = ''; }
       this.render(); return;
@@ -75,8 +102,8 @@ export class HumanUi {
     if (c.id === 'sheet') { this.close(); this.g.hud.fiche.open(npc.id); return; }
     const r = I.choose(w, npc, c.id); this.last = r.line;
     if (r.close) { this.close(); return; }
-    if (r.openBar) this.barMode = 'bar'; else if (r.openGift) this.barMode = 'gift';
-    this.render();
+    if (r.openBar) this.barMode = 'bar'; else if (r.openGift) this.barMode = 'gift'; else this.barMode = '';
+    this.sel = 0; this.render();
   }
   // ---- menu contextuel
   contextOpen() { return this.el.ctx.style.display === 'block'; }

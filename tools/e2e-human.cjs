@@ -64,7 +64,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await pg.keyboard.press('e'); await pg.waitForFunction(() => document.getElementById('dlg').style.display === 'block' || document.getElementById('ctx').style.display === 'block', null, { timeout: 8000 }).catch(() => {});
   if (await E(() => document.getElementById('ctx').style.display === 'block')) await pg.click('#ctx button[data-c]:has-text("Parler")');
   await pg.waitForFunction(() => document.getElementById('dlg').style.display === 'block'); ok(true, 'E : la conversation avec l\'habitant s\'ouvre');
-  for (const label of ['Bavarder', 'Comment ça va', 'Bavarder', 'Plaisanter']) { await pg.click(`#dlg button:has-text("${label}")`); await pg.waitForTimeout(200); }
+  for (const label of ['Bavarder', 'Comment ça va', 'Bavarder', 'Plaisanter']) { if (await pg.$('#dlg button:has-text("Discuter")')) { await pg.click('#dlg button:has-text("Discuter")'); await pg.waitForTimeout(100); } await pg.click(`#dlg button:has-text("${label}")`); await pg.waitForTimeout(200); }
   const fam1 = await E((id) => window.__gib.world.getRel(id, 8).fam, target); const mem1 = await E((id) => window.__gib.world.chars[id].memories.length, target);
   ok(fam1 > fam0 + 6, `la familiarité augmente (${fam0.toFixed(0)} -> ${fam1.toFixed(0)})`); ok(mem1 > mem0 && (await E((id) => window.__gib.world.chars[id].memories.some((m) => m.other === 8), target)), 'l\'habitant garde un souvenir de vous');
   await pg.keyboard.press('Escape');

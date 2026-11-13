@@ -456,7 +456,7 @@ export class GameScene extends Phaser.Scene {
   /** Bouton A : action principale. Humain : interagir. Dieu : choisir le personnage visé (puis fiche / pouvoir armé). */
   actionA() {
     if (Nav.blocksWorld()) return;
-    if (this.hud.dialogueOpen()) return;
+    if (this.hud.dialogueOpen()) { this.hud.dialogueA(); return; }
     if (this.mode === 'human') { this.interact(); return; }
     let id = this.selectedId;
     if (id < 0 || !this.hud.powerMode) { const near = this.nearestToCenter(); if (near >= 0) { if (near === this.selectedId && !this.hud.powerMode) { this.hud.mobile.openFiche(); return; } id = near; } }

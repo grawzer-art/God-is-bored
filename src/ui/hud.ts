@@ -94,7 +94,7 @@ export class Hud {
   get w() { return this.g.world; }
 
   onMode(m: 'god' | 'human') { this.mobile?.updateLabels(); if (m === 'human') this.mobile?.onSelect(-1); this.root.classList.toggle('human', m === 'human'); this.modeBtn.textContent = m === 'human' ? 'Redevenir dieu (G)' : 'Descendre (G)'; this.modeBtn.classList.toggle('on', m === 'human'); }
-  openDialogue(n: SimChar) { this.human.openDialogue(n); } closeDialogue() { this.human.close(); } dialogueOpen() { return this.human.dialogueOpen(); } pickDialogue(i: number) { this.human.pickDialogue(i); }
+  openDialogue(n: SimChar) { this.human.openDialogue(n); } closeDialogue() { this.human.close(); } dialogueOpen() { return this.human.dialogueOpen(); } dialogueA() { this.human.dialogueA(); } pickDialogue(i: number) { this.human.pickDialogue(i); }
   contextOpen() { return this.human.contextOpen(); } showContext(l: any) { this.human.showContext(l); } hideContext() { this.human.hideContext(); } pickContext(i: number) { this.human.pickContext(i); }
   toggleInventory() { this.human.toggleInventory(); } flash(k: 'descend' | 'ascend') { this.human.flash(k); } cancelPower() { this.powerMode = ''; this.powerFirst = -1; }
   diagOpen = false; panelFor = -1;
@@ -155,7 +155,7 @@ export class Hud {
     this.syncPowers();
   }
   update(dt: number) {
-    this.human.update(dt); this.mobile.update(dt); this.demoGuide.update(dt); this.cityHud.update(dt); this.el.pause.style.display = this.g.speedIndex === 0 && !this.human.dialogueOpen() ? 'block' : 'none';
+    this.human.update(dt); this.human.navDialogue(dt); this.mobile.update(dt); this.demoGuide.update(dt); this.cityHud.update(dt); this.el.pause.style.display = this.g.speedIndex === 0 && !this.human.dialogueOpen() ? 'block' : 'none';
     this.acc += dt; this.fiche.update(dt); this.hv2.update(dt); this.mmap.update(dt); this.fightUi.update(dt); this.gbar.update(dt); this.deco.update(dt); this.journal.update(dt);
     if (this.toastT > 0) { this.toastT -= dt; if (this.toastT < 0.5) this.el.toast.style.opacity = String(Math.max(0, this.toastT * 2)); }
     if (this.helpT < 1e8) { this.helpT -= dt; if (this.helpT < 0) { this.el.help.style.display = 'none'; this.helpT = 1e9; } }

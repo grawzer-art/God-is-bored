@@ -15,7 +15,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('\n== Mise en place : Tommy Blake sur la plage, face au joueur');
   await E(() => { while (window.__nav.list().length) window.__nav.closeTop(); const g = window.__gib, w = g.world; const t = w.chars.find((c) => c.name === 'Tommy Blake'); for (const o of w.chars) if (o.kind === 'police') o.away = true; w.abortPlan(w.avatar, 't'); w.abortPlan(t, 't'); t.away = false; t.jobPhase = 'out'; t.state = 'idle'; t.decision_cooldown = 99; t.hp = 100; w.avatar.hp = 100; w.avatar.pos = { x: 20.5, y: 27.5 }; t.pos = { x: 21.4, y: 27.5 }; window.__t = t.id; g.setSpeed(1); g.hud.openDialogue(t); });
   await pg.waitForFunction(() => document.getElementById('dlg').style.display === 'block', null, { timeout: 10000 });
-  await pg.click('#dlg button:has-text("Frapper")'); await pg.waitForTimeout(500);
+  await pg.click('#dlg button:has-text("Provoquer")'); await pg.click('#dlg button:has-text("Frapper")'); await pg.waitForTimeout(500);
   let s = await st(); ok(s.fighting && s.ui !== 'none', 'la bagarre commence dans la rue : barres de vie affichées, aucun écran séparé'); ok(s.nav === 0 && s.speed >= 1, 'le temps continue, aucune fenêtre ouverte');
   await E(() => { const w = window.__gib.world; const ft = w.fighters.get(window.__t); if (ft) ft.ai = { aggr: 0.1, skill: 0.1 }; });   // adversaire peu agressif pour tester les commandes
   console.log('\n== A rapide (tactile)');
