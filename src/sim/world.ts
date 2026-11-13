@@ -16,6 +16,7 @@ import * as Life from './life';
 import * as City from './city';
 import * as Crime from './crime';
 import * as Combat from './combat';
+import * as Fight from './fight';
 import * as Weather from './weather';
 import * as Romance from './romance';
 import { lineClear, screenDirToGrid, smoothPath, stepBody } from './movement';
@@ -57,7 +58,7 @@ export class World {
   profile: import('./profile').Profile | null = null; profileVersion = 0; property: { id: string; name: string; building: string; rent: number; since: number } | null = null;
   quests: Record<string, Quests.QState> = {}; progress: Quests.Progress = Quests.newProgress(); narrations: Quests.Narration[] = []; questLog: { t: number; text: string }[] = []; questToasts: string[] = []; questDone: string[] = [];
   job: { to: number; pay: number; t0: number } | null = null;
-  traffic?: Traffic; till = 160; freePowers = true; laws: God.Laws = { police: true }; divine: God.DivineEntry[] = []; holdup: Crime.Holdup | null = null; fights: Combat.Fight[] = []; weather: Weather.Weather = Weather.blank(1); romances: Record<string, Romance.Romance> = {};
+  traffic?: Traffic; till = 160; freePowers = true; laws: God.Laws = { police: true }; divine: God.DivineEntry[] = []; holdup: Crime.Holdup | null = null; fights: Combat.Fight[] = []; fighters = new Map<number, Fight.Fighter>(); fightFx: Fight.FightFx[] = []; audio: string[] = []; weather: Weather.Weather = Weather.blank(1); romances: Record<string, Romance.Romance> = {};
   build() {
     this.buildFurniture(); this.buildGrid(); this.buildChars(); this.buildExtras(); Life.init(this); this.traffic = new Traffic(this);
     for (const m of L.INITIAL_MESS) this.addMess(m[0], { x: m[1], y: m[2] }, 0);
@@ -222,7 +223,7 @@ export class World {
     if (this.day() !== this.lastDay) { this.lastDay = this.day(); this.emitLog(`Jour ${this.day()}.`, 'info'); Romance.daily(this); this.chars.forEach((c) => (c.stats.days = this.day())); }
     this.updateWorld(dmin);
     for (const c of this.chars) this.updateChar(c, dt, dmin);
-    Life.tick(this, dmin); Crime.tick(this, dt, dmin); Combat.tick(this, dt, dmin); Weather.tick(this, dmin); this.traffic?.tick(dt); Quests.tick(this);
+    Life.tick(this, dmin); Crime.tick(this, dt, dmin); Combat.tick(this, dt, dmin); Fight.tick(this, dt); Weather.tick(this, dmin); this.traffic?.tick(dt); Quests.tick(this);
     Social.updateSessions(this, dmin);
     Social.ambient(this, dmin);
   }
@@ -319,12 +320,18 @@ export class World {
     c.drunk = Math.max(0, c.drunk - 1.2 * dmin / 60 * 10);
     if (c.emote_t > 0) c.emote_t -= dt;
     if (this.jail) { c.pose = 'stand'; c.state = 'idle'; c.plan = []; c.action_text = 'En garde à vue'; return; }
+    if (this.fighters.has(c.id)) { this.fightMove(c, dt); return; }
     if (!this.avatarControlled) { if (c.state === 'idle') c.pose = 'stand'; this.runAvatarState(c, dt, dmin); return; }
     const { dx, dy } = this.input; const moving = dx !== 0 || dy !== 0;
     if (moving && (c.state === 'use' || c.state === 'walk')) { if (c.state === 'use') this.endUse(c, false); else this.abortPlan(c, 'player'); }
     if (moving && c.state === 'idle') this.moveAvatar(c, dt);
     else if (c.state === 'idle') c.pose = 'stand';
     else this.runAvatarState(c, dt, dmin);
+  }
+  /** Déplacement du joueur pendant une bagarre : vitesse selon l'état du coup, visée d'après la direction. */
+  private fightMove(c: SimChar, dt: number) {
+    const { dx, dy } = this.input; const mult = Fight.moveMult(this, c); c.state = 'idle'; c.pose = 'stand';
+    if ((dx !== 0 || dy !== 0) && this.avatarControlled) { const g = screenDirToGrid(dx, dy); Fight.aimAvatar(this, c, g.x, g.y); if (mult > 0) this.moveAvatar(c, dt, mult); }
   }
   private runAvatarState(c: SimChar, dt: number, dmin: number) {
     switch (c.state) {
@@ -333,10 +340,10 @@ export class World {
     }
   }
   /** Déplacement libre (clavier ou joystick analogique `input.mag` 0..1) avec collisions : glisse le long des murs, ne chevauche pas les autres personnages. */
-  moveAvatar(c: SimChar, dt: number) {
+  moveAvatar(c: SimChar, dt: number, mult = 1) {
     const { dx, dy } = this.input; const n = Math.hypot(dx, dy); if (n === 0) return;
     const g = screenDirToGrid(dx, dy); const mag = Math.max(0.25, Math.min(1, this.input.mag ?? 1));
-    const sp = this.avatarSpeed() * mag; const wob = c.drunk > 35 ? Math.sin(this.clock * 4) * 0.35 * (c.drunk / 100) : 0;
+    const sp = this.avatarSpeed() * mag * mult; const wob = c.drunk > 35 ? Math.sin(this.clock * 4) * 0.35 * (c.drunk / 100) : 0;
     const vx = g.x * sp * dt, vy = g.y * sp * dt; const px = vx - vy * wob, py = vy + vx * wob;
     const others = this.chars.filter((o) => o.id !== c.id && !o.away && o.state !== 'enter').map((o) => o.pos);
     c.pos = stepBody(this, c.pos, px, py, others);

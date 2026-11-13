@@ -10,6 +10,9 @@ import { furnSprite, rugCanvas } from '../art/furn';
 import { CharView } from './charview';
 import { WeatherFx } from './weatherfx';
 import { SeaFx } from './seafx';
+import { FightFx } from './fightfx';
+import * as Fight from '../sim/fight';
+import { screenDirToGrid } from '../sim/movement';
 import { Skyline } from './skyline';
 import { Lighting } from './lighting';
 import { cellKey, toGrid, toScreen, zOf } from './iso';
@@ -42,7 +45,7 @@ const OUTSIDE = c(0.7, 0.66, 0.62);
 const hashStr = (t: string) => { let h = 7; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return Math.abs(h); };
 
 export class GameScene extends Phaser.Scene {
-  world!: World; hud!: Hud; lighting!: Lighting; wfx?: WeatherFx; sea?: SeaFx; fx!: Phaser.GameObjects.Graphics;
+  world!: World; hud!: Hud; lighting!: Lighting; wfx?: WeatherFx; ffx?: FightFx; sea?: SeaFx; fx!: Phaser.GameObjects.Graphics;
   walls: { s: Phaser.GameObjects.Image; x: number; y: number }[] = []; furnNodes = new Map<number, Phaser.GameObjects.Image[]>();
   propNodes = new Map<number, Phaser.GameObjects.Image>(); feastNodes: Phaser.GameObjects.Image[] = []; chars: CharView[] = []; staticNodes: Phaser.GameObjects.GameObject[] = [];
   floorSprite?: Phaser.GameObjects.Image;
@@ -86,7 +89,7 @@ export class GameScene extends Phaser.Scene {
     if (this.params.has('focus')) this.selectChar(Number(this.params.get('focus')), true);
     this.scale.on('resize', (s: Phaser.Structs.Size) => this.lighting.resize(s.width, s.height));
     { const done = (window as any).__gibBootDone; if (done) done(); else document.getElementById('boot')?.remove(); }
-    (window as any).__gib = this;
+    (window as any).__gib = this; (window as any).__fight = Fight;
     // parcours de démarrage (générique, menu, créateur) : uniquement pour une ouverture ordinaire du jeu (les paramètres d'URL de test/démo le contournent)
     const skipIntro = ['fresh', 'load', 'simulate', 'human', 'demo', 'nohelp', 'nointro', 'feast'].some((k) => this.params.has(k)) || !!hot;
     if (!skipIntro) { this.start = new StartFlow(this); this.start.run(); }
@@ -101,7 +104,7 @@ export class GameScene extends Phaser.Scene {
     this.bakeFloor(); this.buildWalls(); this.buildFurniture(); this.doors = new Doors(this, this.world, (x, y) => this.wallHeight(x, y)); this.buildRoofs(); this.buildDecor();
     this.chars = this.world.chars.map((c) => new CharView(this, c, this.world));
     this.fx = this.add.graphics().setDepth(3800);
-    this.lighting = new Lighting(this, this.world); this.wfx = new WeatherFx(this, this.world, this.lighting, () => this.lowQuality); this.sea = new SeaFx(this, this.world, () => this.lowQuality); new Skyline(this, this.lowQuality);
+    this.lighting = new Lighting(this, this.world); this.wfx = new WeatherFx(this, this.world, this.lighting, () => this.lowQuality); this.sea = new SeaFx(this, this.world, () => this.lowQuality); this.ffx = new FightFx(this, this.world, () => this.lowQuality); new Skyline(this, this.lowQuality);
     this.world.listeners.log = []; this.world.listeners.emote = [];
   }
   destroyView() {
@@ -412,6 +415,7 @@ export class GameScene extends Phaser.Scene {
   private onKey(e: KeyboardEvent, down: boolean) {
     const k = e.key.toLowerCase(); if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'tab'].includes(k)) e.preventDefault();
+    if (['j', 'k', 'l'].includes(k) && (down ? !e.repeat : true)) this.fightKey(k, down);
     if (!down) { this.keys.delete(k); this.syncInput(); return; }
     this.keys.add(k); this.syncInput(); if (e.repeat) return;
     if (this.hud.dialogueOpen() && /^[1-9]$/.test(k)) { this.hud.pickDialogue(Number(k) - 1); return; }
@@ -435,6 +439,20 @@ export class GameScene extends Phaser.Scene {
   /** Joystick virtuel : vecteur écran (x droite, y bas) de longueur 0..1. Appliqué immédiatement (sans attendre l'image suivante). */
   setAnalog(x: number, y: number, mag: number) { this.analog = { x, y, mag: Math.min(1, mag * Settings.get().joy) }; this.syncInput(); }
   setVirtualKey(k: string, down: boolean) { if (down) this.keys.add(k); else this.keys.delete(k); this.syncInput(); }
+  // ---- bagarre en temps réel : A rapide / maintenu, B garde, B + direction esquive
+  fighting() { return this.mode === 'human' && Fight.playerFighting(this.world); }
+  private aDown = 0; private aHeld = false; private aTimer = 0;
+  fightADown() { this.aDown = performance.now(); this.aHeld = false; window.clearTimeout(this.aTimer); this.aTimer = window.setTimeout(() => { if (this.aDown) { this.aHeld = true; Fight.input(this.world, 'heavy'); } }, 280); }
+  fightAUp() { if (!this.aDown) return; window.clearTimeout(this.aTimer); if (!this.aHeld) Fight.input(this.world, 'quick'); this.aDown = 0; }
+  fightBDown() { const a = this.analog; const k = this.world.input; if (a.mag > 0.35 || k.dx !== 0 || k.dy !== 0) { const g = screenDirToGrid(a.mag > 0.35 ? a.x : k.dx, a.mag > 0.35 ? a.y : k.dy); if (Fight.input(this.world, 'dodge', g)) return; } Fight.input(this.world, 'guard_on'); }
+  fightBUp() { Fight.input(this.world, 'guard_off'); }
+  /** Clavier (développement) : J attaque (maintenu = puissante), K garde, L esquive. Hors combat, J engage la bagarre avec la personne devant soi. */
+  private fightKey(k: string, down: boolean) {
+    if (this.mode !== 'human' || this.hud.dialogueOpen() || Nav.blocksWorld()) return;
+    if (k === 'j') { if (down) { if (!this.fighting() && !Fight.initiate(this.world, this.world.avatar)) { this.hud.toast('Personne à portée'); return; } this.fightADown(); } else this.fightAUp(); }
+    else if (k === 'k') { if (down) this.fightBDown(); else this.fightBUp(); }
+    else if (k === 'l' && down) { const i = this.world.input; Fight.input(this.world, 'dodge', i.dx || i.dy ? screenDirToGrid(i.dx, i.dy) : undefined); }
+  }
   /** Bouton A : action principale. Humain : interagir. Dieu : choisir le personnage visé (puis fiche / pouvoir armé). */
   actionA() {
     if (Nav.blocksWorld()) return;
@@ -488,7 +506,7 @@ export class GameScene extends Phaser.Scene {
     const g = toGrid(this.cx, this.cy); const cell = this.world.nearestFreeCell({ x: Math.floor(g.x), y: Math.floor(g.y) }, 6); if (cell.x < 0) { this.hud.toast('Aucun endroit libre ici'); return; }
     const av = this.world.avatar; if (av.state === 'use') this.world.endUse(av, false); this.world.abortPlan(av, 'descend'); av.pos = { x: cell.x + 0.5, y: cell.y + 0.5 }; av.away = false; av.state = 'idle'; this.mode === 'god' ? this.descend(true) : (this.tx = this.cx = this.chars[av.id].x);
   }
-  toggleMode() { if (this.mode === 'god') this.descend(true); else this.ascend(true); }
+  toggleMode() { Fight.end(this.world, this.world.avatar); if (this.mode === 'god') this.descend(true); else this.ascend(true); }
   descend(flash = true) {
     const w = this.world; this.mode = 'human'; w.avatarControlled = true; this.selectChar(-1); Quests.emit(w, 'descend'); this.follow = false; this.hud.cancelPower();
     const av = w.avatar; if (av.away) av.away = false; this.hud.onMode('human'); if (flash) this.hud.flash('descend'); this.tz = Math.max(2.0, Math.min(this.tz, 2.4)); const cv = this.chars[av.id]; if (cv) { this.tx = cv.x; this.ty = cv.y - 20; }
@@ -611,7 +629,7 @@ export class GameScene extends Phaser.Scene {
     // vue
     this.syncProps(); this.syncFeast(); this.syncPlants(); this.doors.update(dt); this.updateCity(dt); this.syncCars(); if (this.profSeen !== this.world.profileVersion) { this.profSeen = this.world.profileVersion; this.chars[this.world.avatar.id]?.refreshLook(); } if (this.furnSeen !== this.world.furnVersion) this.refreshFurniture(); if (this.styleSeen !== this.world.styleVersion) this.refreshStyle();
     for (const cv of this.chars) cv.update(dt, cv.sim.id === this.selectedId || (this.mode === 'human' && cv.sim.kind === 'avatar'), cv.sim.id === this.hoverId, Math.max(1, Math.min(SPEEDS[this.speedIndex], 3)));
-    this.lighting.update(dt); this.wfx?.update(dt); this.sea?.update(dt); this.lighting.render(); this.sunSprite.setAlpha(this.lighting.daylight * 0.9);
+    this.lighting.update(dt); this.wfx?.update(dt); this.sea?.update(dt); this.ffx?.update(dt); this.lighting.render(); this.sunSprite.setAlpha(this.lighting.daylight * 0.9);
     this.drawFx(dt); this.hud.update(dt);
     { const a = this.world.avatar; const f = this.mode === 'human' ? a.pos : toGrid(this.cx, this.cy); this.world.focus = { x: f.x, y: f.y }; } // simulation détaillée près du joueur
     this.autosave += dt; if (this.autosave > 120) { this.autosave = 0; if (!this.demo) Save.save(this.world); }

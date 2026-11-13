@@ -18,6 +18,11 @@ export const POSES: Record<string, FrameDef[]> = {
   use: [{ bob: 0, arms: 'use', ad: 0 }, { bob: 0, arms: 'use', ad: -1 }],
   talk: [{ bob: 0, ra_mode: 'gest' }, { bob: -1, ra_mode: 'gest2' }, { bob: 0, la_mode: 'gest', ra_mode: 'down' }],
   wash: [{ bob: 0, arms: 'wash', ad: 0 }, { bob: 0, arms: 'wash', ad: 1 }],
+  // --- combat en temps réel
+  f_stance: [{ bob: 0, arms: 'f_stance' }, { bob: 1, arms: 'f_stance' }],
+  f_q_wind: [{ bob: 1, arms: 'q_wind' }], f_q_ext: [{ bob: -1, arms: 'q_ext' }],
+  f_h_wind: [{ bob: 2, arms: 'h_wind' }], f_h_ext: [{ bob: -2, arms: 'h_ext' }],
+  f_guard: [{ bob: 1, arms: 'guard' }], f_dodge: [{ bob: 3, arms: 'dodge' }], f_hurt: [{ bob: -2, arms: 'hurt' }],
 };
 export interface CharAssets { frames: Record<string, { f: HTMLCanvasElement[]; b: HTMLCanvasElement[] }>; lie: HTMLCanvasElement[]; faces: Record<string, HTMLCanvasElement>; portrait: HTMLCanvasElement }
 const cache = new Map<string, CharAssets>();
@@ -140,6 +145,21 @@ function arm(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: nu
 function arms(g: CanvasRenderingContext2D, _pose: string, fd: FrameDef, tx0: number, tw: number, ty: number, topC: C, topStyle: string, skin: C) {
   const st = topStyle === 'tee' || topStyle === 'tank' ? topStyle : 'long'; const slv = st === 'long' ? 12 : st === 'tee' ? 4 : 0;
   const la = fd.la ?? 0, ra = fd.ra ?? 0, lm = fd.la_mode ?? 'down', rm = fd.ra_mode ?? 'down', ad = fd.ad ?? 0; const lx = tx0 - 3, rx = tx0 + tw; const sk = shade(skin, -0.03);
+  const slvArm = (x: number, y: number, len: number, w = 3) => rect(g, x, y, len, w, slv > 0 ? topC : skin);
+  if (fd.arms && fd.arms.length <= 8 && ['f_stance', 'q_wind', 'q_ext', 'h_wind', 'h_ext', 'guard', 'dodge', 'hurt'].includes(fd.arms)) {
+    const fist = (x: number, y: number, s = 4) => { rect(g, x, y, s, s, sk); rect(g, x, y + s - 1, s, 1, shade(sk, -0.2)); };
+    switch (fd.arms) {
+      case 'f_stance': arm(g, lx + 1, ty, 3, 7, topC, Math.min(slv, 7), skin, true); arm(g, rx - 1, ty, 3, 7, topC, Math.min(slv, 7), skin, false); fist(lx + 2, ty + 5); fist(rx - 3, ty + 5); break;
+      case 'guard': arm(g, lx + 1, ty - 1, 3, 6, topC, Math.min(slv, 6), skin, true); arm(g, rx - 1, ty - 1, 3, 6, topC, Math.min(slv, 6), skin, false); fist(lx + 3, ty - 5, 5); fist(rx - 4, ty - 5, 5); break;
+      case 'q_wind': arm(g, lx + 1, ty, 3, 7, topC, Math.min(slv, 7), skin, true); fist(lx + 2, ty + 5); arm(g, rx - 3, ty + 1, 3, 6, topC, Math.min(slv, 6), skin, false); fist(rx - 4, ty + 6); break;
+      case 'q_ext': arm(g, lx + 1, ty, 3, 7, topC, Math.min(slv, 7), skin, true); fist(lx + 2, ty + 5); slvArm(rx - 2, ty + 3, 9, 3); fist(rx + 6, ty + 2, 5); break;
+      case 'h_wind': arm(g, lx + 1, ty, 3, 7, topC, Math.min(slv, 7), skin, true); fist(lx + 2, ty + 5); arm(g, rx + 1, ty - 9, 3, 10, topC, Math.min(slv, 10), skin, false); fist(rx, ty - 12, 5); break;
+      case 'h_ext': slvArm(lx - 1, ty + 4, 8, 3); slvArm(rx - 3, ty + 1, 11, 4); fist(rx + 6, ty - 1, 6); break;
+      case 'dodge': arm(g, lx + 2, ty + 1, 3, 6, topC, Math.min(slv, 6), skin, true); arm(g, rx - 2, ty + 1, 3, 6, topC, Math.min(slv, 6), skin, false); break;
+      case 'hurt': arm(g, lx - 3, ty + 1, 3, 9, topC, Math.min(slv, 9), skin, true); arm(g, rx + 3, ty + 1, 3, 9, topC, Math.min(slv, 9), skin, false); break;
+    }
+    return;
+  }
   if (fd.arms === 'book') {
     arm(g, lx + 1, ty, 3, 8, topC, Math.min(slv, 8), skin, true); arm(g, rx - 1, ty, 3, 8, topC, Math.min(slv, 8), skin, false);
     rect(g, 11, ty + 7, 7, 5, c(0.55, 0.3, 0.3)); rect(g, 12, ty + 8, 5, 3, c(0.95, 0.93, 0.85)); rect(g, 14, ty + 8, 1, 3, c(0.7, 0.68, 0.6)); return;

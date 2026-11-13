@@ -6,6 +6,7 @@ import { dist, type World } from './world';
 import * as Crime from './crime';
 import * as Quests from './quests';
 import { lineClear } from './movement';
+import * as RT from './fight';
 
 export interface Fight { a: number; b: number; t: number; rounds: number }
 export const REACH = 1.9, COOLDOWN = 0.9;
@@ -40,10 +41,10 @@ export function punch(w: World, att: SimChar, tgt: SimChar): { ok: boolean; line
   return { ok: true, line: tgt.hp <= 0 ? `${tgt.kind === 'avatar' ? 'Vous' : tgt.first} s'effondre${tgt.kind === 'avatar' ? 'z' : ''}.` : `Coup au visage : −${dmg} PV.`, dmg };
 }
 function react(w: World, tgt: SimChar, att: SimChar) {
-  if (w.fights.some((f) => f.a === tgt.id && f.b === att.id)) return;
+  if (w.fighters.has(tgt.id)) return;
   const fightBack = tgt.kind !== 'clerk' && w.rng.randf() < courage(tgt) * 0.95 && tgt.hp > 25;
   w.abortPlan(tgt, 'fight'); if (tgt.state === 'chat') { tgt.state = 'idle'; tgt.talk_with = -1; }
-  if (fightBack) { w.fights.push({ a: tgt.id, b: att.id, t: 0.8, rounds: 0 }); tgt.action_text = `Riposte contre ${att.kind === 'avatar' ? 'vous' : att.first}`; w.emitLog(`${tgt.first} riposte !`, 'drama', tgt.id); }
+  if (fightBack) { RT.start(w, tgt, att); tgt.action_text = `Riposte contre ${att.kind === 'avatar' ? 'vous' : att.first}`; w.emitLog(`${tgt.first} riposte !`, 'drama', tgt.id); }
   else flee(w, tgt, att.pos);
 }
 function flee(w: World, c: SimChar, from: V2) {
@@ -69,12 +70,5 @@ export function tick(w: World, dt: number, dmin: number) {
   for (const c of w.chars) {
     if (c.state === 'ko' && w.clock >= c.ko_until) { c.state = 'idle'; c.pose = 'stand'; c.hp = 30; c.decision_cooldown = 1; w.emitLog(`${c.first} se relève, groggy.`, 'info', c.id); }
     if (c.hp < 100 && c.hp > 0 && c.state !== 'ko') c.hp = Math.min(100, c.hp + 0.35 * dmin);
-  }
-  for (const f of [...w.fights]) {
-    const a = w.chars[f.a], b = w.chars[f.b]; if (!a || !b || a.away || b.away || isKO(a) || isKO(b) || f.rounds >= 4) { w.fights = w.fights.filter((x) => x !== f); continue; }
-    f.t -= dt; if (f.t > 0) continue; f.t = COOLDOWN;
-    if (dist(a.pos, b.pos) > REACH) { const c = { x: Math.floor(b.pos.x), y: Math.floor(b.pos.y) }; if (a.state !== 'walk') { a.plan = [{ type: 'goto', cell: c } as any]; w.startNextStep(a); } f.t = 0.5; continue; }
-    f.rounds++; const r = punch(w, a, b); if (!r.ok) { f.rounds = 9; }
-    if (a.hp < 22 && a.kind !== 'avatar') { w.fights = w.fights.filter((x) => x !== f); flee(w, a, b.pos); }
   }
 }

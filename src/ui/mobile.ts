@@ -140,13 +140,13 @@ export class MobileUi {
   }
   // ---- boutons A / B : appui court et appui long
   private bindAB() {
-    const mk = (el: HTMLElement, tap: () => void, hold: () => void) => {
-      let timer = 0, held = false, id = -1;
-      el.addEventListener('pointerdown', (e) => { e.preventDefault(); if (id >= 0) return; id = e.pointerId; el.setPointerCapture(id); el.classList.add('on'); held = false; timer = window.setTimeout(() => { held = true; hold(); }, 450); });
-      const end = (e: PointerEvent) => { if (e.pointerId !== id) return; id = -1; clearTimeout(timer); el.classList.remove('on'); if (!held && e.type === 'pointerup') tap(); };
+    const mk = (el: HTMLElement, tap: () => void, hold: () => void, fh?: { down: () => void; up: () => void }) => {
+      let timer = 0, held = false, id = -1, fmode = false;
+      el.addEventListener('pointerdown', (e) => { e.preventDefault(); if (id >= 0) return; id = e.pointerId; el.setPointerCapture(id); el.classList.add('on'); held = false; fmode = !!fh && this.g.fighting(); if (fmode) { fh!.down(); return; } timer = window.setTimeout(() => { held = true; hold(); }, 450); });
+      const end = (e: PointerEvent) => { if (e.pointerId !== id) return; id = -1; clearTimeout(timer); el.classList.remove('on'); if (fmode) { fmode = false; fh!.up(); return; } if (!held && e.type === 'pointerup') tap(); };
       el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
     };
-    mk(this.el.abtn, () => this.g.actionA(), () => this.g.actionAHold()); mk(this.el.bbtn, () => this.g.actionB(), () => this.g.actionBHold());
+    mk(this.el.abtn, () => this.g.actionA(), () => this.g.actionAHold(), { down: () => this.g.fightADown(), up: () => this.g.fightAUp() }); mk(this.el.bbtn, () => this.g.actionB(), () => this.g.actionBHold(), { down: () => this.g.fightBDown(), up: () => this.g.fightBUp() });
   }
   private bindTop() {
     document.getElementById('mspeed')!.onclick = () => { this.g.setSpeed((this.g.speedIndex + 1) % SPEEDS_LABEL.length); };
@@ -207,8 +207,8 @@ export class MobileUi {
   // ---- mise à jour périodique
   updateLabels() {
     const human = this.g.mode === 'human'; const mm = document.getElementById('mmode')!; mm.textContent = human ? 'HUMAIN' : 'DIEU'; mm.classList.toggle('human', human);
-    let alab = human ? 'agir' : 'choisir'; if (human && !this.g.hud.dialogueOpen()) { const n = Act.nearby(this.g.world, this.g.world.avatar)[0]; if (n) alab = n.kind === 'npc' ? 'parler' : 'utiliser'; }
-    this.el.abtn.classList.toggle('rdy', human && alab !== 'agir'); document.getElementById('alab')!.textContent = alab; document.getElementById('blab')!.textContent = human ? 'inventaire' : 'pouvoirs';
+    const fight = human && this.g.fighting(); let alab = fight ? 'coup' : human ? 'agir' : 'choisir'; if (human && !fight && !this.g.hud.dialogueOpen()) { const n = Act.nearby(this.g.world, this.g.world.avatar)[0]; if (n) alab = n.kind === 'npc' ? 'parler' : 'utiliser'; }
+    this.el.abtn.classList.toggle('rdy', human && alab !== 'agir'); document.getElementById('alab')!.textContent = alab; document.getElementById('blab')!.textContent = fight ? 'garde' : human ? 'inventaire' : 'pouvoirs';
     document.getElementById('mspeed')!.textContent = SPEEDS_LABEL[this.g.speedIndex]; this.hud.root.classList.toggle('god-mode', !human);
   }
   update(dt: number) {

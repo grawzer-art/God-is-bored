@@ -13,6 +13,13 @@ function noise(dur: number, vol = 0.15, delay = 0) {
   const c = ac(); if (!c || c.state !== 'running') return; const s = Settings.get(); const v = vol * s.master * s.sfx; if (v <= 0.001) return; const n = Math.floor(c.sampleRate * dur); const buf = c.createBuffer(1, n, c.sampleRate); const d = buf.getChannelData(0);
   for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n); const src = c.createBufferSource(), g = c.createGain(); src.buffer = buf; g.gain.value = v; src.connect(g).connect(c.destination); src.start(c.currentTime + delay);
 }
+/** Bagarre : sons synthétisés (aucun fichier). */
+export const swish = () => { noise(0.07, 0.07); tone(420, 0.06, 'sawtooth', 0.04, -240); };
+export const hit = () => { noise(0.08, 0.22); tone(140, 0.09, 'square', 0.2, -60); };
+export const hitHeavy = () => { noise(0.14, 0.3); tone(90, 0.18, 'sawtooth', 0.26, -50); tone(60, 0.22, 'square', 0.2, -20, 0.03); };
+export const blockSfx = () => { tone(900, 0.05, 'square', 0.14); tone(1300, 0.06, 'triangle', 0.1, 0, 0.02); };
+export const ko = () => { hitHeavy(); tone(220, 0.35, 'sawtooth', 0.2, -170, 0.1); };
+export const fightAlert = () => { tone(300, 0.1, 'square', 0.12); tone(240, 0.14, 'square', 0.12, 0, 0.1); };
 export const click = () => tone(660, 0.05, 'square', 0.12);
 export const confirm = () => { tone(523, 0.07, 'square', 0.14); tone(784, 0.1, 'square', 0.14, 0, 0.07); };
 export const back = () => tone(330, 0.07, 'square', 0.12, -80);

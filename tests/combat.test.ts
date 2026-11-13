@@ -29,11 +29,11 @@ describe('combat de base', () => {
   });
   it('la victime courageuse riposte, la craintive fuit ; l\'avatar KO se réveille chez lui moins riche', () => {
     const { w, t, av } = setup(); t.traits.neuroticism = 0.05; t.traits.agreeableness = 0.05; t.anger = 60; Combat.punch(w, av, t);
-    expect(w.fights.length).toBe(1); const hp0 = av.hp; for (let i = 0; i < 40; i++) Combat.tick(w, 0.3, 0.05); expect(av.hp).toBeLessThan(hp0);
+    expect(w.fighters.has(t.id)).toBe(true); const hp0 = av.hp; for (let i = 0; i < 400 && av.hp >= hp0; i++) w.tick(0.05); expect(av.hp).toBeLessThan(hp0);
     av.hp = 3; av.money = 100; w.fights = []; t.pos = { x: av.pos.x + 0.8, y: av.pos.y }; t.stats.punch_at = -1e9; t.state = 'idle'; Combat.punch(w, t, av); expect(av.hp).toBe(40); expect(av.money).toBeLessThan(100); expect(w.record_.knockouts).toBe(1);
   });
   it('le choix « Frapper » existe dans le dialogue et agit sur le monde', () => {
     const { w, t } = setup(); const d = Act.dialogueOpen(w, t); expect(d.choices.some((c) => c.id === 'punch')).toBe(true);
-    const res = Act.choose(w, t, 'punch'); expect(t.hp).toBeLessThan(100); expect(res.close).toBe(true);
+    const res = Act.choose(w, t, 'punch'); expect(res.close).toBe(true); expect(w.fighters.has(t.id)).toBe(true);
   });
 });

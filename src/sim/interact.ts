@@ -13,6 +13,7 @@ import * as Shop from './shop';
 import * as Crime from './crime';
 import * as Combat from './combat';
 import * as Romance from './romance';
+import * as Fight from './fight';
 
 export const ITEMS: Record<string, { label: string; hunger?: number; fun?: number; gift: number; desc: string }> = {
   parcel: { label: 'Colis scellé', gift: 0, desc: 'Un colis à remettre en main propre. Ne l\'ouvrez pas.' },
@@ -131,7 +132,7 @@ export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
     case 'couple': { const r = Romance.ask(w, av, npc); return { line: r.line }; }
     case 'evening': { const r = Romance.evening(w, av, npc); return { line: r.line, close: r.ok }; }
     case 'breakup': { const r = Romance.breakUp(w, av, npc); return { line: r.line, close: r.ok }; }
-    case 'punch': { const r = Combat.punch(w, av, npc); return { line: r.ok ? `${r.line}` : r.line, close: r.ok }; }
+    case 'punch': { if (dist(av.pos, npc.pos) > 3.2) return { line: 'Trop loin pour chercher la bagarre.' }; if (Fight.initiate(w, av, npc)) return { line: `Vous cherchez la bagarre avec ${npc.first}. A : coup · A maintenu : coup puissant · B : garde`, close: true }; return { line: `${npc.first} n'est pas du genre à se battre ici.` }; }
     case 'wake': {
       bump(w, npc, -6, 1, 15); npc.anger = clamp(npc.anger + 25, 0, 100); remember(npc, w, 'wake', 'Quelqu\'un m\'a réveillé en pleine nuit.', -0.6, 0.6); w.showEmote(npc, 'anger', 3);
       if (npc.state === 'use' && npc.use_act === 'sleep') w.endUse(npc, false); w.emitLog(`${npc.first} est réveillé${feel(npc, 'e', '')} de mauvaise humeur par ${av.first.toLowerCase()}.`, 'drama', npc.id);
