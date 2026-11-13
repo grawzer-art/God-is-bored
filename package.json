@@ -30,7 +30,8 @@
     "e2e:nav": "node tools/e2e-nav.cjs",
     "e2e:combat": "node tools/e2e-combat.cjs",
     "e2e:romance": "node tools/e2e-romance.cjs",
-    "e2e:debt": "node tools/e2e-debt.cjs"
+    "e2e:debt": "node tools/e2e-debt.cjs",
+    "e2e:god": "node tools/e2e-god.cjs"
   },
   "dependencies": {
     "phaser": "3.90.0"

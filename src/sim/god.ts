@@ -4,6 +4,7 @@ import { NEEDS } from './defs';
 import type { SimChar } from './simchar';
 import type { World } from './world';
 import * as Quests from './quests';
+import * as RT from './fight';
 
 export const POWERS: Record<string, { label: string; cost: number; key: string; target: 'char' | 'two' | 'none'; desc: string }> = {
   bless: { label: 'Bénédiction', cost: 20, key: '1', target: 'char', desc: 'Apaise et réconforte un habitant : besoins améliorés, joie, foi.' },
@@ -11,6 +12,8 @@ export const POWERS: Record<string, { label: string; cost: number; key: string; 
   fate: { label: 'Coup du destin', cost: 25, key: '3', target: 'two', desc: 'Force la rencontre de deux habitants.' },
   feast: { label: 'Festin céleste', cost: 40, key: '4', target: 'none', desc: 'Un banquet apparaît dans la cuisine : tout le monde est invité.' },
   forget: { label: 'Effacer les souvenirs', cost: 0, key: '5', target: 'none', desc: 'Les témoins proches oublient ce qu\'ils ont vu de vous : souvenirs, appels en attente et rumeurs.' },
+  lightning: { label: 'Foudre', cost: 30, key: '7', target: 'char', desc: 'Un éclair frappe un habitant : blessure sérieuse, étourdissement, parfois KO. Jamais mortel. Les témoins fuient ou se prosternent.' },
+  mood: { label: 'Émotion', cost: 8, key: '8', target: 'char', desc: 'Change l\'humeur d\'un habitant : joie, colère, tristesse, calme, amour. Une colère forte peut déclencher une bagarre.' },
   teleport: { label: 'Téléportation', cost: 0, key: '6', target: 'none', desc: 'Vous disparaissez et réapparaissez dans un lieu de la ville (les témoins le voient).' },
 };
 export const WHISPERS: Record<string, string> = { eat: 'Va manger', sleep: 'Va dormir', shower: 'Va te laver', chat: 'Va discuter', tv: 'Détends-toi devant la télé', tidy: 'Range un peu', pray: 'Prie un instant' };
@@ -127,3 +130,28 @@ export function scandal(w: World, c: SimChar): number {
   c.stress += 25; c.faith = Math.max(0, c.faith - 5); w.setEmotionFor(c, 'anxious', 60); w.emitLog(`Scandale : le secret de ${c.first} s'étale au grand jour.`, 'drama', c.id); return n;
 }
 export interface Laws { police: boolean }
+
+// ------------------------------------------------------------------ foudre et émotions (pouvoirs V2)
+export const MOODS: Record<string, string> = { joy: 'Joie', anger: 'Colère', sad: 'Tristesse', calm: 'Calme', love: 'Attirance' };
+/** Foudre : dégâts réels (jamais mortels), étourdissement ou KO, témoins marqués (crainte ou foi), souvenir persistant chez la cible. */
+export function lightning(w: World, c: SimChar): boolean {
+  if (!canAfford(w, 'lightning') || c.kind === 'dormant' || c.away) return false; pay(w, 'lightning');
+  const dmg = 38 + w.rng.randf() * 14; c.hp = Math.max(1, c.hp - dmg); c.stress = Math.min(100, c.stress + 40); c.faith = Math.min(100, c.faith + 12); w.setEmotionFor(c, 'surprised', 40);
+  if (c.kind === 'avatar') w.avatar.hp = c.hp;
+  w.fightFx.push({ type: 'bolt', x: c.pos.x, y: c.pos.y, heavy: true, att: -1, tgt: c.id }); w.audio.push('thunder');
+  if (c.hp <= 30 && c.kind !== 'avatar') { w.fighters.has(c.id) && w.fighters.delete(c.id); w.abortPlan(c, 'foudre'); c.state = 'ko'; c.pose = 'lie'; c.ko_until = w.clock + 20; c.action_text = 'Foudroyé(e)'; }
+  c.addMemory(w.clock, 'miracle', 'Un éclair est tombé du ciel sur moi. Je ne me l\'explique pas.', -0.9, 1, -1, { src: 'lived', conf: 1, subj: -1 });
+  for (const o of w.chars) { if (o.id === c.id || o.away || o.kind === 'dormant' || Math.hypot(o.pos.x - c.pos.x, o.pos.y - c.pos.y) > 9) continue; const awe = o.trait('openness') > 0.55 || o.faith > 50; if (awe) { o.faith = Math.min(100, o.faith + 6); w.setEmotionFor(o, 'awe', 30); } else { w.showEmote(o, 'sweat', 3); o.stress = Math.min(100, o.stress + 20); }
+    o.addMemory(w.clock, 'miracle', `J'ai vu la foudre tomber sur ${c.first}.`, awe ? 0.3 : -0.6, 0.9, c.id, { src: 'lived', conf: 1, subj: c.id }); }
+  note(w, 'lightning', c.id, `La foudre frappe ${c.first}.`); return true;
+}
+/** Émotion : modifie joie / colère / stress ; une colère forte chez quelqu'un de courageux peut mener à la bagarre avec la personne la plus proche. */
+export function mood(w: World, c: SimChar, kind: string): boolean {
+  if (!canAfford(w, 'mood') || !MOODS[kind] || c.away) return false; pay(w, 'mood');
+  switch (kind) { case 'joy': c.joy += 40; c.anger = Math.max(0, c.anger - 30); w.setEmotionFor(c, 'happy', 40); break; case 'anger': c.anger = Math.min(100, c.anger + 70); w.setEmotionFor(c, 'angry', 40); break;
+    case 'sad': c.joy -= 35; c.stress += 15; w.setEmotionFor(c, 'sad', 40); break; case 'calm': c.anger = 0; c.stress = Math.max(0, c.stress - 50); break;
+    case 'love': { const o = w.chars.filter((x) => x.id !== c.id && !x.away && (x.kind === 'resident' || x.kind === 'citizen') && Math.hypot(x.pos.x - c.pos.x, x.pos.y - c.pos.y) < 8).sort((a, b) => Math.hypot(a.pos.x - c.pos.x, a.pos.y - c.pos.y) - Math.hypot(b.pos.x - c.pos.x, b.pos.y - c.pos.y))[0]; if (o) { const r = w.getRel(c.id, o.id); r.att = Math.min(100, r.att + 35); w.showEmote(c, 'heart', 4); } break; } }
+  note(w, 'mood', c.id, `Vous modifiez l'humeur de ${c.first} : ${MOODS[kind].toLowerCase()}.`);
+  if (kind === 'anger' && c.kind !== 'avatar' && !w.fighters.has(c.id)) { const foe = w.chars.filter((x) => x.id !== c.id && !x.away && (x.kind === 'resident' || x.kind === 'citizen') && x.state !== 'ko' && Math.hypot(x.pos.x - c.pos.x, x.pos.y - c.pos.y) < 6).sort((a, b) => Math.hypot(a.pos.x - c.pos.x, a.pos.y - c.pos.y) - Math.hypot(b.pos.x - c.pos.x, b.pos.y - c.pos.y))[0]; if (foe && c.trait('agreeableness') < 0.7 && w.rng.randf() < 0.5 + (1 - c.trait('agreeableness')) * 0.4) RT.start(w, c, foe, `${c.first}, fou de colère, se jette sur ${foe.first}.`); }
+  return true;
+}

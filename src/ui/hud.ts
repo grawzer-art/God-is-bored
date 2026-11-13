@@ -139,11 +139,24 @@ export class Hud {
     if (!this.powerMode) { h.textContent = 'Pouvoirs divins : choisissez, puis cliquez sur un habitant'; h.style.color = ''; this.g.game.canvas.style.cursor = 'default'; }
     else { const d = God.POWERS[this.powerMode]; h.textContent = `${d.label} : ${d.target === 'two' ? (this.powerFirst < 0 ? 'cliquez le premier habitant' : 'cliquez le second') : 'cliquez un habitant'} (Échap pour annuler)`; h.style.color = '#fccd5c'; this.g.game.canvas.style.cursor = 'crosshair'; }
   }
+  /** Confirmation compacte d'un pouvoir destructeur : choisir → cibler → confirmer. Fermable (✕ / B / Échap) ; l'effet s'applique directement dans le monde. */
+  private pconf: HTMLElement | null = null;
+  askConfirm(text: string, ok: () => void) {
+    if (!this.pconf) { this.pconf = document.createElement('div'); this.pconf.id = 'pconfirm'; this.pconf.className = 'gp'; this.pconf.style.cssText = 'pointer-events:auto;position:absolute;z-index:8;left:50%;transform:translateX(-50%);bottom:calc(var(--sb,0px) + 84px);display:none;gap:8px;align-items:center;padding:8px 10px;border-radius:14px;max-width:calc(100vw - 40px)'; this.root.appendChild(this.pconf); }
+    const p = this.pconf; p.innerHTML = `<span style="color:#fff;font-size:12px">${text}</span><button class="gp-btn gold" data-ok style="min-height:40px">Confirmer</button><button class="gp-btn" data-no style="min-width:44px;min-height:40px" aria-label="Annuler">✕</button>`; p.style.display = 'flex';
+    const close = () => { p.style.display = 'none'; Nav.closed('pconfirm'); }; (p.querySelector('[data-ok]') as HTMLElement).onclick = () => { close(); ok(); }; (p.querySelector('[data-no]') as HTMLElement).onclick = () => { close(); this.powerMode = ''; this.syncPowers(); };
+    Nav.open({ id: 'pconfirm', world: true, close: () => { p.style.display = 'none'; Nav.closed('pconfirm'); this.powerMode = ''; this.syncPowers(); } });
+  }
   onWorldClick(id: number, sx: number, sy: number) {
     if (!this.powerMode) { this.g.selectChar(id, false); return; }
     if (id < 0) return; const c = this.w.chars[id];
     switch (this.powerMode) {
       case 'bless': if (God.bless(this.w, c)) this.toast(`${c.first} est béni(e)`); this.powerMode = ''; break;
+      case 'lightning': this.askConfirm(`Foudre sur ${c.first} ?`, () => { this.toast(God.lightning(this.w, c) ? `La foudre frappe ${c.first}` : 'Impossible'); this.powerMode = ''; this.syncPowers(); }); break;
+      case 'mood': {
+        const m = this.el.menu; m.innerHTML = ''; Object.entries(God.MOODS).forEach(([k, label]) => { const d = document.createElement('div'); d.textContent = label; d.onclick = () => { const run = () => { this.toast(God.mood(this.w, c, k) ? `${c.first} : ${label.toLowerCase()}` : 'Impossible'); this.powerMode = ''; m.style.display = 'none'; this.syncPowers(); }; if (k === 'anger') { m.style.display = 'none'; this.askConfirm(`Rendre ${c.first} furieux(se) ? Une bagarre est possible.`, run); } else run(); }; m.appendChild(d); });
+        m.style.left = Math.min(sx || 300, innerWidth - 240) + 'px'; m.style.top = Math.min(sy || 300, innerHeight - 260) + 'px'; m.style.display = 'block'; break;
+      }
       case 'whisper': {
         const m = this.el.menu; m.innerHTML = ''; Object.entries(God.WHISPERS).forEach(([k, label]) => { const d = document.createElement('div'); d.textContent = label; d.onclick = () => { God.whisper(this.w, c, k); this.powerMode = ''; m.style.display = 'none'; this.syncPowers(); }; m.appendChild(d); });
         m.style.left = Math.min(sx || 300, innerWidth - 240) + 'px'; m.style.top = Math.min(sy || 300, innerHeight - 260) + 'px'; m.style.display = 'block'; break;

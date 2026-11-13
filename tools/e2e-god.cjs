@@ -1,0 +1,36 @@
+// MODE DIEU V2 (iPhone émulé) : pas de joystick, caméra au doigt, pouvoir → cible → confirmation → effet dans le monde, ✕ d'annulation, masquer l'interface, descendre / remonter, incarner.
+const { chromium, devices } = require('playwright');
+const URL = process.env.GAME_URL || 'http://localhost:5173/';
+let fails = 0; const ok = (c, m) => { if (!c) fails++; console.log(c ? '  [OK]   ' : '  [FAIL] ', m); };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+(async () => {
+  const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  const ctx = await b.newContext({ ...devices['iPhone 13 landscape'], viewport: { width: 844, height: 390 }, deviceScaleFactor: 2 });
+  const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', (e) => errs.push(String(e))); pg.on('console', (m) => m.type() === 'error' && errs.push(m.text())); const E = (f, a) => pg.evaluate(f, a);
+  const cdp = await ctx.newCDPSession(pg); const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
+  const rect = (sel) => E((s) => { const r = document.querySelector(s).getBoundingClientRect(); return { cx: (r.left + r.right) / 2, cy: (r.top + r.bottom) / 2, w: r.width, h: r.height, vis: getComputedStyle(document.querySelector(s)).display !== 'none' }; }, sel);
+  const tapSel = async (sel) => { const r = await rect(sel); await touch('touchStart', [{ x: r.cx, y: r.cy, id: 3 }]); await sleep(70); await touch('touchEnd', []); await sleep(200); };
+  const tapXY = async (x, y) => { await touch('touchStart', [{ x, y, id: 4 }]); await sleep(70); await touch('touchEnd', []); await sleep(250); };
+  await pg.goto(URL + '?fresh&nohelp&god&simulate=700&speed=1&zoom=1.2'); await pg.waitForFunction(() => window.__gib && window.__gib.world, null, { timeout: 60000 }); await pg.waitForTimeout(1500);
+  console.log('\n== Interface du mode Dieu : le monde occupe presque tout l\'écran');
+  ok(await E(() => getComputedStyle(document.getElementById('dpad')).display === 'none'), 'pas de joystick de déplacement en mode Dieu'); ok((await rect('#gbar')).vis, 'barre de commandes divines compacte visible');
+  const x0 = await E(() => window.__gib.tx); await touch('touchStart', [{ x: 520, y: 200, id: 5 }]); for (let i = 1; i <= 8; i++) { await touch('touchMove', [{ x: 520 - i * 30, y: 200 }]); await sleep(35); } await touch('touchEnd', []); await sleep(250); ok(Math.abs((await E(() => window.__gib.tx)) - x0) > 20, 'glisser un doigt déplace la caméra');
+  console.log('\n== Pouvoir → cible → confirmation → effet');
+  await E(() => { const g = window.__gib, w = g.world; const t = w.chars.find((c) => c.name === 'Tommy Blake'); w.abortPlan(t, 't'); t.away = false; t.state = 'idle'; t.decision_cooldown = 99; t.hp = 100; t.pos = { x: 20.5, y: 27.5 }; const sx = (t.pos.x - t.pos.y) * 32, sy = (t.pos.x + t.pos.y) * 16; g.tz = g.cz = 1.3; g.tx = g.cx = sx; g.ty = g.cy = sy - 20; window.__t = t.id; g.setSpeed(1); w.freePowers = true; }); await sleep(700);
+  await tapSel('#gbar .row button[data-c="pouvoirs"]'); ok((await rect('#gbar .tray')).vis, 'plateau des pouvoirs ouvert');
+  await E(() => { const b = [...document.querySelectorAll('#gbar .tray button')].find((x) => /Foudre/.test(x.textContent)); b && b.click(); }); await sleep(250); ok(await E(() => window.__gib.hud.powerMode === 'lightning'), 'Foudre armée');
+  const sp = await E(() => { const g = window.__gib; const cv = g.chars[window.__t]; return g.worldToScreen(cv.x, cv.y - 24); }); await tapXY(sp.x, sp.y);
+  ok((await rect('#pconfirm')).vis && (await E(() => document.getElementById('pconfirm').textContent)).includes('Foudre'), 'une confirmation compacte demande : « Foudre sur Tommy ? »');
+   await tapSel('#pconfirm [data-no]');  ok(!(await rect('#pconfirm')).vis && (await E(() => window.__nav.list().filter((x) => x === 'pconfirm').length === 0)), '✕ annule : aucune fenêtre fantôme'); ok((await E(() => window.__gib.world.chars[window.__t].hp)) === 100, 'rien ne s\'est passé dans le monde');
+  await E(() => window.__gib.hud.pickPower('lightning')); await sleep(150); await tapXY(sp.x, sp.y); await tapSel('#pconfirm [data-ok]'); await sleep(400);
+  const r1 = await E(() => { const w = window.__gib.world, t = w.chars[window.__t]; return { hp: t.hp, mem: t.memories.some((m) => m.kind === 'miracle'), j: w.divine.some((d) => d.power === 'lightning'), st: t.state }; });
+  ok(r1.hp < 70 && r1.hp >= 1 && r1.mem && r1.j, `la foudre frappe pour de vrai (Tommy : ${Math.round(r1.hp)} PV, souvenir, journal divin)`); await pg.screenshot({ path: 'docs/shots/god-1-foudre.png' });
+  console.log('\n== Masquer l\'interface');
+  await tapSel('#mhudtog'); ok(!(await rect('#gbar')).vis, 'interface masquée : le monde occupe tout l\'écran'); await pg.screenshot({ path: 'docs/shots/god-2-sans-interface.png' }); await tapSel('#mhudtog'); ok((await rect('#gbar')).vis, 'interface rétablie');
+  console.log('\n== Descendre dans le monde, puis remonter');
+  await tapSel('#mmode'); await pg.waitForFunction(() => window.__gib.mode === 'human', null, { timeout: 8000 }); ok(await E(() => getComputedStyle(document.getElementById('dpad')).display !== 'none'), 'en mode Descendre : la croix de déplacement apparaît'); await tapSel('#mmode'); await pg.waitForFunction(() => window.__gib.mode === 'god', null, { timeout: 8000 }); ok(true, 'retour en mode Dieu à tout moment');
+  console.log('\n== Incarner un habitant');
+  await E(() => { const g = window.__gib; g.hud.fiche.open(window.__t); }); await sleep(500); await tapSel('#fiche [data-a="incarner"]'); await sleep(900);
+  const inc = await E(() => { const g = window.__gib, w = g.world; return { mode: g.mode, name: w.avatar.name, ctl: g.world.avatarControlled }; }); ok(inc.mode === 'human' && inc.name === 'Tommy Blake', `on incarne Tommy Blake (${inc.name}) : mêmes commandes qu'en mode Descendre`);
+  ok(errs.length === 0, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs[0] : '')); console.log(fails ? `\n${fails} ÉCHEC(S)` : '\nMODE DIEU V2 : tout est vert'); await b.close(); process.exit(fails ? 1 : 0);
+})();

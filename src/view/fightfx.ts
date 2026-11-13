@@ -9,11 +9,12 @@ export class FightFx {
   constructor(private scene: Phaser.Scene, private world: World, private low: () => boolean) { this.g = scene.add.graphics().setDepth(8200); }
   update(dt: number) {
     const w = this.world;
-    for (const s of w.audio.splice(0)) { switch (s) { case 'swish': Sfx.swish(); break; case 'hit': Sfx.hit(); break; case 'hit_heavy': Sfx.hitHeavy(); break; case 'block': Sfx.blockSfx(); break; case 'ko': Sfx.ko(); break; case 'fight': Sfx.fightAlert(); break; } }
+    for (const s of w.audio.splice(0)) { switch (s) { case 'swish': Sfx.swish(); break; case 'hit': Sfx.hit(); break; case 'hit_heavy': Sfx.hitHeavy(); break; case 'block': Sfx.blockSfx(); break; case 'ko': Sfx.ko(); break; case 'thunder': Sfx.ko(); break; case 'fight': Sfx.fightAlert(); break; } }
     for (const e of w.fightFx.splice(0)) {
       const p = toScreen(e.x, e.y); const involved = e.att === w.avatar.id || e.tgt === w.avatar.id;
       this.items.push({ x: p.x, y: p.y - 26, t: 0, dur: e.type === 'whiff' ? 0.14 : 0.22, type: e.type, heavy: e.heavy });
       if (e.type === 'hit' && involved && !this.low()) this.scene.cameras.main.shake(e.heavy ? 110 : 55, e.heavy ? 0.005 : 0.0025);
+      if (e.type === 'bolt') { this.items.push({ x: p.x, y: p.y - 26, t: 0, dur: 0.45, type: 'bolt', heavy: true }); this.scene.cameras.main.shake(160, 0.006); (this.scene as any).lighting && ((this.scene as any).lighting.flash = 0.9); }
       const label = e.type === 'ko' ? 'K.O.' : e.type === 'dodge' ? 'ESQUIVE' : e.type === 'guardbreak' ? 'GARDE BRISÉE' : e.type === 'block' ? '' : '';
       if (label) { const o = this.scene.add.text(p.x, p.y - 56, label, { fontFamily: 'sans-serif', fontSize: e.type === 'ko' ? '20px' : '12px', fontStyle: 'bold', color: e.type === 'ko' ? '#ffd23c' : '#9fe8ff', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(8210); this.texts.push({ o, t: 0, dur: e.type === 'ko' ? 1.1 : 0.6, vy: -22 }); }
     }
@@ -23,6 +24,7 @@ export class FightFx {
       if (it.type === 'hit') { const n = it.heavy ? 10 : 7, r0 = (it.heavy ? 6 : 4) + k * (it.heavy ? 22 : 14); this.g.lineStyle(it.heavy ? 3 : 2, it.heavy ? 0xffd23c : 0xffffff, a); for (let i = 0; i < n; i++) { const an = (i / n) * Math.PI * 2 + 0.3; this.g.lineBetween(it.x + Math.cos(an) * r0 * 0.5, it.y + Math.sin(an) * r0 * 0.5, it.x + Math.cos(an) * r0, it.y + Math.sin(an) * r0 * 0.7); } this.g.fillStyle(0xffffff, a * 0.8); this.g.fillCircle(it.x, it.y, (it.heavy ? 7 : 4) * (1 - k * 0.6)); }
       else if (it.type === 'block' || it.type === 'guardbreak') { this.g.lineStyle(2, it.type === 'guardbreak' ? 0xff6a5a : 0x7fd0ff, a); this.g.strokeCircle(it.x, it.y, 6 + k * 12); this.g.lineBetween(it.x - 8, it.y - 8, it.x + 8, it.y + 8); }
       else if (it.type === 'whiff') { this.g.lineStyle(2, 0xffffff, a * 0.6); this.g.beginPath(); this.g.arc(it.x, it.y + 6, 12 + k * 6, -2.2, -0.9); this.g.strokePath(); }
+      else if (it.type === 'bolt') { const x0 = it.x + 14, top = it.y - 260; this.g.lineStyle(5, 0xfff3a0, a); this.g.beginPath(); this.g.moveTo(x0, top); this.g.lineTo(x0 - 18, top + 70); this.g.lineTo(x0 + 8, top + 100); this.g.lineTo(it.x - 4, it.y - 14); this.g.strokePath(); this.g.lineStyle(2, 0xffffff, a); this.g.beginPath(); this.g.moveTo(x0, top); this.g.lineTo(x0 - 18, top + 70); this.g.lineTo(x0 + 8, top + 100); this.g.lineTo(it.x - 4, it.y - 14); this.g.strokePath(); this.g.fillStyle(0xfff3a0, a * 0.7); this.g.fillCircle(it.x, it.y, 22 * (1 - k * 0.5)); }
       else if (it.type === 'dodge') { this.g.fillStyle(0x9fe8ff, a * 0.5); this.g.fillCircle(it.x, it.y + 6, 10 + k * 8); }
     }
     for (const t of [...this.texts]) { t.t += dt; if (t.t >= t.dur) { t.o.destroy(); this.texts.splice(this.texts.indexOf(t), 1); continue; } t.o.y += t.vy * dt; t.o.setAlpha(Math.min(1, (t.dur - t.t) * 3)); }

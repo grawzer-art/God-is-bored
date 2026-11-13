@@ -3,6 +3,7 @@ import { World } from '../src/sim/world';
 import * as City from '../src/sim/city';
 import * as F from '../src/sim/fight';
 import * as Act from '../src/sim/interact';
+import * as God from '../src/sim/god';
 import { toJSON, fromJSON } from '../src/sim/save';
 
 function setup(seed = 31) {
@@ -57,5 +58,20 @@ describe('combat temps réel (Tekken-lite)', () => {
   });
   it('les blessures sont sauvegardées, l\'état de combat transitoire ne casse rien', () => {
     const { w, av, a } = setup(); F.start(w, av, a); F.attack(w, av, 'heavy'); run(w, 0.6); const hp = a.hp; const w2 = fromJSON(JSON.parse(JSON.stringify(toJSON(w))))!; expect(Math.round(w2.chars[a.id].hp)).toBe(Math.round(hp)); expect(w2.fighters.size).toBe(0);
+  });
+});
+
+describe('pouvoirs divins V2 : foudre et émotions', () => {
+  it('foudre : blessure réelle jamais mortelle, souvenir, témoins réagissent, entrée au journal divin', () => {
+    const { w, a, b } = setup(); w.freePowers = true; b.pos = { x: 24.5, y: 27.5 }; const hp0 = a.hp; expect(God.lightning(w, a)).toBe(true); expect(a.hp).toBeLessThan(hp0 - 30); expect(a.hp).toBeGreaterThanOrEqual(1);
+    expect(a.memories.some((m) => m.kind === 'miracle')).toBe(true); expect(b.memories.some((m) => /foudre/i.test(m.text))).toBe(true); expect(w.divine.some((d) => d.power === 'lightning')).toBe(true); expect(w.fightFx.some((e) => e.type === 'bolt')).toBe(true);
+    for (let i = 0; i < 6; i++) God.lightning(w, a); expect(a.hp).toBeGreaterThanOrEqual(1);
+  });
+  it('émotion : la colère d\'un caractère fort déclenche une vraie bagarre avec son voisin', () => {
+    let fought = 0; for (let s = 1; s < 20; s++) { const { w, a, b } = setup(s); w.freePowers = true; a.traits.agreeableness = 0.1; b.pos = { x: 23.5, y: 27.5 }; God.mood(w, a, 'anger'); if (w.fighters.has(a.id) && w.fighters.has(b.id)) fought++; expect(a.anger).toBeGreaterThan(60); }
+    expect(fought).toBeGreaterThan(5);
+  });
+  it('émotion : calme et joie ; attirance rapproche deux habitants', () => {
+    const { w, a, b } = setup(); w.freePowers = true; a.anger = 80; God.mood(w, a, 'calm'); expect(a.anger).toBe(0); const att0 = w.getRel(a.id, b.id).att; b.pos = { x: 23.5, y: 27.5 }; God.mood(w, a, 'love'); expect(w.getRel(a.id, b.id).att).toBeGreaterThan(att0);
   });
 });

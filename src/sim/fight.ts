@@ -15,7 +15,7 @@ export interface Fighter {
   id: number; state: FState; t: number; kind: AtkKind; step: number; comboT: number; hit: boolean; queued: AtkKind | ''; stamina: number; aim: V2; guard: boolean;
   dodgeDir: V2; dodgeCd: number; foes: Set<number>; target: number; ai: { aggr: number; skill: number } | null; think: number; atkCd: number; lastAction: number; fled: boolean; whiffed: number; stunFor?: number;
 }
-export interface FightFx { type: 'hit' | 'block' | 'dodge' | 'ko' | 'whiff' | 'guardbreak'; x: number; y: number; heavy: boolean; att: number; tgt: number }
+export interface FightFx { type: 'hit' | 'block' | 'dodge' | 'ko' | 'whiff' | 'guardbreak' | 'bolt'; x: number; y: number; heavy: boolean; att: number; tgt: number }
 /** Réglages d'équilibrage (secondes de simulation). */
 export const T = {
   quick: { wind: 0.1, active: 0.08, rec: 0.24, dmg: 6, stun: 0.3, range: 1.3, cost: 7, push: 0.45 },
