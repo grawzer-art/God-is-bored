@@ -11,10 +11,10 @@ import { MIN_PER_SEC } from './defs';
 export type Stage = 'brewing' | 'threat' | 'resolved';
 export interface Debt {
   stage: Stage; amount: number; due: number; threatAt: number; outcome: string; told: boolean; metVictor: boolean; helped: boolean; reported: boolean; reportAt: number;
-  extended: number; vendetta: boolean; revengeAt: number; escalated: boolean; lastLine: number; log: string[];
+  extended: number; vendetta: boolean; revengeAt: number; escalated: boolean; lastLine: number; log: string[]; offerAt: number;
 }
 export const AMOUNT = 5000;
-export const blank = (w: World): Debt => ({ stage: 'brewing', amount: AMOUNT, due: (Math.floor(w.clock / 1440) + 1) * 1440 + 19.5 * 60, threatAt: 0, outcome: '', told: false, metVictor: false, helped: false, reported: false, reportAt: 0, extended: 0, vendetta: false, revengeAt: 0, escalated: false, lastLine: 0, log: [] });
+export const blank = (w: World): Debt => ({ stage: 'brewing', amount: AMOUNT, due: (Math.floor(w.clock / 1440) + 1) * 1440 + 19.5 * 60, threatAt: 0, outcome: '', told: false, metVictor: false, helped: false, reported: false, reportAt: 0, extended: 0, vendetta: false, revengeAt: 0, escalated: false, lastLine: 0, log: [], offerAt: 0 });
 export const tommy = (w: World) => w.chars.find((c) => c.name === 'Tommy Blake');
 export const victor = (w: World) => w.chars.find((c) => c.name === 'Victor Kane');
 export const elena = (w: World) => w.chars.find((c) => c.name === 'Elena Reyes');
@@ -75,6 +75,14 @@ function resolveReport(w: World) {
 /** Révélation divine/dialogue : le joueur apprend qui est Victor Kane. */
 export function learnVictor(w: World, av: SimChar) { const v = victor(w); if (!v) return; if (!w.knownSecrets.includes(v.id)) w.knownSecrets.push(v.id); w.debt.metVictor = true; Quests.emit(w, 'debt_told'); w.stats.learn_victor = 1; void av; }
 
+/** Proposition illégale de Victor au club : un colis à remettre au barman, 300 €, « sans questions ». Réponse du joueur dans la fenêtre de temps suivante. */
+export function offerJob(w: World) { w.debt.offerAt = w.clock; }
+export const offerOpen = (w: World) => w.debt.offerAt > 0 && w.clock - w.debt.offerAt < 180;
+export function acceptJob(w: World, av: SimChar): { ok: boolean; line: string } {
+  const bm = w.barman; if (!bm || w.job) return { ok: false, line: 'Pas maintenant : vous avez déjà une course en cours.' };
+  av.inventory.parcel = 1; w.job = { to: bm.id, pay: 300, t0: w.clock, illegal: true }; w.debt.offerAt = 0; rep(w, 'criminal', 2); Quests.emit(w, 'job_illegal');
+  return { ok: true, line: "Kane glisse un paquet scellé dans votre main : « Au barman du Zinc. Discret. Si la police s'en mêle, vous ne me connaissez pas. »" };
+}
 // ------------------------------------------------------------------ simulation
 let acc = new WeakMap<World, number>();
 export function tick(w: World, dt: number) {

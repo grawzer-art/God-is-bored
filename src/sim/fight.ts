@@ -8,6 +8,7 @@ import { stepBody, lineClear, screenDirToGrid } from './movement';
 import * as Crime from './crime';
 import * as Combat from './combat';
 import * as Quests from './quests';
+import * as Debt from './debt';
 
 export type FState = 'idle' | 'windup' | 'active' | 'recover' | 'block' | 'dodge' | 'stun' | 'ko';
 export type AtkKind = 'quick' | 'heavy';
@@ -131,7 +132,7 @@ function applyHit(w: World, att: SimChar, af: Fighter, tgt: SimChar, tf: Fighter
   // conséquences : relation, souvenir (une fois par échange), délit enregistré (témoins, police)
   const r = w.getRel(tgt.id, att.id); r.aff = clamp(r.aff - 4, -100, 100); r.fear = clamp(r.fear + 2, 0, 100);
   if (!(tgt.stats['assault_mem_' + att.id] > w.clock - 15)) { tgt.stats['assault_mem_' + att.id] = w.clock; tgt.addMemory(w.clock, 'assault', `${att.kind === 'avatar' ? "Quelqu'un" : att.first} m'a frappé(e).`, -0.9, 1, att.id, { src: 'lived', conf: 1, subj: att.id }); }
-  if (!(att.stats['assault_ev_' + tgt.id] > w.clock - 20)) { att.stats['assault_ev_' + tgt.id] = w.clock; Crime.onCrime(w, att, 'assault', tgt.id, { ...tgt.pos }, 2); if (att.kind === 'avatar') { w.record_.assaults = (w.record_.assaults ?? 0) + 1; Quests.emit(w, 'assault'); } }
+  if (!(att.stats['assault_ev_' + tgt.id] > w.clock - 20)) { att.stats['assault_ev_' + tgt.id] = w.clock; Crime.onCrime(w, att, 'assault', tgt.id, { ...tgt.pos }, 2); if (att.kind === 'avatar') { w.record_.assaults = (w.record_.assaults ?? 0) + 1; Quests.emit(w, 'assault'); Debt.rep(w, 'criminal', 1); Debt.rep(w, 'police', -1); Debt.rep(w, 'social', -0.5); } }
   if (tgt.hp <= 0) { Combat.knockOut(w, tgt, att); w.fightFx.push({ type: 'ko', x: mid.x, y: mid.y, heavy: true, att: att.id, tgt: tgt.id }); w.audio?.push('ko'); end(w, tgt); af.foes.delete(tgt.id); af.step = 0; af.comboT = 0; }
 }
 function push(w: World, c: SimChar, dir: V2, d: number) {

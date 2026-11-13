@@ -7,6 +7,7 @@ import * as Act from '../src/sim/interact';
 import * as God from '../src/sim/god';
 import * as Possess from '../src/sim/possess';
 import * as Quests from '../src/sim/quests';
+import * as Romance from '../src/sim/romance';
 import { toJSON, fromJSON } from '../src/sim/save';
 
 function setup(seed = 41) {
@@ -55,5 +56,21 @@ describe('la dette de Tommy (scénario émergent)', () => {
   it('parler à Victor fait avancer la quête ; sauvegarde et rechargement conservent l\'état', () => {
     const { w, t, v, av } = setup(); Quests.init(w); w.quests.c1m1 && (w.quests.c1m1.st = 'done'); Quests.refresh(w); w.quests.c1m2 && (w.quests.c1m2.st = 'done'); Quests.refresh(w); expect(w.quests.s2?.st).toBe('active');
     Act.choose(w, t, 'd_help'); Act.noteTalk(w, v); expect(w.quests.s2.p[0]).toBe(1); expect(w.quests.s2.p[1]).toBe(1); w.debt.extended = 2; w.rep.criminal = 12; const w2 = fromJSON(JSON.parse(JSON.stringify(toJSON(w))))!; expect(w2.debt.extended).toBe(2); expect(w2.debt.helped).toBe(true); expect(w2.rep.criminal).toBe(12); void av;
+  });
+});
+
+describe('Zinc Club : danse et proposition illégale', () => {
+  it('Victor propose un colis de nuit ; accepté, il se remet au barman : argent, réputation criminelle, police si témoin', () => {
+    const { w, v, av } = setup(); w.clock = 1440 + 22 * 60; expect(Act.dialogueOpen(w, v).choices.some((c) => c.id === 'v_job')).toBe(true);
+    Act.choose(w, v, 'v_job'); expect(Act.dialogueOpen(w, v).choices.some((c) => c.id === 'v_job_yes')).toBe(true); const r = Act.choose(w, v, 'v_job_yes'); expect(r.close).toBe(true); expect(w.job!.illegal).toBe(true); expect(av.inventory.parcel).toBe(1); expect(w.rep.criminal).toBeGreaterThan(0);
+    const bm = w.barman!; bm.away = false; av.pos = { x: bm.pos.x + 0.9, y: bm.pos.y }; const m0 = av.money; expect(Act.dialogueOpen(w, bm).choices.some((c) => c.id === 'deliver')).toBe(true); Act.choose(w, bm, 'deliver'); expect(av.money).toBeGreaterThanOrEqual(m0 + 300); expect(w.rep.criminal).toBeGreaterThan(4); expect(w.job).toBeNull();
+  });
+  it('avec un policier à proximité : le délit est observé, soupçon et réputation police en baisse', () => {
+    const { w, v, av } = setup(); w.clock = 1440 + 22 * 60; Act.choose(w, v, 'v_job'); Act.choose(w, v, 'v_job_yes'); const bm = w.barman!; bm.away = false; av.pos = { x: bm.pos.x + 0.9, y: bm.pos.y }; const cop = w.police[0]; cop.away = false; cop.pos = { x: av.pos.x + 1.5, y: av.pos.y }; cop.state = 'idle';
+    Act.choose(w, bm, 'deliver'); expect(cop.memories.some((m) => m.kind === 'suspicion')).toBe(true); expect(w.rep.police).toBeLessThan(0);
+  });
+  it('danser : adultes seulement ; un refus est respecté ; la réussite rapproche', () => {
+    const { w, av } = setup(); const m = w.chars.find((c) => c.name === 'Maya Torres')!; m.away = false; m.state = 'idle'; m.pos = { x: 22.5, y: 27.5 }; av.pos = { x: 21.5, y: 27.5 }; m.age = 17; expect(Act.choose.length >= 0).toBe(true);
+    const dance = Romance.dance; expect(dance(w, av, m).ok).toBe(false); m.age = 28; m.traits.extraversion = 1; const r0 = w.getRel(m.id, av.id).aff; let ok = 0; for (let i = 0; i < 12; i++) { const res = dance(w, av, m); if (res.ok) ok++; else expect(res.refused).toBe(true); } expect(ok).toBeGreaterThan(0); expect(w.getRel(m.id, av.id).aff).toBeGreaterThan(r0);
   });
 });

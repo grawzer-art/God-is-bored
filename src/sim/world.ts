@@ -58,7 +58,7 @@ export class World {
   possess: Possess.PossessState | null = null; incarnations: Possess.Incarnation[] = [];
   profile: import('./profile').Profile | null = null; profileVersion = 0; property: { id: string; name: string; building: string; rent: number; since: number } | null = null;
   quests: Record<string, Quests.QState> = {}; progress: Quests.Progress = Quests.newProgress(); narrations: Quests.Narration[] = []; questLog: { t: number; text: string }[] = []; questToasts: string[] = []; questDone: string[] = [];
-  job: { to: number; pay: number; t0: number } | null = null;
+  job: { to: number; pay: number; t0: number; illegal?: boolean } | null = null;
   traffic?: Traffic; till = 160; freePowers = true; laws: God.Laws = { police: true }; divine: God.DivineEntry[] = []; holdup: Crime.Holdup | null = null; fights: Combat.Fight[] = []; fighters = new Map<number, Fight.Fighter>(); fightFx: Fight.FightFx[] = []; audio: string[] = []; weather: Weather.Weather = Weather.blank(1); romances: Record<string, Romance.Romance> = {}; debt!: Debt.Debt; rep = Debt.repBlank();
   build() {
     this.buildFurniture(); this.buildGrid(); this.buildChars(); this.buildExtras(); Life.init(this); this.traffic = new Traffic(this);

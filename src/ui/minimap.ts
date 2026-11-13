@@ -49,6 +49,8 @@ export class MiniMap {
     (this.big.querySelector('#bmhint') as HTMLElement).textContent = this.g.mode === 'god' ? 'Touchez la carte pour y déplacer la caméra.' : 'Carte du monde, mise à jour en temps réel.';
     this.big.style.display = 'flex'; this.open = true; Nav.open({ id: 'bigmap', close: () => { this.big.style.display = 'none'; this.open = false; Nav.closed('bigmap'); } }); this.paint(this.bigCv, true);
   }
+  /** Ouvre la grande carte (depuis le menu). */
+  openMap() { this.openBig(this.el.parentElement!); }
   update(dt: number) {
     const hide = Nav.blocksWorld() || this.g.hud.fiche.isOpen(); this.el.style.display = hide ? 'none' : 'block';
     this.acc += dt; if (this.acc < 0.3) return; this.acc = 0; if (!hide) this.paint(this.cv, false); if (this.open) this.paint(this.bigCv, true);

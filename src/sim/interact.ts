@@ -50,6 +50,7 @@ export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: C
   if (npc.kind === 'staff') {
     const h = npc.away;
     const greet = h ? "Le bar est fermé pour l'instant." : r.fam < 20 ? "Bonsoir. Qu'est-ce que je vous sers ?" : r.aff > 25 ? 'Tiens, un habitué ! La même chose ?' : 'Bonsoir. Je vous écoute.';
+    if (w.job && w.job.to === npc.id && av.inventory.parcel > 0) ch.unshift({ id: 'deliver', label: 'Remettre le colis', enabled: true, hint: `+${w.job.pay} €` });
     ch.push({ id: 'order', label: 'Commander', enabled: !h && w.barOpen(), hint: 'carte des boissons' }, { id: 'rumors', label: 'Des nouvelles du quartier ?', enabled: !h },
       { id: 'chat', label: 'Bavarder', enabled: !h }, { id: 'bye', label: 'Au revoir', enabled: true });
     return { line: greet, choices: ch };
@@ -110,6 +111,8 @@ function debtChoices(w: World, av: SimChar, npc: SimChar): Choice[] {
     out.push({ id: 'd_ignore', label: "« C'est ton problème. »", enabled: true }, { id: 'd_help', label: '« Je peux t\'aider. »', enabled: true }, { id: 'd_who', label: '« C\'est qui, ce mec ? »', enabled: true }, { id: 'd_police', label: '« Va voir les flics. »', enabled: !d.reported });
     if (d.helped) out.push({ id: 'd_pay_all', label: `Payer toute la dette (${d.amount} €)`, enabled: av.money >= d.amount, hint: av.money >= d.amount ? '' : `il manque ${Math.round(d.amount - av.money)} €` }, { id: 'd_pay_part', label: 'Lui donner 1 000 €', enabled: av.money >= 1000 });
   } else if (Debt.isVictor(npc)) {
+    const night = w.hour() >= 19 || w.hour() < 4; if (!Debt.isTommy(av) && night && !w.job) out.push({ id: 'v_job', label: 'Une proposition ?', enabled: true, hint: 'discrétion exigée' });
+    if (Debt.offerOpen(w)) out.push({ id: 'v_job_yes', label: 'Accepter le colis (300 €)', enabled: !w.job }, { id: 'v_job_no', label: 'Refuser', enabled: true });
     if (Debt.isTommy(av)) out.push({ id: 'v_pay_me', label: `Payer (${d.amount} €)`, enabled: av.money >= d.amount }, { id: 'v_pay_part', label: 'Verser 1 000 €', enabled: av.money >= 1000 }, { id: 'v_delay', label: 'Demander un délai', enabled: true });
     else out.push({ id: 'v_ask', label: "« Qu'est-ce que vous voulez à Tommy ? »", enabled: true }, { id: 'v_pay', label: `Payer la dette de Tommy (${d.amount} €)`, enabled: av.money >= d.amount }, { id: 'v_pay_part', label: 'Verser 1 000 €', enabled: av.money >= 1000 }, { id: 'v_delay', label: 'Négocier un délai', enabled: true }, { id: 'v_threat', label: 'Le menacer', enabled: true });
   }
@@ -119,6 +122,7 @@ function debtChoices(w: World, av: SimChar, npc: SimChar): Choice[] {
 function romanceChoices(w: World, av: SimChar, npc: SimChar): Choice[] {
   if (npc.kind !== 'resident' && npc.kind !== 'citizen') return []; if (!Romance.adult(av) || !Romance.adult(npc) || !Romance.compatible(av, npc)) return [];
   const rm = Romance.get(w, av.id, npc.id); const out: Choice[] = [];
+  if (inBar(w, npc) && (w.hour() >= 20 || w.hour() < 4)) out.push({ id: 'dance', label: 'Inviter à danser', enabled: true, hint: 'Zinc Club' });
   if (!rm || rm.state === 'ex') { out.push({ id: 'flirt', label: 'Flirter', enabled: true, hint: 'un non est un non' }); if (!rm) out.push({ id: 'date', label: 'Proposer un rendez-vous', enabled: Romance.canDate(w, av, npc) === '', hint: Romance.canDate(w, av, npc) || 'adultes consentants' }); }
   else { out.push({ id: 'date', label: 'Proposer une sortie', enabled: true }); if (rm.state === 'dating') out.push({ id: 'couple', label: 'Proposer de sortir ensemble', enabled: Romance.canCouple(w, av, npc) === '', hint: Romance.canCouple(w, av, npc) }); else out.push({ id: 'evening', label: 'Passer la soirée ensemble', enabled: true, hint: 'si l\'autre en a envie' }); out.push({ id: 'breakup', label: 'Rompre', enabled: true }); }
   return out;
@@ -136,12 +140,13 @@ export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
     }
     case 'deliver': {
       if (!w.job || w.job.to !== npc.id || (av.inventory.parcel ?? 0) <= 0) return { line: 'Ce colis n\'est pas pour moi.' }; const pay = w.job.pay; const tip = npc.trait('agreeableness') > 0.6 ? 3 : 0;
-      av.inventory.parcel = 0; w.job = null; av.money += pay + tip; w.stats.jobs_done = (w.stats.jobs_done ?? 0) + 1; bump(w, npc, 4, 4); remember(npc, w, 'help', `${av.first === 'Vous' ? 'Quelqu\'un' : av.first} m'a livré un colis.`, 0.3, 0.5);
+      const illegal = !!w.job.illegal; if (!illegal) Debt.rep(w, 'pro', 2); av.inventory.parcel = 0; w.job = null; av.money += pay + tip; if (illegal) { Debt.rep(w, 'criminal', 4); const cops = Crime.viewers(w, av.pos, [av.id], 9).filter((o) => o.kind === 'police'); if (cops.length) { Crime.onCrime(w, av, 'theft', -1, { ...av.pos }, 1); for (const c of cops) c.addMemory(w.clock, 'suspicion', 'Un colis louche a changé de mains au Zinc.', -0.5, 0.7, av.id, { src: 'lived', conf: 0.7, subj: av.id }); Debt.rep(w, 'police', -3); } else w.emitLog('Le colis change de mains sans histoire.', 'info', av.id); } w.stats.jobs_done = (w.stats.jobs_done ?? 0) + 1; bump(w, npc, 4, 4); remember(npc, w, 'help', `${av.first === 'Vous' ? 'Quelqu\'un' : av.first} m'a livré un colis.`, 0.3, 0.5);
       Quests.emit(w, 'job_deliver'); Quests.emit(w, 'job_paid'); w.emitLog(`Livraison effectuée : +${pay + tip} €.`, 'info', av.id); return { line: `${npc.first} : « Merci, c'est bien celui que j'attendais. » Vous touchez ${pay}${tip ? ' + ' + tip + ' € de pourboire' : ' €'}.`, close: true };
     }
     case 'pay': { const n = Shop.pay(w, av); return { line: n > 0 ? `Vous payez ${n} €. « Merci, bonne journée. »` : "Vous n'avez rien à payer." }; }
     case 'surrender': { const off = npc.kind === 'police' ? npc : w.police[0]; Crime.arrest(w, off, av, true); return { line: 'Vous levez les mains. On vous emmène.', close: true }; }
     case 'steal': { const r = Life.playerSteal(w, av, npc); if (r.ok) Quests.emit(w, 'steal'); return { line: r.line, close: r.ok && npc.isAsleep() }; }
+    case 'dance': { const r = Romance.dance(w, av, npc); return { line: r.line }; }
     case 'flirt': { const r = Romance.flirt(w, av, npc); return { line: r.line }; }
     case 'date': { const r = Romance.get(w, av.id, npc.id) ? Romance.again(w, av, npc) : Romance.date(w, av, npc); return { line: r.line }; }
     case 'couple': { const r = Romance.ask(w, av, npc); return { line: r.line }; }
@@ -153,6 +158,9 @@ export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
     case 'd_police': { const r = rel(w, npc.id, av.id); if (r.trust + r.aff >= 35) { Debt.report(w, npc); return { line: `${npc.first} hésite, puis souffle : « Les flics… OK. J'y vais. Si je ne reviens pas, c'est que ça a mal tourné. »`, close: true }; } r.fear = clamp(r.fear + 3); return { line: `${npc.first} ricane nerveusement : « T'es fou ? Il EST flic. Personne ne me croira. »` }; }
     case 'd_pay_all': { const r = Debt.pay(w, av); if (r.ok) bump(w, npc, 10, 4); return { line: r.ok ? `${npc.first} est bouche bée : « Tu viens de… Merci. Je te le revaudrai. »` : r.line, close: r.ok }; }
     case 'd_pay_part': { av.money -= 1000; npc.money += 1000; bump(w, npc, 8, 3); if (npc.money >= w.debt.amount) Debt.pay(w, npc); return { line: `${npc.first} prend les billets : « Je… merci. Ça aide. Ça ne suffit pas, mais ça aide. »` }; }
+    case 'v_job': { Debt.offerJob(w); return { line: `${npc.first} baisse la voix : « J'ai un colis à faire passer au barman du Zinc. Trois cents euros, pas de questions. Vous êtes preneur ? »` }; }
+    case 'v_job_yes': { const r = Debt.acceptJob(w, av); return { line: r.line, close: r.ok }; }
+    case 'v_job_no': { w.debt.offerAt = 0; bump(w, npc, -1, 1); return { line: `${npc.first} hausse les épaules : « Dommage. Je trouverai quelqu'un d'autre. »` }; }
     case 'v_ask': { w.debt.metVictor = true; Quests.emit(w, 'debt_told'); w.debt.told = true; bump(w, npc, -1, 3); return { line: `${npc.first} ajuste sa veste : « Une affaire entre Tommy et moi. Cinq mille. Je suis très patient… jusqu'à un certain point. »` }; }
     case 'v_pay': case 'v_pay_me': { const r = Debt.pay(w, av); return { line: r.line, close: r.ok && w.debt.stage === 'resolved' }; }
     case 'v_pay_part': { const r = Debt.pay(w, av, 1000); return { line: r.line }; }

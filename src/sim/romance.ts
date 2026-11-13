@@ -46,7 +46,7 @@ export function flirt(w: World, from: SimChar, npc: SimChar): Result {
   if (wm + roll >= 34) {
     const r = w.getRel(npc.id, from.id); r.att = clamp(r.att + 9); r.aff = clamp(r.aff + 5, -100, 100); r.trust = clamp(r.trust + 2); const r2 = w.getRel(from.id, npc.id); r2.att = clamp(r2.att + 5); r2.aff = clamp(r2.aff + 3, -100, 100);
     w.showEmote(npc, 'heart', 3); npc.joy += 8; npc.addMemory(w.clock, 'romance', `${from.kind === 'avatar' ? "L'étranger" : from.first} m'a charmé(e) : ça m'a plu.`, 0.7, 0.7, from.id, { src: 'lived', conf: 1, subj: from.id });
-    if (from.kind === 'avatar') Quests.emit(w, 'flirt'); return { ok: true, line: `${npc.first} rit, détourne le regard, puis vous le rend : « Vous ne manquez pas d'aplomb. »` };
+    if (from.kind === 'avatar') { Quests.emit(w, 'flirt'); rep(w, 'romantic', 1); } return { ok: true, line: `${npc.first} rit, détourne le regard, puis vous le rend : « Vous ne manquez pas d'aplomb. »` };
   }
   npc.stats['rom_no_' + from.id] = w.clock; return refuse(w, npc, from, true);
 }
@@ -110,3 +110,14 @@ export function daily(w: World) {
   }
   void stamp;
 }
+
+/** Danse au club : invitation légère (adultes compatibles ou non, la danse n'engage à rien) ; un refus est respecté. Réussie, elle rapproche et réveille l'envie de sortir. */
+export function dance(w: World, from: SimChar, npc: SimChar): Result {
+  if (!adult(from) || !adult(npc)) return { ok: false, line: 'Impossible : cela ne concerne que des adultes.' }; if (npc.isAsleep() || npc.state === 'ko') return { ok: false, line: `${npc.first} n'est pas disponible.` };
+  const r = w.getRel(npc.id, from.id); const base = 30 + r.aff * 0.25 + (r.att * 0.2) + npc.trait('extraversion') * 20 - r.fear * 0.6 - npc.anger * 0.3 + (npc.drunk > 10 ? 6 : 0) + w.rng.randf() * 16 - 8;
+  if (base < 38) { r.aff = clamp(r.aff - 1, -100, 100); w.showEmote(npc, 'sweat', 2); return { ok: false, refused: true, line: `${npc.first} sourit : « Pas ce soir, merci. »` }; }
+  r.aff = clamp(r.aff + 4, -100, 100); r.fam = clamp(r.fam + 4, 0, 100); if (compatible(from, npc)) r.att = clamp(r.att + 4); for (const c of [from, npc]) { c.needs.fun = clamp(c.needs.fun + 28); c.needs.social = clamp(c.needs.social + 18); c.joy += 8; } w.showEmote(npc, 'note', 3);
+  npc.addMemory(w.clock, 'romance', `J'ai dansé avec ${from.kind === 'avatar' ? "l'étranger" : from.first} au Zinc. Bonne soirée.`, 0.6, 0.6, from.id, { src: 'lived', conf: 1, subj: from.id }); if (from.kind === 'avatar') { rep(w, 'romantic', 1); Quests.emit(w, 'dance'); }
+  return { ok: true, line: `Vous dansez un morceau avec ${npc.first}. La salle vibre, tout le monde vous regarde.` };
+}
+const rep = (w: World, k: 'romantic', d: number) => { w.rep[k] = clamp((w.rep[k] ?? 0) + d, -100, 100); };
