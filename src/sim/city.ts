@@ -9,7 +9,7 @@ import type { Look } from './roster';
 import { SimChar } from './simchar';
 import { dist, type Furn, type World } from './world';
 
-type Where = 'home' | 'office' | 'cafeWork' | 'cafe' | 'store' | 'park' | 'route';
+type Where = 'home' | 'office' | 'cafeWork' | 'cafe' | 'store' | 'park' | 'route' | 'bar';
 interface Spec { secret?: string; name: string; age: number; gender: 'F' | 'M'; job: string; bio: string; look: Look; traits: SimChar['traits']; money: number; home: 'flats1' | 'flats2' | 'flats3'; wage: number; sched: [number, number, Where][]; chrono: number }
 const LK = (o: Partial<Look>): Look => ({ skin: 1, hair: 'short', hair_color: 'darkbrown', top: 'tee', top_color: 'gray', bottom: 'jeans', bottom_color: 'dark', shoes: 'brown', build: 0, height: 0, acc: 'none', ...o });
 const T = (extraversion: number, agreeableness: number, neuroticism: number, orderliness: number, openness: number) => ({ extraversion, agreeableness, neuroticism, orderliness, openness });
@@ -20,7 +20,7 @@ export const CAFE_POST: V2 = { x: 86, y: 11 }, STORE_POST: V2 = { x: 63, y: 15 }
 export const CITIZENS: Spec[] = [
   { name: 'Noémie Rivière', age: 26, gender: 'F', job: 'Serveuse au café', bio: 'Rapide, souriante, elle connaît les secrets de tout le quartier.', home: 'flats1', wage: 70, money: 55, chrono: -0.3, traits: T(0.8, 0.75, 0.4, 0.6, 0.6),
     look: LK({ skin: 2, hair: 'bun', hair_color: 'black', top: 'tank', top_color: 'teal', bottom: 'skirt', bottom_color: 'navy', shoes: 'white', acc: 'earrings' }), sched: [[7.3, 16, 'cafeWork'], [16, 18.5, 'park'], [18.5, 21.5, 'cafe']] },
-  { name: 'Victor Lang', age: 47, gender: 'M', job: 'Comptable', bio: 'Ponctuel jusqu\'à la manie. Prend son café à 7 h 45 pile.', home: 'flats2', wage: 130, money: 120, chrono: -0.5, traits: T(0.35, 0.5, 0.55, 0.9, 0.35),
+  { name: 'Vincent Lang', age: 47, gender: 'M', job: 'Comptable', bio: 'Ponctuel jusqu\'à la manie. Prend son café à 7 h 45 pile.', home: 'flats2', wage: 130, money: 120, chrono: -0.5, traits: T(0.35, 0.5, 0.55, 0.9, 0.35),
     look: LK({ skin: 0, hair: 'short', hair_color: 'gray', top: 'blazer', top_color: 'gray', bottom: 'jeans', bottom_color: 'navy', shoes: 'black', acc: 'glasses' }), sched: [[7.4, 8.3, 'cafe'], [8.3, 17.6, 'office'], [17.8, 19.3, 'park'], [19.4, 20.8, 'cafe']] },
   { name: 'Sofia Marchetti', age: 33, gender: 'F', job: 'Photographe', bio: 'Flâne avec son appareil, cherche la lumière et les histoires.', home: 'flats3', wage: 0, money: 70, chrono: 0.2, traits: T(0.6, 0.65, 0.5, 0.35, 0.9),
     look: LK({ skin: 2, hair: 'bob', hair_color: 'blond', top: 'jacket', top_color: 'red', bottom: 'skirt', bottom_color: 'dark', shoes: 'brown', acc: 'shades' }), sched: [[8.5, 9.6, 'cafe'], [9.6, 11.2, 'park'], [11.2, 12.2, 'store'], [12.3, 13.6, 'cafe'], [13.7, 17, 'park'], [17, 18, 'store'], [18.2, 20.5, 'cafe']] },
@@ -30,6 +30,11 @@ export const CITIZENS: Spec[] = [
     look: LK({ skin: 3, hair: 'afro', hair_color: 'black', top: 'jacket', top_color: 'purple', bottom: 'jeans', bottom_color: 'light', shoes: 'white' }), sched: [[8.5, 11, 'cafe'], [11, 11.8, 'store'], [12, 13.5, 'park'], [13.6, 17.5, 'cafe'], [17.5, 20.5, 'park']] },
   { name: 'Tommy Blake', age: 26, gender: 'M', job: 'Livreur', bio: "Drôle, impulsif, toujours un mot pour rire. Livre des colis sur la plage et rêve d'ouvrir un garage.", secret: "Il livre des colis dont il ne connaît pas le contenu, et doit de l'argent à Victor Kane.", home: 'flats1', wage: 0, money: 3, chrono: 0.1, traits: T(0.85, 0.6, 0.55, 0.2, 0.7),
     look: LK({ skin: 3, hair: 'short', hair_color: 'black', top: 'tee', top_color: 'orange', bottom: 'shorts', bottom_color: 'navy', shoes: 'white', acc: 'cap', build: 0 }), sched: [[8.8, 19, 'route'], [19, 22.5, 'park']] },
+  // --- personnages ajoutés en fin de liste (les anciennes sauvegardes restent chargeables : leurs identifiants ne bougent pas)
+  { name: 'Victor Kane', age: 45, gender: 'M', job: 'Détective', bio: 'Poli, patient, toujours bien habillé. On dit qu\'il règle les problèmes des autres… contre un service.', secret: "Détective corrompu : il récupère les dettes d'un réseau criminel et ferme les yeux sur ses affaires.", home: 'flats2', wage: 0, money: 900, chrono: 0.3, traits: T(0.45, 0.15, 0.2, 0.9, 0.5),
+    look: LK({ skin: 0, hair: 'short', hair_color: 'darkbrown', top: 'blazer', top_color: 'navy', bottom: 'jeans', bottom_color: 'dark', shoes: 'black', acc: 'shades', build: 1, beard: 'stubble' }), sched: [[10, 12, 'route'], [12, 13.2, 'cafe'], [19, 22, 'park'], [22, 26, 'bar']] },
+  { name: 'Maya Torres', age: 28, gender: 'F', job: 'Chanteuse', bio: 'Voix rauque, regard franc : elle chante au Zinc Club et rêve de plus grand.', secret: 'Elle a quitté sa famille sans prévenir et ne répond plus à sa mère.', home: 'flats3', wage: 0, money: 80, chrono: 0.6, traits: T(0.85, 0.65, 0.4, 0.35, 0.8),
+    look: LK({ skin: 3, hair: 'long', hair_color: 'black', top: 'tank', top_color: 'burgundy', bottom: 'skirt', bottom_color: 'dark', shoes: 'black', acc: 'earrings', accs: ['earrings'] }), sched: [[13, 17, 'cafe'], [17, 19, 'park'], [19, 26, 'bar']] },
 ];
 const POLICE: { name: string; gender: 'F' | 'M'; age: number; look: Look; patrol: boolean }[] = [
   { name: 'Léa Lemaire', gender: 'F', age: 34, patrol: true, look: LK({ skin: 1, hair: 'ponytail', hair_color: 'auburn', top: 'uniform', top_color: 'navy', bottom: 'jeans', bottom_color: 'dark', shoes: 'black', acc: 'cap' }) },
@@ -101,6 +106,12 @@ function planRoute(w: World, c: SimChar): boolean {
   const here = c.cell(); const opts = spots.filter((p) => Math.hypot(p.x - here.x, p.y - here.y) > 10); const p = opts[w.rng.int(0, opts.length - 1)]; const cell = { x: Math.floor(p.x), y: Math.floor(p.y) };
   if (!w.isWalkable(cell)) return false; c.plan = [{ type: 'goto', cell }, { type: 'wait', act: 'look', dur: w.rng.range(3, 8) }]; w.startNextStep(c); return true;
 }
+/** Soirée au Zinc Club : tabouret au comptoir ou banquette, un verre, des rencontres. */
+function planBar(w: World, c: SimChar): boolean {
+  if (!w.barOpen() || (w.barman && w.barman.away)) return false;
+  const s = nearestSlot(w, c, 'drink', (f) => L.buildingAt(f.x, f.y)?.name === 'bar') ?? nearestSlot(w, c, 'sit', (f) => L.buildingAt(f.x, f.y)?.name === 'bar'); if (!s) return false;
+  const a = w.furn[s.f].slots[s.s].tags.includes('drink') ? 'drink' : 'rest'; c.plan = [{ type: 'goto', cell: s.stand }, { type: 'use', furn: s.f, slot: s.s, act: a, stand: s.stand, dur: w.rng.range(35, 90) }]; w.startNextStep(c); return true;
+}
 function planCafeWork(w: World, c: SimChar): boolean {
   const here = c.cell(); if (Math.hypot(here.x - CAFE_POST.x, here.y - CAFE_POST.y) > 0.9 || !inBuilding(c, 'cafe')) c.plan = [{ type: 'goto', cell: CAFE_POST }, { type: 'wait', act: 'bartend', dur: w.rng.range(40, 90) }];
   else c.plan = [{ type: 'wait', act: 'bartend', dur: w.rng.range(40, 90) }]; w.startNextStep(c); return true;
@@ -125,6 +136,7 @@ export function decide(w: World, c: SimChar) {
     case 'office': { const sp = sched(c); const until = w.clock - w.tod() + (e?.to ?? 17) * 60; c.jobPhase = 'working'; c.jobUntil = until; c.jobStart = w.clock; c.shift = { from: e?.from ?? 8.3, to: e?.to ?? 17, pay: sp.wage, place: sp.job }; c.plan = [{ type: 'goto', cell: { x: OFFICE_EXIT.x, y: OFFICE_EXIT.y } }, { type: 'depart' }]; w.startNextStep(c); w.emitLog(`${c.first} part au bureau.`, 'info', c.id); return; }
     case 'cafeWork': if (planCafeWork(w, c)) return; break;
     case 'cafe': if (planCafe(w, c)) return; break;
+    case 'bar': if (planBar(w, c)) return; break;
     case 'store': if (planStore(w, c)) return; if (planPark(w, c)) return; break;
     case 'park': if (planPark(w, c)) return; break;
     case 'route': if (w.rng.randf() < 0.18 && planStore(w, c)) return; if (w.rng.randf() < 0.2 && planCafe(w, c)) return; if (planRoute(w, c)) return; break;

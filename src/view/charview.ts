@@ -12,6 +12,7 @@ import { cellKey, toScreen, zOf } from './iso';
 export class CharView {
   assets: CharAssets; body: Phaser.GameObjects.Image; face: Phaser.GameObjects.Image; shadow: Phaser.GameObjects.Image; ring: Phaser.GameObjects.Image;
   bubble: Phaser.GameObjects.Image; icon: Phaser.GameObjects.Image; zzz: Phaser.GameObjects.Image;
+  sayTxt: Phaser.GameObjects.Text | null = null; sayShown = '';
   act: Phaser.GameObjects.Image; actName = ''; t = 0; pop = 1; lastEmote = 0; x = 0; y = 0; z = 0;
   constructor(public scene: Phaser.Scene, public sim: SimChar, public world: World) {
     const bed = world.furnById.get(sim.bed_id); const style = bed !== undefined ? world.furn[bed].opts.style ?? 0 : 0;
@@ -67,7 +68,15 @@ export class CharView {
       this.face.setVisible(front);
       if (front) this.face.setTexture(texKey(this.scene, this.assets.faces[this.expression()])).setFlipX(flip).setPosition(this.x - CW / 2 + 9, this.y - FEET_Y + 8 + bob - s.look.height).setDepth(z + 0.05);
     }
-    this.updateBubble(dt, z); this.updateActivity(selected);
+    this.updateBubble(dt, z); this.updateActivity(selected); this.updateSay(z);
+  }
+  /** Bulle de parole : ce que dit réellement un personnage (menaces de Victor, réponses de Tommy…), visible quelques secondes au-dessus de sa tête. */
+  private updateSay(z: number) {
+    const s = this.sim; const say = s.say; const on = !!say && this.world.clock < say.until && !s.away;
+    if (!on) { this.sayTxt?.setVisible(false); return; }
+    if (!this.sayTxt) this.sayTxt = this.scene.add.text(0, 0, '', { fontFamily: 'sans-serif', fontSize: '11px', fontStyle: 'bold', color: '#ffffff', backgroundColor: 'rgba(20,16,34,0.88)', padding: { x: 6, y: 4 }, wordWrap: { width: 150 }, align: 'center' }).setOrigin(0.5, 1).setDepth(9100);
+    if (this.sayShown !== say!.text) { this.sayShown = say!.text; this.sayTxt.setText(say!.text); }
+    this.sayTxt.setVisible(true).setPosition(this.x, this.y - FEET_Y - 8).setDepth(9100 + z * 0.0001);
   }
   /** Icône d'activité discrète au-dessus de la tête : ce que fait l'habitant, ou ce qu'il va faire s'il marche (frigo → fourchette, porte → mallette…). */
   private updateActivity(selected: boolean) {

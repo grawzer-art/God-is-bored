@@ -29,7 +29,7 @@ describe('construction', () => {
     const w = mk(7);
     expect(w.residents.length).toBe(8);
     expect(new Set(w.residents.map((c) => c.name)).size).toBe(8);
-    expect(new Set(w.chars.map((c) => JSON.stringify(c.look))).size).toBe(w.chars.length); expect(w.chars.length).toBe(19); // 8 habitants + avatar + barman + commerçant + 2 policiers + 6 citoyens
+    expect(new Set(w.chars.map((c) => JSON.stringify(c.look))).size).toBe(w.chars.length); expect(w.chars.length).toBe(21); // 8 habitants + avatar + barman + commerçant + 2 policiers + 6 citoyens
     w.residents.forEach((c) => { expect(c.age).toBeGreaterThanOrEqual(18); expect(c.use_act).toBe('sleep'); });
     expect(new Set(w.residents.map((c) => c.bed_id)).size).toBe(8);
   });

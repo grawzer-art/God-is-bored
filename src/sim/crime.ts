@@ -6,6 +6,7 @@ import { lineClear } from './movement';
 import * as Shop from './shop';
 import type { SimChar } from './simchar';
 import { addEvent, learn } from './life';
+import * as Debt from './debt';
 import { dist, type World } from './world';
 
 export interface Dispatch { id: number; t: number; pos: V2; kind: string; perp: number; sev: number; officer: number; closed: boolean }
@@ -41,6 +42,7 @@ export function onCrime(w: World, perp: SimChar, kind: 'theft' | 'shoplift' | 'a
     if (o.kind === 'police') { alertOfficer(w, o, perp); continue; }
     const rel = w.getRel(o.id, perp.id); let p = o.kind === 'clerk' ? 0.97 : 0.2 + 0.5 * moral(o) + (o.id === victim ? 0.35 : 0);
     if (rel.aff > 40) p *= 0.3; if (o.trait('neuroticism') > 0.7 && rel.fear > 30) p *= 0.5;
+    if (Debt.shields(w, perp)) continue;
     if (w.rng.randf() < Math.min(0.98, p)) w.reports.push({ due: w.clock + w.rng.range(3, 10), pos: { ...pos }, perp: perp.id, sev, kind, by: o.id });
   }
   w.emitLog(`${nm(perp)} ${kind === 'shoplift' ? 'quitte la boutique sans payer' : kind === 'robbery' ? 'braque l\'épicerie' : kind === 'assault' ? 'frappe quelqu\'un' : 'commet un vol'}${wits.length ? ` — vu par ${wits.map((o) => o.first).join(', ')}` : ' — personne ne semble avoir vu'}.`, 'drama', perp.id);

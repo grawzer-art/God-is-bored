@@ -14,6 +14,7 @@ import * as Crime from './crime';
 import * as Combat from './combat';
 import * as Romance from './romance';
 import * as Fight from './fight';
+import * as Debt from './debt';
 
 export const ITEMS: Record<string, { label: string; hunger?: number; fun?: number; gift: number; desc: string }> = {
   parcel: { label: 'Colis scellé', gift: 0, desc: 'Un colis à remettre en main propre. Ne l\'ouvrez pas.' },
@@ -67,7 +68,9 @@ export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: C
       { id: 'surrender', label: 'Se rendre', enabled: wanted, hint: wanted ? 'amende réduite' : 'vous n\'êtes pas recherché(e)' }, { id: 'chat', label: 'Bavarder', enabled: true }, { id: 'bye', label: 'Partir', enabled: true }] };
   }
   if (npc.isAsleep()) return { line: `${npc.first} dort profondément.`, choices: [{ id: 'wake', label: 'Réveiller', enabled: true, hint: 'mauvaise idée' }, { id: 'steal', label: 'Fouiller ses poches', enabled: npc.money >= 5, hint: 'risqué si on vous voit' }, { id: 'bye', label: 'Laisser dormir', enabled: true }] };
-  const line = npc.anger > 40 ? 'Pas maintenant. Je suis furieux' + feel(npc, 'se', '') + '.' : r.aff >= 40 ? `Ah, c'est ${av.first === 'Vous' ? 'vous' : av.first} ! ${feel(npc, 'Contente', 'Content')} de vous voir.` : r.fam < 15 ? `Oui ? Je ne crois pas vous connaître…` : r.aff <= -20 ? 'Qu\'est-ce que vous voulez ?' : 'Oui ?';
+  let line = npc.anger > 40 ? 'Pas maintenant. Je suis furieux' + feel(npc, 'se', '') + '.' : r.aff >= 40 ? `Ah, c'est ${av.first === 'Vous' ? 'vous' : av.first} ! ${feel(npc, 'Contente', 'Content')} de vous voir.` : r.fam < 15 ? `Oui ? Je ne crois pas vous connaître…` : r.aff <= -20 ? 'Qu\'est-ce que vous voulez ?' : 'Oui ?';
+  if (Debt.isTommy(npc) && Debt.active(w) && !w.debt.told && av.name !== npc.name) line = `« Putain, je dois ${w.debt.amount} balles à un mec. »`;
+  if (Debt.isVictor(npc) && Debt.active(w) && w.debt.stage === 'threat') line = `« Ça ne vous regarde pas. Cinq mille, pour ce soir. »`;
   const dark = w.mess.length >= 6 || npc.anger > 25 || npc.mood < -25 || (w.hour() > 23 || w.hour() < 4);
   ch.push({ id: 'how', label: 'Comment ça va ?', enabled: true }, { id: 'chat', label: 'Bavarder', enabled: true },
     { id: 'joke', label: 'Plaisanter', enabled: true }, { id: 'dark', label: 'Humour noir', enabled: dark, hint: dark ? 'contexte propice' : 'pas le bon moment' },
@@ -76,7 +79,7 @@ export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: C
     { id: 'secret', label: 'Poser une question personnelle', enabled: true, hint: r.aff >= 45 && r.fam >= 40 ? '' : 'trop tôt ?' });
   if (inBar(w, npc) && w.barman && !w.barman.away) ch.push({ id: 'drink', label: 'Offrir un verre (4 €)', enabled: av.money >= 4 });
   if (w.job && w.job.to === npc.id && av.inventory.parcel > 0) ch.unshift({ id: 'deliver', label: 'Remettre le colis', enabled: true, hint: `+${w.job.pay} €` });
-  ch.push({ id: 'steal', label: 'Faire les poches', enabled: npc.money >= 5, hint: 'très risqué' }, ...romanceChoices(w, av, npc), { id: 'punch', label: 'Frapper', enabled: true, hint: 'violence : témoins, police, riposte' }, { id: 'bye', label: 'Partir', enabled: true });
+  ch.push({ id: 'steal', label: 'Faire les poches', enabled: npc.money >= 5, hint: 'très risqué' }, ...romanceChoices(w, av, npc), ...debtChoices(w, av, npc), { id: 'punch', label: 'Frapper', enabled: true, hint: 'violence : témoins, police, riposte' }, { id: 'bye', label: 'Partir', enabled: true });
   return { line, choices: ch };
 }
 
@@ -100,6 +103,18 @@ const pickLine = (w: World, pool: string[][], who: 0 | 1) => w.rng.pick(pool)[wh
 export function pickDeliveryTarget(w: World): SimChar | null { const cs = w.citizens.filter((c) => !c.away); return cs.find((c) => c.job.toLowerCase().includes('café')) ?? cs[0] ?? null; }
 /** Une conversation s'ouvre avec `npc` : événements de quête (parler à un habitant). */
 export function noteTalk(w: World, npc: SimChar) { if (npc.kind === 'resident' || npc.kind === 'citizen') { Quests.emit(w, 'talk', 'person'); w.progress.flags.lastTalk = npc.id; } Quests.emit(w, 'talk', npc.id); Quests.emit(w, 'talk', npc.first); }
+/** Choix de la dette de Tommy (scénario émergent) : proposés selon l'état réel du monde et la personne que l'on incarne. */
+function debtChoices(w: World, av: SimChar, npc: SimChar): Choice[] {
+  if (!Debt.active(w)) return []; const d = w.debt; const out: Choice[] = [];
+  if (Debt.isTommy(npc) && !Debt.isTommy(av)) {
+    out.push({ id: 'd_ignore', label: "« C'est ton problème. »", enabled: true }, { id: 'd_help', label: '« Je peux t\'aider. »', enabled: true }, { id: 'd_who', label: '« C\'est qui, ce mec ? »', enabled: true }, { id: 'd_police', label: '« Va voir les flics. »', enabled: !d.reported });
+    if (d.helped) out.push({ id: 'd_pay_all', label: `Payer toute la dette (${d.amount} €)`, enabled: av.money >= d.amount, hint: av.money >= d.amount ? '' : `il manque ${Math.round(d.amount - av.money)} €` }, { id: 'd_pay_part', label: 'Lui donner 1 000 €', enabled: av.money >= 1000 });
+  } else if (Debt.isVictor(npc)) {
+    if (Debt.isTommy(av)) out.push({ id: 'v_pay_me', label: `Payer (${d.amount} €)`, enabled: av.money >= d.amount }, { id: 'v_pay_part', label: 'Verser 1 000 €', enabled: av.money >= 1000 }, { id: 'v_delay', label: 'Demander un délai', enabled: true });
+    else out.push({ id: 'v_ask', label: "« Qu'est-ce que vous voulez à Tommy ? »", enabled: true }, { id: 'v_pay', label: `Payer la dette de Tommy (${d.amount} €)`, enabled: av.money >= d.amount }, { id: 'v_pay_part', label: 'Verser 1 000 €', enabled: av.money >= 1000 }, { id: 'v_delay', label: 'Négocier un délai', enabled: true }, { id: 'v_threat', label: 'Le menacer', enabled: true });
+  }
+  return out;
+}
 /** Choix de romance proposés seulement entre adultes compatibles (le reste n'apparaît pas). */
 function romanceChoices(w: World, av: SimChar, npc: SimChar): Choice[] {
   if (npc.kind !== 'resident' && npc.kind !== 'citizen') return []; if (!Romance.adult(av) || !Romance.adult(npc) || !Romance.compatible(av, npc)) return [];
@@ -132,6 +147,17 @@ export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
     case 'couple': { const r = Romance.ask(w, av, npc); return { line: r.line }; }
     case 'evening': { const r = Romance.evening(w, av, npc); return { line: r.line, close: r.ok }; }
     case 'breakup': { const r = Romance.breakUp(w, av, npc); return { line: r.line, close: r.ok }; }
+    case 'd_ignore': { Debt.learnVictor(w, av); w.debt.told = true; Quests.emit(w, 'debt_told'); bump(w, npc, -6, 1); Debt.rep(w, 'social', -1); return { line: `${npc.first} serre la mâchoire : « Génial. Merci pour le soutien. »` }; }
+    case 'd_help': { w.debt.told = true; w.debt.helped = true; Quests.emit(w, 'debt_told'); bump(w, npc, 5, 3); return { line: `${npc.first} : « Sérieux ? C'est ${w.debt.amount} € pour un certain Victor Kane. Il me tombera dessus ce soir ou demain. Il traîne sur la plage le soir, ou au Zinc. »` }; }
+    case 'd_who': { Debt.learnVictor(w, av); w.debt.told = true; npc.addMemory(w.clock, 'confidence', "J'ai parlé de Victor Kane à quelqu'un.", -0.1, 0.5, av.id); return { line: `${npc.first} baisse la voix : « Victor Kane. Détective. Il se balade avec son badge et fait le sale boulot d'un réseau. Si tu le croises, fais gaffe. »` }; }
+    case 'd_police': { const r = rel(w, npc.id, av.id); if (r.trust + r.aff >= 35) { Debt.report(w, npc); return { line: `${npc.first} hésite, puis souffle : « Les flics… OK. J'y vais. Si je ne reviens pas, c'est que ça a mal tourné. »`, close: true }; } r.fear = clamp(r.fear + 3); return { line: `${npc.first} ricane nerveusement : « T'es fou ? Il EST flic. Personne ne me croira. »` }; }
+    case 'd_pay_all': { const r = Debt.pay(w, av); if (r.ok) bump(w, npc, 10, 4); return { line: r.ok ? `${npc.first} est bouche bée : « Tu viens de… Merci. Je te le revaudrai. »` : r.line, close: r.ok }; }
+    case 'd_pay_part': { av.money -= 1000; npc.money += 1000; bump(w, npc, 8, 3); if (npc.money >= w.debt.amount) Debt.pay(w, npc); return { line: `${npc.first} prend les billets : « Je… merci. Ça aide. Ça ne suffit pas, mais ça aide. »` }; }
+    case 'v_ask': { w.debt.metVictor = true; Quests.emit(w, 'debt_told'); w.debt.told = true; bump(w, npc, -1, 3); return { line: `${npc.first} ajuste sa veste : « Une affaire entre Tommy et moi. Cinq mille. Je suis très patient… jusqu'à un certain point. »` }; }
+    case 'v_pay': case 'v_pay_me': { const r = Debt.pay(w, av); return { line: r.line, close: r.ok && w.debt.stage === 'resolved' }; }
+    case 'v_pay_part': { const r = Debt.pay(w, av, 1000); return { line: r.line }; }
+    case 'v_delay': { const r = Debt.negotiate(w, av); return { line: r.line, close: r.ok }; }
+    case 'v_threat': { const r = rel(w, npc.id, av.id); if (w.rng.randf() < 0.15 + Math.max(0, w.rep.criminal) / 200) { w.debt.due += 1440; r.fear = clamp(r.fear + 20); Debt.rep(w, 'criminal', 2); w.fighters.has(npc.id) && Fight.end(w, npc); return { line: `${npc.first} te fixe un long moment : « Un jour de plus. Pas parce que j'ai peur. »`, close: true }; } Fight.start(w, npc, av, `${npc.first} ne se laisse pas menacer.`); return { line: `${npc.first} sourit : « Mauvaise idée. »`, close: true }; }
     case 'punch': { if (dist(av.pos, npc.pos) > 3.2) return { line: 'Trop loin pour chercher la bagarre.' }; if (Fight.initiate(w, av, npc)) return { line: `Vous cherchez la bagarre avec ${npc.first}. A : coup · A maintenu : coup puissant · B : garde`, close: true }; return { line: `${npc.first} n'est pas du genre à se battre ici.` }; }
     case 'wake': {
       bump(w, npc, -6, 1, 15); npc.anger = clamp(npc.anger + 25, 0, 100); remember(npc, w, 'wake', 'Quelqu\'un m\'a réveillé en pleine nuit.', -0.6, 0.6); w.showEmote(npc, 'anger', 3);
