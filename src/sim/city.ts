@@ -138,7 +138,8 @@ function planCafeWork(w: World, c: SimChar): boolean {
 
 /** Décision d'un citoyen : besoin urgent > conversation spontanée > emploi du temps. Appelée quand il est libre. */
 export function decide(w: World, c: SimChar) {
-  c.decision_cooldown = 0; const h = w.hour();
+  c.decision_cooldown = 0; if (c.holdUntil > w.clock) { c.plan = [{ type: 'wait', act: 'look', dur: 15 }]; w.startNextStep(c); return; }   // retenu par une mission ou une dispute
+  const h = w.hour();
   if (Shop.hasUnpaid(c) === false && Object.values(c.inventory).some((n) => n > 0) && !inBuilding(c, 'store')) Shop.consume(c);   // il mange ce qu'il a acheté (ou volé)
   const e = entryAt(c, h); const where: Where = e?.where ?? 'home';
   // besoins urgents

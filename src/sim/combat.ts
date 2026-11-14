@@ -60,6 +60,7 @@ export function knockOut(w: World, c: SimChar, by?: SimChar) {
 }
 /** L'avatar est mis KO : il se réveille dans l'entrée de son immeuble, plus pauvre (on l'a dépouillé), à moitié en forme. */
 function faint(w: World, av: SimChar) {
+  Quests.emit(w, 'r4_ko');
   const lost = Math.min(av.money, Math.round(av.money * 0.15)); av.money -= lost; av.hp = 40; w.input = { dx: 0, dy: 0, run: false } as any; w.abortPlan(av, 'ko');
   const cell = w.nearestFreeCell({ x: 62, y: 33 }, 3); if (cell.x >= 0) av.pos = { x: cell.x + 0.5, y: cell.y + 0.5 };
   w.fights = []; w.emitLog(`Vous reprenez connaissance devant chez vous. ${lost > 0 ? `Il manque ${lost} € dans vos poches.` : ''}`.trim(), 'info', av.id); w.record_.knockouts = (w.record_.knockouts ?? 0) + 1;

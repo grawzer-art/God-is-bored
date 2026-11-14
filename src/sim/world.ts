@@ -20,6 +20,8 @@ import * as Fight from './fight';
 import * as Weather from './weather';
 import * as Romance from './romance';
 import * as Debt from './debt';
+import * as Campaign from './campaign';
+import * as Director from './director';
 import { lineClear, screenDirToGrid, smoothPath, stepBody } from './movement';
 
 export interface Furn { i: number; def: string; x: number; y: number; w: number; d: number; opts: L.FurnPlacement['opts']; id: string; users: number[]; on: boolean; water: number; slots: SlotDef[]; blocks: boolean; flat: boolean; gone?: boolean; ox?: number; oy?: number }
@@ -58,8 +60,8 @@ export class World {
   possess: Possess.PossessState | null = null; incarnations: Possess.Incarnation[] = [];
   profile: import('./profile').Profile | null = null; profileVersion = 0; property: { id: string; name: string; building: string; rent: number; since: number } | null = null;
   quests: Record<string, Quests.QState> = {}; progress: Quests.Progress = Quests.newProgress(); narrations: Quests.Narration[] = []; questLog: { t: number; text: string }[] = []; questToasts: string[] = []; questDone: string[] = [];
-  job: { to: number; pay: number; t0: number; illegal?: boolean } | null = null;
-  traffic?: Traffic; till = 160; freePowers = true; laws: God.Laws = { police: true }; divine: God.DivineEntry[] = []; holdup: Crime.Holdup | null = null; fights: Combat.Fight[] = []; fighters = new Map<number, Fight.Fighter>(); fightFx: Fight.FightFx[] = []; audio: string[] = []; weather: Weather.Weather = Weather.blank(1); romances: Record<string, Romance.Romance> = {}; debt!: Debt.Debt; rep = Debt.repBlank();
+  job: { to: number; pay: number; t0: number; illegal?: boolean; campaign?: string } | null = null;
+  traffic?: Traffic; till = 160; freePowers = true; laws: God.Laws = { police: true }; divine: God.DivineEntry[] = []; holdup: Crime.Holdup | null = null; fights: Combat.Fight[] = []; fighters = new Map<number, Fight.Fighter>(); fightFx: Fight.FightFx[] = []; audio: string[] = []; weather: Weather.Weather = Weather.blank(1); romances: Record<string, Romance.Romance> = {}; debt!: Debt.Debt; camp: Campaign.Camp = Campaign.blank(); dir: Director.Dir = Director.blank(); hud_busy = false; rep = Debt.repBlank();
   build() {
     this.buildFurniture(); this.buildGrid(); this.buildChars(); this.buildExtras(); Life.init(this); this.traffic = new Traffic(this);
     for (const m of L.INITIAL_MESS) this.addMess(m[0], { x: m[1], y: m[2] }, 0);
@@ -224,13 +226,13 @@ export class World {
     if (this.day() !== this.lastDay) { this.lastDay = this.day(); this.emitLog(`Jour ${this.day()}.`, 'info'); Romance.daily(this); this.chars.forEach((c) => (c.stats.days = this.day())); }
     this.updateWorld(dmin);
     for (const c of this.chars) this.updateChar(c, dt, dmin);
-    Life.tick(this, dmin); Crime.tick(this, dt, dmin); Combat.tick(this, dt, dmin); Fight.tick(this, dt); Debt.tick(this, dt); Weather.tick(this, dmin); this.traffic?.tick(dt); Quests.tick(this);
+    Life.tick(this, dmin); Crime.tick(this, dt, dmin); Combat.tick(this, dt, dmin); Fight.tick(this, dt); Debt.tick(this, dt); Campaign.tick(this, dt); Director.tick(this, dt); Weather.tick(this, dmin); this.traffic?.tick(dt); Quests.tick(this);
     Social.updateSessions(this, dmin);
     Social.ambient(this, dmin);
   }
   private updateWorld(dmin: number) {
     for (const f of this.furn) {
-      if (f.def === 'jukebox') f.on = this.musicUntil > this.clock;
+      if (f.def === 'jukebox') f.on = this.musicUntil > this.clock || (this.barOpen() && (this.hour() >= 21 || this.hour() < 3) && !!this.barman && !this.barman.away);   // ambiance de club : la musique démarre la nuit
       if (f.def === 'tv') f.on = this.chars.some((c) => c.state === 'use' && c.use_act === 'tv');
       else if (f.def === 'plant') f.water = Math.max(0, f.water - 0.012 * dmin);
     }

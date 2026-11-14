@@ -16,6 +16,8 @@ import * as Romance from './romance';
 import * as Fight from './fight';
 import * as Debt from './debt';
 import * as Garage from './garage';
+import * as Camp from './campaign';
+import * as Director from './director';
 
 export const ITEMS: Record<string, { label: string; hunger?: number; fun?: number; gift: number; desc: string }> = {
   parcel: { label: 'Colis scellé', gift: 0, desc: 'Un colis à remettre en main propre. Ne l\'ouvrez pas.' },
@@ -65,6 +67,7 @@ export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: C
       ...(Quests.done(w, 'c1m2') || Quests.unlocked(w, 'job_board') ? [{ id: 'job', label: w.job ? 'Livraison en cours…' : `Travail : livrer un colis (${Math.round(25 * Profile.payMult(w))} €)`, enabled: open && !w.job && !(av.inventory.parcel > 0), hint: w.job ? 'allez au café' : 'petit boulot payé' }] : []),
       { id: 'chat', label: 'Bavarder', enabled: open }, { id: 'bye', label: 'Au revoir', enabled: true }] };
   }
+  if (npc.kind === 'police' && Director.checkOpen(w, npc)) return { line: `${npc.first} vous interpelle : « Contrôle de police. Vos papiers, et videz vos poches. »`, choices: [{ id: 'c_obey', label: 'Obtempérer', enabled: true }, { id: 'c_flee', label: 'Fuir', enabled: true, hint: 'poursuite' }] };
   if (npc.kind === 'police') {
     const wanted = w.wanted.level > 0;
     return { line: wanted ? `${npc.first} vous fixe : « Vous êtes recherché(e). Ne bougez plus. »` : `${npc.first} vous salue d'un signe de tête : « Tout va bien ? »`, choices: [
@@ -74,6 +77,10 @@ export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: C
   let line = npc.anger > 40 ? 'Pas maintenant. Je suis furieux' + feel(npc, 'se', '') + '.' : r.aff >= 40 ? `Ah, c'est ${av.first === 'Vous' ? 'vous' : av.first} ! ${feel(npc, 'Contente', 'Content')} de vous voir.` : r.fam < 15 ? `Oui ? Je ne crois pas vous connaître…` : r.aff <= -20 ? 'Qu\'est-ce que vous voulez ?' : 'Oui ?';
   if (Debt.isTommy(npc) && Debt.active(w) && !w.debt.told && av.name !== npc.name) line = `« Putain, je dois ${w.debt.amount} balles à un mec. »`;
   if (Debt.isVictor(npc) && Debt.active(w) && w.debt.stage === 'threat') line = `« Ça ne vous regarde pas. Cinq mille, pour ce soir. »`;
+  if (Debt.isTommy(npc) && Camp.step(w, 'r2') === 1) line = "« Écoute… j'ai un service à te demander. Un truc discret. »";
+  if (Camp.ambushOpen(w, npc)) line = '« Tu portes quoi, là ? Un colis ? Pour Tommy, peut-être ? »';
+  if (npc.name === 'Roxanne Bell' && Camp.step(w, 'r4') === 3) line = "« Ah, la nouvelle tête. Tu tombes bien : j'ai un petit problème dans ma salle. »";
+  if (npc.name === 'Elena Reyes' && w.camp.case?.open) line = '« Asseyez-vous. Une bagarre au Zinc Club… vous y étiez ? »';
   const dark = w.mess.length >= 6 || npc.anger > 25 || npc.mood < -25 || (w.hour() > 23 || w.hour() < 4);
   ch.push({ id: 'how', label: 'Comment ça va ?', enabled: true }, { id: 'chat', label: 'Bavarder', enabled: true },
     { id: 'joke', label: 'Plaisanter', enabled: true }, { id: 'dark', label: 'Humour noir', enabled: dark, hint: dark ? 'contexte propice' : 'pas le bon moment' },
@@ -82,7 +89,7 @@ export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: C
     { id: 'secret', label: 'Poser une question personnelle', enabled: true, hint: r.aff >= 45 && r.fam >= 40 ? '' : 'trop tôt ?' });
   if (inBar(w, npc) && w.barman && !w.barman.away) ch.push({ id: 'drink', label: 'Offrir un verre (4 €)', enabled: av.money >= 4 });
   if (w.job && w.job.to === npc.id && av.inventory.parcel > 0) ch.unshift({ id: 'deliver', label: 'Remettre le colis', enabled: true, hint: `+${w.job.pay} €` });
-  ch.push({ id: 'steal', label: 'Faire les poches', enabled: npc.money >= 5, hint: 'très risqué' }, ...romanceChoices(w, av, npc), ...debtChoices(w, av, npc), ...garageChoices(w, av, npc), { id: 'punch', label: 'Frapper', enabled: true, hint: 'violence : témoins, police, riposte' }, { id: 'bye', label: 'Partir', enabled: true });
+  ch.push({ id: 'steal', label: 'Faire les poches', enabled: npc.money >= 5, hint: 'très risqué' }, ...romanceChoices(w, av, npc), ...debtChoices(w, av, npc), ...campChoices(w, av, npc), ...garageChoices(w, av, npc), { id: 'punch', label: 'Frapper', enabled: true, hint: 'violence : témoins, police, riposte' }, { id: 'bye', label: 'Partir', enabled: true });
   return { line, choices: ch };
 }
 
@@ -106,6 +113,20 @@ const pickLine = (w: World, pool: string[][], who: 0 | 1) => w.rng.pick(pool)[wh
 export function pickDeliveryTarget(w: World): SimChar | null { const cs = w.citizens.filter((c) => !c.away); return cs.find((c) => c.job.toLowerCase().includes('café')) ?? cs[0] ?? null; }
 /** Une conversation s'ouvre avec `npc` : événements de quête (parler à un habitant). */
 export function noteTalk(w: World, npc: SimChar) { if (npc.kind === 'resident' || npc.kind === 'citizen') { Quests.emit(w, 'talk', 'person'); w.progress.flags.lastTalk = npc.id; } Quests.emit(w, 'talk', npc.id); Quests.emit(w, 'talk', npc.first); }
+/** Choix de la campagne « Les Rois du vide » : proposés selon l'état réel des missions et du monde. */
+function campChoices(w: World, av: SimChar, npc: SimChar): Choice[] {
+  const out: Choice[] = [];
+  if (Camp.ambushOpen(w, npc)) return [{ id: 'a_lie', label: '« Rien d\'intéressant. »', enabled: true }, { id: 'a_truth', label: '« Un colis pour Maya. »', enabled: true, hint: 'il prend la moitié' }, { id: 'a_give', label: 'Lui donner le colis', enabled: true, hint: 'Tommy ne le saura pas… de lui' }, { id: 'a_fight', label: '« Dégage. »', enabled: true, hint: 'bagarre' }];
+  if (Debt.isTommy(npc) && Camp.step(w, 'r2') === 1) out.push({ id: 'r2_accept', label: '« D\'accord, je le fais. »', enabled: !w.job, hint: w.job ? 'vous avez déjà une course' : 'colis pour Maya, au Zinc' }, { id: 'r2_refuse', label: '« Pas mon problème. »', enabled: true });
+  if (npc.name === 'Roxanne Bell' && Camp.step(w, 'r4') === 3) out.push({ id: 'r4_accept', label: '« Je m\'en occupe. »', enabled: true, hint: 'une dispute couve' });
+  if (Camp.inDispute(w, npc)) out.push({ id: 'dp_calm', label: 'Calmer le jeu', enabled: true, hint: 'parole' }, { id: 'dp_moe', label: 'Appeler Moe (videur)', enabled: true });
+  if (w.camp.case?.open) {
+    if (npc.name === 'Elena Reyes') out.push({ id: 'e_lie', label: '« Je n\'étais pas là. »', enabled: true }, { id: 'e_deny', label: '« J\'y étais, je n\'ai rien vu. »', enabled: true }, { id: 'e_truth', label: '« J\'ai tout vu : c\'est moi. »', enabled: true, hint: 'amende, dossier classé' }, { id: 'e_silent', label: 'Ne rien dire', enabled: true });
+    if (Debt.isVictor(npc)) out.push({ id: 'e_bribe', label: 'Payer pour égarer le dossier (500 €)', enabled: av.money >= 500, hint: 'il vous devra… et vous lui devrez' });
+    if (Camp.witnesses(w).some((x) => x.id === npc.id)) out.push({ id: 'w_silence', label: 'Le convaincre de se taire', enabled: true, hint: 'risqué' }, { id: 'w_silence_pay', label: 'Payer 100 € pour son silence', enabled: av.money >= 100 });
+  }
+  return out;
+}
 /** Léo, le garagiste : travail, outil, nouvelles de Tommy. */
 function garageChoices(w: World, av: SimChar, npc: SimChar): Choice[] {
   if (!Garage.isLeo(npc)) return []; const r = rel(w, npc.id, av.id);
@@ -148,7 +169,7 @@ export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
     case 'deliver': {
       if (!w.job || w.job.to !== npc.id || (av.inventory.parcel ?? 0) <= 0) return { line: 'Ce colis n\'est pas pour moi.' }; const pay = w.job.pay; const tip = npc.trait('agreeableness') > 0.6 ? 3 : 0;
       const illegal = !!w.job.illegal; if (!illegal) Debt.rep(w, 'pro', 2); av.inventory.parcel = 0; w.job = null; av.money += pay + tip; if (illegal) { Debt.rep(w, 'criminal', 4); const cops = Crime.viewers(w, av.pos, [av.id], 9).filter((o) => o.kind === 'police'); if (cops.length) { Crime.onCrime(w, av, 'theft', -1, { ...av.pos }, 1); for (const c of cops) c.addMemory(w.clock, 'suspicion', 'Un colis louche a changé de mains au Zinc.', -0.5, 0.7, av.id, { src: 'lived', conf: 0.7, subj: av.id }); Debt.rep(w, 'police', -3); } else w.emitLog('Le colis change de mains sans histoire.', 'info', av.id); } w.stats.jobs_done = (w.stats.jobs_done ?? 0) + 1; bump(w, npc, 4, 4); remember(npc, w, 'help', `${av.first === 'Vous' ? 'Quelqu\'un' : av.first} m'a livré un colis.`, 0.3, 0.5);
-      Quests.emit(w, 'job_deliver'); Quests.emit(w, 'job_paid'); w.emitLog(`Livraison effectuée : +${pay + tip} €.`, 'info', av.id); return { line: `${npc.first} : « Merci, c'est bien celui que j'attendais. » Vous touchez ${pay}${tip ? ' + ' + tip + ' € de pourboire' : ' €'}.`, close: true };
+      Quests.emit(w, 'job_deliver'); Quests.emit(w, 'job_paid'); Quests.emit(w, 'delivered', npc.first); w.emitLog(`Livraison effectuée : +${pay + tip} €.`, 'info', av.id); return { line: `${npc.first} : « Merci, c'est bien celui que j'attendais. » Vous touchez ${pay}${tip ? ' + ' + tip + ' € de pourboire' : ' €'}.`, close: true };
     }
     case 'pay': { const n = Shop.pay(w, av); return { line: n > 0 ? `Vous payez ${n} €. « Merci, bonne journée. »` : "Vous n'avez rien à payer." }; }
     case 'surrender': { const off = npc.kind === 'police' ? npc : w.police[0]; Crime.arrest(w, off, av, true); return { line: 'Vous levez les mains. On vous emmène.', close: true }; }
@@ -159,6 +180,16 @@ export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
     case 'couple': { const r = Romance.ask(w, av, npc); return { line: r.line }; }
     case 'evening': { const r = Romance.evening(w, av, npc); return { line: r.line, close: r.ok }; }
     case 'breakup': { const r = Romance.breakUp(w, av, npc); return { line: r.line, close: r.ok }; }
+    case 'r2_accept': { const m = Camp.maya(w); if (!m) return { line: 'Tommy secoue la tête : « Laisse tomber. »' }; av.inventory.parcel = 1; w.job = { to: m.id, pay: 150, t0: w.clock, campaign: 'r2' }; w.camp.ambush = { stage: 0, at: w.clock + 20, outcome: '' }; Quests.emit(w, 'r2_take'); bump(w, npc, 4, 3); return { line: `${npc.first} te glisse un paquet scellé : « Au Zinc, à Maya. Elle sait. Si on te demande ce que c'est : un cadeau. Merci, vraiment. »`, close: true }; }
+    case 'r2_refuse': { bump(w, npc, -5, 1); Quests.fail(w, 'r2', 'refusé'); return { line: `${npc.first} serre les dents : « OK. Je me débrouillerai. »`, close: true }; }
+    case 'a_lie': case 'a_truth': case 'a_give': case 'a_fight': { const r = Camp.ambushChoice(w, id.slice(2) as any); return { line: r.line, close: r.close }; }
+    case 'r4_accept': { const a = Debt.victor(w); const b = Camp.maya(w) && w.chars.find((c) => c.name === 'Marcus Rivera'); const cand = [a, b].filter((x): x is SimChar => !!x); const pair = cand.length >= 2 ? cand : [...cand, ...w.chars.filter((c) => (c.kind === 'resident' || c.kind === 'citizen') && !cand.includes(c) && c.age >= 18 && !c.away).slice(0, 2 - cand.length)]; if (pair.length < 2) return { line: `${npc.first} hausse les épaules : « Finalement, ça s'est arrangé. »`, close: true }; Camp.startDispute(w, pair[0], pair[1], { x: 36.5, y: 13.5 }, `${pair[0].first} et ${pair[1].first} s'accrochent au Zinc Club.`); Quests.emit(w, 'r4_accept'); return { line: `${npc.first} : « ${pair[0].first} et ${pair[1].first}, près de la piste. Calme ça avant que Moe ne s'en charge. Il est moins diplomate que toi. »`, close: true }; }
+    case 'dp_calm': { const r = Camp.calm(w, npc); return { line: r.line, close: r.ok }; }
+    case 'dp_moe': { const r = Camp.callBouncer(w); return { line: r.line, close: r.ok }; }
+    case 'e_lie': case 'e_deny': case 'e_truth': case 'e_silent': { const r = Camp.interrogate(w, id.slice(2) as any); return { line: r.line, close: r.close }; }
+    case 'e_bribe': { const r = Camp.bribeVictor(w); return { line: r.line, close: r.ok }; }
+    case 'w_silence': case 'w_silence_pay': { const r = Camp.silence(w, npc, id === 'w_silence_pay'); return { line: r.line, close: r.ok }; }
+    case 'c_obey': case 'c_flee': { const r = Director.checkAnswer(w, npc, id === 'c_obey'); return { line: r.line, close: r.close }; }
     case 'g_job': { const c = Garage.closedReason(w); return { line: c ? `${npc.first} : « On est ${c}. Reviens quand on est ouverts. »` : `${npc.first} : « L'établi du fond est libre, et la voiture sur le cric attend. Chaque réparation : une trentaine d'euros. Plus vite tu es bon, plus je te confie. »` }; }
     case 'g_tool': { const r = Garage.buyTool(w, av); if (r.ok) bump(w, npc, 2, 2); return { line: r.line }; }
     case 'g_tommy': { bump(w, npc, 1, 3); return { line: `${npc.first} sourit : « Tommy ? Un bon gars, mais il court après les problèmes. Il rêve d'ouvrir son propre garage. Je lui garde un établi… tant qu'il ne m'attire pas d'ennuis. »` }; }
@@ -233,7 +264,7 @@ export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
       const it = ITEMS[arg]; if (!it || (av.inventory[arg] ?? 0) <= 0) return { line: 'Vous n\'avez plus cet objet.' }; if (arg === 'parcel') return { line: 'Ce colis n\'est pas à offrir : il doit être livré.' };
       av.inventory[arg]--; const want = (arg === 'sandwich' && npc.needs.hunger < 50) || (arg === 'bonbons' && npc.likes.includes('snack')) ? 2 : 1;
       bump(w, npc, it.gift * want, 2); npc.joy += 5 * want; if (it.hunger) npc.needs.hunger = Math.min(100, npc.needs.hunger + it.hunger); w.showEmote(npc, 'heart', 3); remember(npc, w, 'gift', `L'étranger m'a offert : ${it.label.toLowerCase()}.`, 0.4, 0.4);
-      Quests.emit(w, 'gift', npc.id); return { line: `Vous offrez : ${it.label}. ${npc.first} sourit : « C'est gentil. »` };
+      Quests.emit(w, 'gift', npc.id); Quests.emit(w, 'gift_to', npc.first); return { line: `Vous offrez : ${it.label}. ${npc.first} sourit : « C'est gentil. »` };
     }
     case 'drink': {
       const d = DRINKS.biere; if (av.money < d.price) return { line: "Vous n'avez pas assez d'argent." };

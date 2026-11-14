@@ -38,7 +38,8 @@ export class JournalUi {
   private card(w: any, id: string, s: Q.QState, d: Q.QuestDef, finished: boolean) {
     const objs = d.objectives.map((o, i) => { const ok = s.p[i] >= (o.n ?? 1); return `<div class="o ${ok ? 'ok' : ''}"><i>${ok ? '✔' : '○'}</i><span>${esc(o.text)}${(o.n ?? 1) > 1 ? ` (${Math.min(s.p[i], o.n!)}/${o.n})` : ''}${!ok && o.where ? `<br><span class="wh">${esc(o.where)}</span>` : ''}</span></div>`; }).join('');
     const r = d.reward; const rw = [r.money ? `+${r.money} €` : '', r.rep ? `réputation ${r.rep > 0 ? '+' : ''}${r.rep}` : '', r.text ?? ''].filter(Boolean).join(' · ');
-    return `<div class="q"><h4>${esc(d.title)}</h4><div class="dim small">${esc(d.desc)}</div>${d.mode === 'any' ? '<div class="small" style="color:var(--gp-gold)">Une seule voie suffit :</div>' : ''}${objs}${rw ? `<div class="rw">Récompense : ${esc(rw)}</div>` : ''}${finished ? '' : `<button class="gp-btn" style="margin-top:6px;min-height:32px;padding:4px 10px;font-size:12px" data-tr="${id}">${s.tracked ? 'Masquer le suivi' : 'Suivre'}</button>`}</div>`;
+    const lim = !finished && d.limit && s.t0 ? ` <span class="wh">· il reste ${Math.max(0, Math.round((s.t0 + d.limit - w.clock) / 60))} h</span>` : ''; const bad = finished && s.failed ? ' <span style="color:#ff8a8a">— échouée</span>' : '';
+    return `<div class="q"><h4>${esc(d.title)}${bad}${lim}</h4><div class="dim small">${esc(d.desc)}</div>${d.mode === 'any' ? '<div class="small" style="color:var(--gp-gold)">Une seule voie suffit :</div>' : ''}${objs}${rw ? `<div class="rw">Récompense : ${esc(rw)}</div>` : ''}${finished ? '' : `<button class="gp-btn" style="margin-top:6px;min-height:32px;padding:4px 10px;font-size:12px" data-tr="${id}">${s.tracked ? 'Masquer le suivi' : 'Suivre'}</button>`}</div>`;
   }
   private render() {
     const w = this.g.world; const P = w.progress; let body = '';

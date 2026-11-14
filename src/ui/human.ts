@@ -27,7 +27,7 @@ export const HUMAN_CSS = `
 #flash{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:20;background:radial-gradient(circle,rgba(255,236,170,.95),rgba(255,214,110,.55) 45%,rgba(255,214,110,0) 75%);transition:opacity .45s ease-out}
 .drunk{filter:none}
 `;
-const CATS: Record<string, { label: string; ids: string[] }> = { talk: { label: 'Discuter', ids: ['how', 'chat', 'joke', 'dark', 'secret', 'sheet'] }, love: { label: 'Séduire', ids: ['dance', 'flirt', 'date', 'couple', 'evening', 'breakup'] }, trade: { label: 'Échanger', ids: ['gift', 'give', 'ask_money', 'steal', 'wake'] }, fight: { label: 'Provoquer', ids: ['punch'] }, work: { label: 'Travail', ids: ['g_job', 'g_tool', 'g_tommy'] }, debt: { label: 'La dette', ids: ['d_ignore', 'd_help', 'd_who', 'd_police', 'd_pay_all', 'd_pay_part', 'v_ask', 'v_pay', 'v_pay_me', 'v_pay_part', 'v_delay', 'v_threat', 'v_job', 'v_job_yes', 'v_job_no'] } };
+const CATS: Record<string, { label: string; ids: string[] }> = { talk: { label: 'Discuter', ids: ['how', 'chat', 'joke', 'dark', 'secret', 'sheet'] }, love: { label: 'Séduire', ids: ['dance', 'flirt', 'date', 'couple', 'evening', 'breakup'] }, trade: { label: 'Échanger', ids: ['gift', 'give', 'ask_money', 'steal', 'wake'] }, fight: { label: 'Provoquer', ids: ['punch'] }, mission: { label: 'Mission', ids: ['r2_accept', 'r2_refuse', 'r4_accept', 'dp_calm', 'dp_moe', 'e_lie', 'e_deny', 'e_truth', 'e_silent', 'e_bribe', 'w_silence', 'w_silence_pay'] }, work: { label: 'Travail', ids: ['g_job', 'g_tool', 'g_tommy'] }, debt: { label: 'La dette', ids: ['d_ignore', 'd_help', 'd_who', 'd_police', 'd_pay_all', 'd_pay_part', 'v_ask', 'v_pay', 'v_pay_me', 'v_pay_part', 'v_delay', 'v_threat', 'v_job', 'v_job_yes', 'v_job_no'] } };
 export class HumanUi {
   sig = ''; building = ''; open: SimChar | null = null; barMode = ''; prevSpeed = 1; last = ''; ctxItems: I.Interactable[] = []; hudAcc = 0;
   el!: { hhud: HTMLElement; prompt: HTMLElement; dlg: HTMLElement; inv: HTMLElement; ctx: HTMLElement; flash: HTMLElement };
@@ -39,12 +39,12 @@ export class HumanUi {
   // ---- dialogue
   dialogueOpen() { return this.open !== null; }
   openDialogue(npc: SimChar) {
-    if (this.open) return; I.noteTalk(this.w, npc); this.open = npc; this.barMode = ''; this.sel = 0; this.typed = ''; this.prevSpeed = this.g.speedIndex; this.g.setSpeed(0); this.hideContext(); this.hideInv();
+    if (this.open) return; I.noteTalk(this.w, npc); this.open = npc; this.w.hud_busy = true; this.barMode = ''; this.sel = 0; this.typed = ''; this.prevSpeed = this.g.speedIndex; this.g.setSpeed(0); this.hideContext(); this.hideInv();
     const av = this.w.avatar; npc.facing = this.w.dirFrom({ x: av.pos.x - npc.pos.x, y: av.pos.y - npc.pos.y }, npc.facing);
     const d = I.dialogueOpen(this.w, npc); this.last = `${npc.first} : « ${d.line} »`; this.render(); this.el.dlg.style.display = 'block';
     Nav.open({ id: 'dlg', close: () => this.close(), back: () => { if (this.barMode) { this.barMode = ''; this.render(); return true; } return false; } });
   }
-  close() { Nav.closed('dlg'); if (!this.open) return; this.open = null; this.el.dlg.style.display = 'none'; this.g.setSpeed(this.prevSpeed || 1); }
+  close() { Nav.closed('dlg'); if (!this.open) return; this.open = null; this.w.hud_busy = false; this.el.dlg.style.display = 'none'; this.g.setSpeed(this.prevSpeed || 1); }
   private choices: { id: string; arg?: string; enabled: boolean }[] = [];
   sel = 0; private typed = ''; private typer = 0; private typing = false; private navT = 0;
   /** Texte qui s'écrit vite (≈ 70 caractères/s) ; un toucher sur le texte ou A l'affiche d'un coup. */

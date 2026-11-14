@@ -1,0 +1,21 @@
+/** NORIA — LES ROIS DU VIDE : définitions (données pures) des cinq premières missions. La logique (déclencheurs, conséquences, événements du monde) est dans `campaign.ts`. */
+import type { ObjDef, QuestDef } from './quests';
+const O = (id: string, text: string, ev: string, arg?: string | number, n = 1, where?: string): ObjDef => ({ id, text, ev, arg, n, where });
+export const CAMPAIGN: QuestDef[] = [
+  { id: 'r1', title: '1 · Bienvenue à Noria', desc: "Tommy Blake traîne sur la plage. Il a l'air d'avoir faim, de l'humeur et un peu trop de problèmes : un bon premier contact.", cat: 'principale', chapter: 2, requires: ['c1m1'], mode: 'ordered', limit: 420,
+    objectives: [O('beach', 'Descendre sur la plage', 'zone', 'beach', 1, 'Noria Beach'), O('tommy', 'Trouver Tommy Blake', 'talk', 'Tommy', 1, 'Plage · garage de Léo'), O('buy', 'Acheter un sandwich à la supérette', 'buy', 'sandwich', 1, 'Supérette · rayon'), O('gift', 'Offrir le sandwich à Tommy', 'gift_to', 'Tommy', 1, 'Dialogue › Échanger › Offrir')],
+    reward: { money: 60, rep: 2, text: 'Tommy vous fait confiance' }, fail: 'Tommy a faim et vous a oublié. Il sera plus distant.' },
+  { id: 'r2', title: '2 · Un petit service', desc: 'Tommy a un colis à faire passer à Maya, au Zinc Club. Discret. Il ne dit pas ce qu\'il y a dedans. Quelqu\'un pourrait vous demander ce que vous transportez.', cat: 'principale', chapter: 2, requires: ['r1'], mode: 'ordered', limit: 600, failOn: ['r2_lost'],
+    objectives: [O('ask', 'Retrouver Tommy : il a un service à demander', 'talk', 'Tommy', 1, 'Plage'), O('take', 'Accepter le colis', 'r2_take', undefined, 1, 'Dialogue › Mission'), O('deliver', 'Livrer le colis à Maya Torres', 'delivered', 'Maya', 1, 'Zinc Club · le soir')],
+    reward: { money: 80, rep: 3, text: 'Un service rendu : Tommy gagne du temps' }, fail: 'Le colis n\'est jamais arrivé. Tommy va payer pour ça.' },
+  { id: 'r3', title: '3 · Les mauvaises fréquentations', desc: "L'échéance de Tommy approche. Victor Kane vient réclamer ses 5 000 €. Soyez là, et trouvez comment éviter le pire.", cat: 'principale', chapter: 2, requires: ['r2'], mode: 'ordered', limit: 2880, failOn: ['debt_beaten'],
+    objectives: [O('see', 'Être là quand Victor Kane réclame son dû à Tommy', 'debt_threat', undefined, 1, 'Plage · le soir (à partir de 17 h 30)'), O('save', 'Dénouer la situation sans que Tommy soit passé à tabac', 'debt_resolved', undefined, 1, 'Payer, négocier, se battre, la police…')],
+    reward: { money: 150, rep: 4, text: 'Vous avez changé le cours de la soirée' }, fail: 'Tommy a été passé à tabac. Victor reviendra.' },
+  { id: 'r4', title: '4 · Une nuit au Mirage', desc: 'Le Zinc Club devient le Mirage la nuit. Maya chante, Roxanne Bell surveille tout, et une dispute couve. Montrez-vous.', cat: 'principale', chapter: 2, requires: ['r3'], mode: 'ordered', limit: 480, failOn: ['r4_ko'],
+    objectives: [O('enter', 'Entrer au Zinc Club après 22 h', 'zone', 'club_night', 1, 'Zinc Club · après 22 h'), O('maya', 'Parler à Maya Torres', 'talk', 'Maya', 1, 'Au club'), O('social', 'Danser ou flirter', 'club_social', undefined, 1, 'Dialogue › Séduire'), O('rox', 'Parler à Roxanne Bell et accepter son service', 'r4_accept', undefined, 1, 'Roxanne · Mission'), O('settle', 'Régler la dispute du club', 'dispute_end', undefined, 1, 'Calmer, séparer ou frapper')],
+    reward: { money: 250, rep: 5, text: 'Roxanne Bell se souvient de vous' }, fail: 'La nuit a mal tourné : vous êtes à terre et Roxanne vous regarde de travers.' },
+  { id: 'r5', title: '5 · Personne n\'a rien vu', desc: "La capitaine Reyes enquête sur la bagarre du club. Les témoins ont de la mémoire. Elle veut des noms.", cat: 'principale', chapter: 2, requires: ['r4'], mode: 'ordered', limit: 600, failOn: ['case_arrest'],
+    objectives: [O('elena', 'Vous présenter à Elena Reyes (commissariat)', 'talk', 'Elena', 1, 'Commissariat'), O('clean', 'Faire en sorte que personne ne témoigne contre vous', 'case_clean', undefined, 1, 'Convaincre, payer, mentir… ou tout avouer')],
+    reward: { money: 300, rep: 6, text: 'Personne n\'a rien vu… cette fois' }, fail: 'Les témoignages vous accablent : Elena vous arrête.',
+    epilogue: ["Noria s'endort.", 'Quelque part, un dossier brûle.', 'Et quelque part, Marcus Rivera sourit.'] },
+];

@@ -37,7 +37,7 @@ export function newGame(p: Profile, look: Look, seed = Date.now() % 100000): Wor
   const w = new World(seed); w.build(); for (let i = 0; i < 480; i++) w.tick(0.1);                 // la ville s'éveille
   w.clock = Math.floor(w.clock / 1440) * 1440 + 9 * 60; w.profile = { ...p, createdAt: w.clock }; applyProfile(w, w.profile, look);
   const a = w.avatar; a.money = 450; a.pos = { x: 66.5, y: 28.5 }; a.state = 'idle'; a.plan = []; a.away = false; a.needs = { hunger: 75, energy: 85, bladder: 80, hygiene: 85, social: 60, fun: 60 };
-  w.avatarControlled = true; w.property = { id: 'studio_noria', name: 'Studio Noria', building: 'flats1', rent: 0, since: w.clock };
+  w.dir.on = true; w.avatarControlled = true; w.property = { id: 'studio_noria', name: 'Studio Noria', building: 'flats1', rent: 0, since: w.clock };
   w.stash = { floor_lamp: 1, plant: 2, coffee_table: 1, table: 1, bin: 1 };                         // kit de départ gratuit (en plus des meubles déjà installés : lit, canapé, télé, frigo…)
   Quests.init(w); return w;
 }

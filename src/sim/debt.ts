@@ -98,7 +98,7 @@ export function tick(w: World, dt: number) {
     if (d.vendetta && w.clock >= d.revengeAt && present(v) && w.avatar && !w.avatar.away && w.avatar.kind === 'avatar' && !w.fighters.has(v.id)) { d.vendetta = false; note(w, 'Victor Kane revient pour régler ses comptes avec vous.'); Fight.start(w, v, w.avatar, 'Victor Kane vous cherche.'); return; }
     if (w.clock >= d.due && hour >= 17.5 && hour < 24 && present(t) && present(v) && !w.fighters.has(t.id) && !w.fighters.has(v.id)) {
       d.stage = 'threat'; d.threatAt = w.clock; d.escalated = false; d.lastLine = -1; w.abortPlan(v, 'dette'); v.decision_cooldown = 99; v.plan = [];
-      note(w, 'Victor Kane cherche Tommy Blake : l\'échéance est passée.'); if (dist(w.avatar.pos, t.pos) < 25) w.questToasts.push('Victor Kane s\'approche de Tommy…');
+      note(w, 'Victor Kane cherche Tommy Blake : l\'échéance est passée.'); if (dist(w.avatar.pos, t.pos) < 30) { w.questToasts.push('Victor Kane s\'approche de Tommy…'); Quests.emit(w, 'debt_threat'); }
     }
     return;
   }
@@ -121,7 +121,7 @@ export function tick(w: World, dt: number) {
 /** Après la bagarre : issue selon qui est à terre ou a fui. */
 function afterFight(w: World) {
   const d = w.debt; const t = tommy(w)!, v = victor(w)!; if (w.fighters.has(t.id) || w.fighters.has(v.id)) return;
-  if (t.state === 'ko' || t.hp < 25) { const taken = Math.min(t.money, d.amount); t.money -= taken; v.money += taken; d.amount -= taken; d.due = w.clock + 1440 * 2; d.stage = 'brewing'; d.escalated = false; note(w, `Victor Kane fouille Tommy : ${Math.round(taken)} € de moins, et la dette continue (${Math.round(d.amount)} €).`); v.decision_cooldown = 1; rep(w, 'criminal', 0); w.stats.debt_beaten = 1; return; }
+  if (t.state === 'ko' || t.hp < 25) { const taken = Math.min(t.money, d.amount); t.money -= taken; v.money += taken; d.amount -= taken; d.due = w.clock + 1440 * 2; d.stage = 'brewing'; d.escalated = false; note(w, `Victor Kane fouille Tommy : ${Math.round(taken)} € de moins, et la dette continue (${Math.round(d.amount)} €).`); v.decision_cooldown = 1; rep(w, 'criminal', 0); w.stats.debt_beaten = 1; Quests.emit(w, 'debt_beaten'); return; }
   if (v.state === 'ko' || v.hp < 20) { d.vendetta = true; d.revengeAt = w.clock + 1440; d.stage = 'brewing'; d.due = w.clock + 1440 * 3; d.escalated = false; note(w, 'Victor Kane est à terre. Il n\'oubliera pas ça.'); w.getRel(v.id, w.avatar.id).aff = -60; w.stats.debt_vic_ko = 1; Quests.emit(w, 'debt_resolved'); return; }
   d.stage = 'brewing'; d.escalated = false; d.due = w.clock + 600; note(w, 'La bagarre s\'est éteinte sans vainqueur : Victor Kane reviendra.');
 }

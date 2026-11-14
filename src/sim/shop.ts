@@ -2,6 +2,7 @@
 import { ITEMS } from './interact';
 import * as L from './layout';
 import type { SimChar } from './simchar';
+import * as Quests from './quests';
 import type { World } from './world';
 
 export const PRICE: Record<string, number> = { sandwich: 3, chips: 2, bonbons: 2, briquet: 4 };
@@ -26,6 +27,7 @@ export function take(w: World, c: SimChar, furnIdx: number, slot: number): strin
 /** Payer tout ce qui est dû. Renvoie le montant payé (0 si rien à payer ou fonds insuffisants). */
 export function pay(w: World, c: SimChar): number {
   const due = owed(c); if (due <= 0) return 0; if (c.money < due) return 0;
+  if (c.kind === 'avatar') for (const [k, n] of Object.entries(c.unpaid)) if (n > 0) Quests.emit(w, 'buy', k);
   c.money -= due; const clerk = w.clerk; if (clerk) clerk.money += due; c.unpaid = {}; w.stats.shop_sales = (w.stats.shop_sales ?? 0) + due; return due;
 }
 /** Un PNJ consomme ce qu'il a acheté (la faim baisse) : les articles volés aussi. */

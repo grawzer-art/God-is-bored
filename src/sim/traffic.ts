@@ -3,7 +3,7 @@
 import type { World } from './world';
 import * as L from './layout';
 
-export interface Car { id: number; lane: number; x: number; dir: 1 | -1; v: number; vmax: number; style: number; stopped: boolean }
+export interface Car { id: number; lane: number; x: number; dir: 1 | -1; v: number; vmax: number; style: number; stopped: boolean; hold?: number }
 export const CAR_LEN = 3;
 export class Traffic {
   cars: Car[] = []; private seed = 91237;
@@ -26,7 +26,7 @@ export class Traffic {
         if (ch.away || ch.state === 'enter' || ch.state === 'exit') continue; const cy = ch.pos.y; if (cy < c.lane - 0.3 || cy > c.lane + 1.3) continue;
         let d = (ch.pos.x - (c.dir > 0 ? c.x + CAR_LEN : c.x)) * c.dir; if (d > -0.2 && d < gap) gap = d;
       }
-      const target = gap < 1.6 ? 0 : gap < 4.5 ? c.vmax * (gap - 1.6) / 2.9 : c.vmax;
+      const target = (c.hold ?? 0) > this.w.clock ? 0 : gap < 1.6 ? 0 : gap < 4.5 ? c.vmax * (gap - 1.6) / 2.9 : c.vmax;
       const acc = target < c.v ? 9 : 2.4; c.v += Math.sign(target - c.v) * Math.min(Math.abs(target - c.v), acc * dt); c.stopped = c.v < 0.05;
       c.x += c.dir * c.v * dt; if (c.dir > 0 && c.x > W + 3) c.x = -CAR_LEN - 1; if (c.dir < 0 && c.x < -CAR_LEN - 3) c.x = W + 1;
     }

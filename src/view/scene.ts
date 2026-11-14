@@ -66,6 +66,7 @@ export class GameScene extends Phaser.Scene {
     if (this.params.get('demo') === 'noria') { w = new World(seed); w.build(); setupNoriaDemo(w); hot = null; this.demo = true; this.demoKind = 'theft'; }
     if (this.params.get('demo') === 'trio') { w = new World(seed); w.build(); setupTrioDemo(w); hot = null; this.demo = true; this.demoKind = 'trio'; }
     if (!w) { w = new World(seed); w.build(); hot = null; }
+    if (!this.demo) w.dir.on = true;   // le directeur d'événements anime les parties réelles (pas les démos ni les tests unitaires)
     this.world = w;
     if (import.meta.hot) import.meta.hot.on('vite:beforeFullReload', () => { try { localStorage.setItem('gib:hot', JSON.stringify({ world: Save.toJSON(this.world), cam: { x: this.tx, y: this.ty, z: this.tz }, speed: this.speedIndex, walls: this.wallMode, sel: this.selectedId, mode: this.mode })); } catch { /* ignore */ } });
     // Nouvelle partie ordinaire : on démarre vers 8 h 30, la maison déjà réveillée (au lieu de 6 h 52 : tout le monde dort et rien ne bouge pendant une heure).

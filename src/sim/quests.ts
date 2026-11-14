@@ -1,12 +1,13 @@
 /** Moteur de quêtes réutilisable. Les quêtes sont des DONNÉES (sérialisables) ; la progression écoute de vrais événements du moteur (`emit`) ; les récompenses agissent sur l'état du monde.
  *  Aucune quête ne bloque l'exploration ni les modes de jeu : elles guident et enrichissent. */
 import type { World } from './world';
+import { CAMPAIGN } from './campaign-data';
 
 export type Cat = 'principale' | 'secondaire' | 'activite' | 'divin';
 export interface ObjDef { id: string; text: string; ev: string; arg?: string | number; n?: number; where?: string }
 export interface Reward { money?: number; rep?: number; unlock?: string[]; text?: string }
-export interface QuestDef { id: string; title: string; desc: string; cat: Cat; chapter?: number; requires?: string[]; mode?: 'all' | 'ordered' | 'any'; objectives: ObjDef[]; reward: Reward; epilogue?: string[] }
-export interface QState { st: 'active' | 'done'; p: number[]; tracked: boolean; t0: number; t1: number; def?: QuestDef; path?: string }
+export interface QuestDef { limit?: number; failOn?: string[]; fail?: string; id: string; title: string; desc: string; cat: Cat; chapter?: number; requires?: string[]; mode?: 'all' | 'ordered' | 'any'; objectives: ObjDef[]; reward: Reward; epilogue?: string[] }
+export interface QState { failed?: boolean; st: 'active' | 'done'; p: number[]; tracked: boolean; t0: number; t1: number; def?: QuestDef; path?: string }
 export interface Progress { reputation: number; chapters: string[]; discoveries: string[]; activities: number; unlocks: string[]; flags: Record<string, number | string> }
 export interface Narration { title: string; lines: string[]; button: string }
 
@@ -40,7 +41,11 @@ export const DEFS: QuestDef[] = [
   { id: 'd3', title: 'Fortune express', desc: 'Offre une fortune à un habitant et observe ce qu\'il en fait.', cat: 'divin', requires: ['c1m5'], mode: 'all', objectives: [O('g', 'Donner 10 000 € ou plus', 'power', 'rich', 1, 'Fiche › Modifier')], reward: { rep: 1 } },
   { id: 'a1', title: 'Livraisons du quartier', desc: 'Des livraisons payées chez le commerçant, quand tu veux.', cat: 'activite', requires: ['c1m3'], mode: 'all', objectives: [O('j', 'Effectuer une livraison', 'job_paid', undefined, 1, 'Mini-marché')], reward: { money: 10 } },
 ];
+DEFS.push(...CAMPAIGN);
 const byId = new Map(DEFS.map((d) => [d.id, d]));
+/** Crochets de mission (déclenchement, réussite, échec) enregistrés par `campaign.ts`. */
+export interface QHooks { start?: (w: World) => void; done?: (w: World, st: QState) => void; fail?: (w: World) => void }
+export const hooks: Record<string, QHooks> = {};
 export const defOf = (w: World, id: string): QuestDef | undefined => w.quests[id]?.def ?? byId.get(id);
 export const newProgress = (): Progress => ({ reputation: 0, chapters: [], discoveries: [], activities: 0, unlocks: [], flags: {} });
 
@@ -49,19 +54,25 @@ export function init(w: World) {
   w.quests = {}; w.progress = newProgress(); w.narrations = [{ title: 'BIENVENUE À NORIA', lines: ['Ta nouvelle vie commence ici.', 'Dans cette ville, tout est possible.', "Fais-toi un nom, gagne de l'argent, rencontre des gens, développe ton influence…", "Et n'oublie pas : tu peux toujours redevenir Dieu."], button: "COMMENCER L'AVENTURE" }];
   lastBMap.set(w, inBuilding(w)); refresh(w); const first = w.quests.c1m1; if (first) { first.tracked = true; progressEv(w, 'enter', inBuilding(w) ?? ''); }
 }
-import { buildingAt } from './layout';
+import { buildingAt, isBeach } from './layout';
 const inBuilding = (w: World) => { const c = w.avatar.cell(); return bAt(c.x, c.y); };
 const bAt = (x: number, y: number) => { const b = buildingAt(x, y); return b ? b.name : null; };
 export const done = (w: World, id: string) => w.quests[id]?.st === 'done';
 /** Active les quêtes dont les prérequis sont remplis. */
 export function refresh(w: World) {
-  for (const d of DEFS) { if (w.quests[d.id]) continue; if ((d.requires ?? []).every((r) => done(w, r))) { w.quests[d.id] = { st: 'active', p: d.objectives.map(() => 0), tracked: d.cat === 'principale', t0: w.clock, t1: 0 }; if (d.id !== 'c1m1') toast(w, `Nouvelle quête : ${d.title}`); } }
+  for (const d of DEFS) { if (w.quests[d.id]) continue; if ((d.requires ?? []).every((r) => done(w, r))) { w.quests[d.id] = { st: 'active', p: d.objectives.map(() => 0), tracked: d.cat === 'principale', t0: w.clock, t1: 0 }; if (d.id !== 'c1m1') toast(w, `Nouvelle quête : ${d.title}`); try { hooks[d.id]?.start?.(w); } catch { /* mission non bloquante */ } } }
 }
 function toast(w: World, text: string) { w.questLog.push({ t: w.clock, text }); if (w.questLog.length > 60) w.questLog.shift(); w.questToasts.push(text); }
 const matches = (o: ObjDef, ev: string, arg: string | number | undefined) => o.ev === ev && (o.arg === undefined || o.arg === arg);
 /** Un événement du moteur s'est produit : fait avancer les objectifs concernés. */
 export function emit(w: World, ev: string, arg?: string | number) { if (!w.quests) return; progressEv(w, ev, arg); }
+/** Échec d'une mission : consignée comme terminée (fermée) mais marquée « échouée » ; conséquences par crochet. */
+export function fail(w: World, id: string, reason?: string) {
+  const st = w.quests[id]; if (!st || st.st !== 'active') return; const d = defOf(w, id)!; st.st = 'done'; st.failed = true; st.t1 = w.clock; w.questDone.push(id);
+  toast(w, `Mission échouée : ${d.title}${reason ? ' — ' + reason : d.fail ? ' — ' + d.fail : ''}`); try { hooks[id]?.fail?.(w); } catch { /* ok */ } refresh(w);
+}
 function progressEv(w: World, ev: string, arg?: string | number) {
+  for (const [id, st] of Object.entries(w.quests)) { if (st.st !== 'active') continue; const d = defOf(w, id); if (d?.failOn?.includes(ev)) fail(w, id); }
   const seen = new Set(Object.entries(w.quests).filter(([, q]) => q.st === 'active').map(([id]) => id));    // une quête qui s'active à cause de cet événement ne le voit pas
   let changed = true; let guard = 0;
   while (changed && guard++ < 6) {
@@ -84,6 +95,7 @@ function finish(w: World, id: string, st: QState, d: QuestDef) {
   a.money += money; pr.reputation += rep; for (const u of r.unlock ?? []) if (!pr.unlocks.includes(u)) pr.unlocks.push(u); if (d.cat === 'activite') pr.activities++;
   if (d.chapter && !pr.chapters.includes(`c${d.chapter}:${id}`)) pr.chapters.push(`c${d.chapter}:${id}`);
   if (id === 'c1m2') { const npcId = Number(pr.flags.lastTalk ?? -1); const npc = w.chars[npcId]; if (npc) { const rl = w.getRel(npc.id, a.id); rl.aff = Math.min(100, rl.aff + 6); rl.fam = Math.min(100, rl.fam + 10); npc.addMemory(w.clock, 'meet', `${a.first} s'est présenté(e) : un nouveau venu dans le quartier.`, 0.4, 0.6, a.id, { src: 'lived', conf: 1, subj: a.id }); pr.flags.firstContact = npc.id; } }
+  try { hooks[id]?.done?.(w, st); } catch { /* ok */ }
   toast(w, `Quête terminée : ${d.title}${money ? ` · +${money} €` : ''}${rep ? ` · réputation ${rep > 0 ? '+' : ''}${rep}` : ''}`); w.questDone.push(id);
   if (d.epilogue) w.narrations.push({ title: 'CHAPITRE 1 TERMINÉ', lines: d.epilogue, button: 'CONTINUER' });
   refresh(w);
@@ -100,8 +112,19 @@ export function tick(w: World) {
   if (!w.quests) return; const a = w.avatar; if (a.away) return; const b = bAt(a.cell().x, a.cell().y); const room = w.roomOf(a.pos);
   const outdoors = 'srg'.includes(room); const key = b ?? (outdoors ? '#out' : null);
   const lastB = lastBMap.get(w) ?? null; if (key !== lastB) { lastBMap.set(w, key); if (key === '#out') progressEv(w, 'outdoor'); else if (key) { progressEv(w, 'enter', key); const pr = w.progress; if (!pr.discoveries.includes(key)) { pr.discoveries.push(key); } } }
+  zones(w); limits(w);
+  if (w.clock - (lastRef.get(w) ?? -1e9) > 10) { lastRef.set(w, w.clock); refresh(w); }   // les parties existantes reçoivent les nouvelles missions
   emergent(w);
 }
+const lastZone = new WeakMap<World, string>(); const lastRef = new WeakMap<World, number>();
+/** Événements de zone : plage, club la nuit, garage… (déclenchent les objectifs « Aller à… »). */
+function zones(w: World) {
+  const a = w.avatar; const c = a.cell(); let z = ''; const b = buildingAt(c.x, c.y); const h = w.hour();
+  if (b?.name === 'bar') z = h >= 22 || h < 4 ? 'club_night' : 'club'; else if (b) z = b.name; else if (isBeach(c.x, c.y)) z = 'beach';
+  const last = lastZone.get(w) ?? ''; if (z !== last) { lastZone.set(w, z); if (z) { progressEv(w, 'zone', z); if (z === 'club_night') progressEv(w, 'zone', 'club'); } }
+}
+/** Délais des missions (minutes de jeu) : passé le délai, la mission échoue avec ses conséquences. */
+function limits(w: World) { for (const [id, st] of Object.entries(w.quests)) { if (st.st !== 'active') continue; const d = defOf(w, id); if (d?.limit && w.clock - st.t0 > d.limit) fail(w, id, 'trop tard'); } }
 const lastEm = new WeakMap<World, number>();
 /** Événements émergents : un habitant a faim et n'a pas les moyens → quête secondaire dynamique « apporte-lui à manger » (dépend de l'état réel du monde). */
 function emergent(w: World) {
