@@ -20,7 +20,7 @@ describe('garage de Léo', () => {
     const w = mk(); w.clock = 10 * 60; const av = w.avatar; const l = Garage.leo(w)!; l.away = false; const bench = w.furn.find((f) => f.id === 'garage_bench')!;
     const opts = Act.furnitureOptions(w, bench.i); const o = opts.find((x) => x.act === 'repair'); expect(o).toBeTruthy(); const m0 = av.money; Garage.onRepairDone(w, av); expect(av.money).toBeGreaterThanOrEqual(m0 + 27); expect(w.rep.pro).toBeGreaterThan(0); expect(w.getRel(l.id, av.id).aff).toBeGreaterThan(0);
     av.money = 100; expect(Garage.buyTool(w, av).ok).toBe(true); expect(av.money).toBe(60); const m1 = av.money; Garage.onRepairDone(w, av); expect(av.money - m1).toBeGreaterThanOrEqual(38); expect(Garage.buyTool(w, av).ok).toBe(false);
-    w.clock = 22 * 60; expect(Act.furnitureOptions(w, bench.i).some((x) => /fermé/.test(x.label))).toBe(true);
+    w.clock = 22 * 60; av.pos = { x: bench.x + 0.5, y: bench.y + 1.5 }; expect(Act.furnitureOptions(w, bench.i).some((x) => /fermé/.test(x.label))).toBe(true);
   });
   it('le dialogue de Léo propose travail, outil et nouvelles de Tommy', () => {
     const w = mk(); w.clock = 10 * 60; const l = Garage.leo(w)!; l.away = false; const ids = Act.dialogueOpen(w, l).choices.map((c) => c.id); expect(ids).toContain('g_job'); expect(ids).toContain('g_tool'); w.avatar.money = 100; Act.choose(w, l, 'g_tool'); expect(w.avatar.inventory.cle).toBe(1);

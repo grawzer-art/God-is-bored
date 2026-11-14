@@ -39,7 +39,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await open(); await press(); await sleep(400); await E(() => window.__gib.toggleMode()); await sleep(300); await E(() => window.__gib.toggleMode()); await sleep(500); await assertStops('aller-retour Dieu / Descendre en tenant'); await touch('touchEnd', []); await assertMoves('après changement de mode');
 
   console.log('\n== 6. Multitouch : joystick tenu pendant que A est pressé');
-  await open(); const ab = await rect('#abtn'); await press(1); await sleep(300); await touch('touchStart', [{ x: arm.x, y: arm.y, id: 1 }, { x: ab.cx, y: ab.cy, id: 2 }]); await sleep(120); await touch('touchEnd', [{ x: ab.cx, y: ab.cy, id: 2 }]); await sleep(300);
+  await open(); await E(() => { window.__gib.world.avatar.pos = { x: 12.5, y: 27.5 }; }); const ab = await rect('#abtn'); await press(1); await sleep(300); await touch('touchStart', [{ x: arm.x, y: arm.y, id: 1 }, { x: ab.cx, y: ab.cy, id: 2 }]); await sleep(120); await touch('touchEnd', [{ x: ab.cx, y: ab.cy, id: 2 }]); await sleep(300);
     const pa = await pos(); await sleep(500); const pb = await pos(); ok(mv(pa, pb) > 0.4, 'le joystick reste actif quand le doigt de A se lève'); await touch('touchEnd', []); await assertStops('puis tout relâché');
 
   console.log('\n== 7. Identifiant de pointeur périmé (fin de toucher jamais reçue)');

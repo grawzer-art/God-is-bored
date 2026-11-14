@@ -317,7 +317,7 @@ export function nearby(w: World, av: SimChar, reach = 1.9): Interactable[] {
   for (const f of w.furn) f.slots.forEach((slot, si) => {
     if (f.users[si] !== -1) return;
     for (const tag of slot.tags) {
-      const act = FURN_ACTS[tag]; if (!act || !ACT[act]) continue; if (act === 'repair' && Garage.closedReason(w)) { out.push({ kind: 'furn', label: `Garage : ${Garage.closedReason(w)}`, d: 9, furn: f.i, slot: si, act: 'idle', stand: slot.stands.map((s) => ({ x: f.x + s[0], y: f.y + s[1] })).find((c) => w.isWalkable(c)) ?? { x: f.x, y: f.y + 1 } } as any); continue; }
+      const act = FURN_ACTS[tag]; if (!act || !ACT[act]) continue; if (act === 'repair' && Garage.closedReason(w)) { if (w.roomOf(av.pos) !== w.roomOf({ x: f.x, y: f.y }) || out.some((o) => o.label.startsWith('Garage :'))) continue; out.push({ kind: 'furn', label: `Garage : ${Garage.closedReason(w)}`, d: 9, furn: f.i, slot: si, act: 'idle', stand: slot.stands.map((s) => ({ x: f.x + s[0], y: f.y + s[1] })).find((c) => w.isWalkable(c)) ?? { x: f.x, y: f.y + 1 } } as any); continue; }
       const st = slot.stands.map((s) => ({ x: f.x + s[0], y: f.y + s[1] })).find((c) => w.isWalkable(c)); if (!st) continue;
       const d = dist({ x: st.x + 0.5, y: st.y + 0.5 }, av.pos); if (d > reach || !lineClear(av.pos, { x: st.x + 0.5, y: st.y + 0.5 })) continue;
       if (act === 'drink' && f.def !== 'stool') continue;
@@ -358,7 +358,7 @@ export function furnitureOptions(w: World, furnIdx: number): Interactable[] {
   f.slots.forEach((slot, si) => {
     if (f.users[si] !== -1) return;
     for (const tag of slot.tags) {
-      const act = FURN_ACTS[tag]; if (!act || !ACT[act]) continue; if (act === 'repair' && Garage.closedReason(w)) { out.push({ kind: 'furn', label: `Garage : ${Garage.closedReason(w)}`, d: 9, furn: f.i, slot: si, act: 'idle', stand: slot.stands.map((s) => ({ x: f.x + s[0], y: f.y + s[1] })).find((c) => w.isWalkable(c)) ?? { x: f.x, y: f.y + 1 } } as any); continue; }
+      const act = FURN_ACTS[tag]; if (!act || !ACT[act]) continue; if (act === 'repair' && Garage.closedReason(w)) { if (w.roomOf(w.avatar.pos) !== w.roomOf({ x: f.x, y: f.y }) || out.some((o) => o.label.startsWith('Garage :'))) continue; out.push({ kind: 'furn', label: `Garage : ${Garage.closedReason(w)}`, d: 9, furn: f.i, slot: si, act: 'idle', stand: slot.stands.map((s) => ({ x: f.x + s[0], y: f.y + s[1] })).find((c) => w.isWalkable(c)) ?? { x: f.x, y: f.y + 1 } } as any); continue; }
       if (act === 'drink' && f.def !== 'stool') continue;
       const st = slot.stands.map((s) => ({ x: f.x + s[0], y: f.y + s[1] })).find((c) => w.isWalkable(c)); if (!st) continue;
       out.push({ kind: 'furn', label: tag === 'shop' ? shelfLabel(w, f.i, si) : FURN_LABELS[tag] ?? ACT[act].label, d: 0, furn: f.i, slot: si, act, stand: st });
