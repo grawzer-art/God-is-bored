@@ -16,7 +16,9 @@ export const list = () => stack.map((e) => e.id);
 export const has = (id: string) => stack.some((e) => e.id === id);
 export const top = () => stack[stack.length - 1];
 /** Ouvre : ferme d'abord les autres fenêtres non « enfant » (jamais deux panneaux l'un sur l'autre). L'enregistrement n'est jamais refusé. */
+let openHook: (() => void) | null = null; export const setOpenHook = (f: (() => void) | null) => { openHook = f; };
 export function open(e: NavEntry): boolean {
+  if (!e.world) { try { openHook?.(); } catch { /* ignoré */ } }
   if (has(e.id)) stack.splice(stack.findIndex((x) => x.id === e.id), 1);
   if (!e.child) for (const o of [...stack]) if (!o.child && o.id !== e.id) { try { o.close(); } catch { /* ignoré */ } closed(o.id); }
   stack.push(e); return true;

@@ -124,6 +124,8 @@ export class MobileUi {
     if (this.active) { this.updateLabels(); this.hud.onMode(this.g.mode); }
   }
   // ---- joystick virtuel analogique (toutes directions, vitesse proportionnelle à l'inclinaison ; un seul doigt, les autres boutons restent libres)
+  /** Remet le joystick et les boutons à zéro (fin ou annulation de toucher, perte de capture, menu, changement de mode, retour d'arrière-plan). Idempotent. */
+  releasePad: () => void = () => {}; releaseButtons: () => void = () => {};
   private bindDpad() {
     const pad = this.el.dpad; const knob = pad.querySelector<HTMLElement>('.jknob')!; let id = -1; const DEAD = 0.12;
     const upd = (e: PointerEvent) => {
@@ -133,16 +135,26 @@ export class MobileUi {
       knob.style.transform = `translate(${vx * R * 0.62}px,${vy * R * 0.62}px)`;
       if (mag === 0) this.g.setAnalog(0, 0, 0); else { const l = Math.hypot(vx, vy) || 1; this.g.setAnalog(vx / l, vy / l, mag); }
     };
-    const end = (e: PointerEvent) => { if (e.pointerId !== id) return; id = -1; pad.classList.remove('on'); knob.style.transform = ''; this.g.setAnalog(0, 0, 0); };
-    pad.addEventListener('pointerdown', (e) => { if (id >= 0) return; e.preventDefault(); id = e.pointerId; pad.setPointerCapture(id); pad.classList.add('on'); upd(e); });
+    const release = () => { const had = id; id = -1; pad.classList.remove('on'); knob.style.transform = ''; this.g.setAnalog(0, 0, 0); if (had >= 0) { try { if (pad.hasPointerCapture(had)) pad.releasePointerCapture(had); } catch { /* déjà relâché */ } } };
+    this.releasePad = release;
+    const end = (e: PointerEvent) => { if (e.pointerId !== id) return; release(); };
+    pad.addEventListener('pointerdown', (e) => {
+      if (id >= 0) { let live = false; try { live = pad.hasPointerCapture(id); } catch { live = false; } if (live) return; release(); }   // identifiant périmé (fin de toucher perdue) : on reprend la main
+      e.preventDefault(); id = e.pointerId; try { pad.setPointerCapture(id); } catch { /* le toucher a déjà pris fin : on le traite tout de même, la fin sera captée par la fenêtre */ } pad.classList.add('on'); upd(e);
+    });
     pad.addEventListener('pointermove', (e) => { if (e.pointerId === id) upd(e); });
     pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end); pad.addEventListener('lostpointercapture', end);
+    // filets de sécurité : la fin du toucher est aussi écoutée au niveau de la fenêtre (iOS peut perdre un pointerup lors d'un geste système)
+    window.addEventListener('pointerup', end, true); window.addEventListener('pointercancel', end, true);
+    window.addEventListener('touchend', (e) => { if (id >= 0 && e.touches.length === 0) release(); }, true); window.addEventListener('touchcancel', () => { if (id >= 0) release(); }, true);
   }
   // ---- boutons A / B : appui court et appui long
   private bindAB() {
+    const rel: (() => void)[] = []; this.releaseButtons = () => rel.forEach((f) => f());
     const mk = (el: HTMLElement, tap: () => void, hold: () => void, fh?: { down: () => void; up: () => void }) => {
       let timer = 0, held = false, id = -1, fmode = false;
-      el.addEventListener('pointerdown', (e) => { e.preventDefault(); if (id >= 0) return; id = e.pointerId; el.setPointerCapture(id); el.classList.add('on'); held = false; fmode = !!fh && this.g.fighting(); if (fmode) { fh!.down(); return; } timer = window.setTimeout(() => { held = true; hold(); }, 450); });
+      rel.push(() => { const was = id; const wasF = fmode; id = -1; fmode = false; clearTimeout(timer); el.classList.remove('on'); if (wasF && fh) fh.up(); if (was >= 0) { try { if (el.hasPointerCapture(was)) el.releasePointerCapture(was); } catch { /* ok */ } } });
+      el.addEventListener('pointerdown', (e) => { e.preventDefault(); if (id >= 0) { let live = false; try { live = el.hasPointerCapture(id); } catch { live = false; } if (live) return; rel[rel.length - 1](); } id = e.pointerId; try { el.setPointerCapture(id); } catch { /* ok */ } el.classList.add('on'); held = false; fmode = !!fh && this.g.fighting(); if (fmode) { fh!.down(); return; } timer = window.setTimeout(() => { held = true; hold(); }, 450); });
       const end = (e: PointerEvent) => { if (e.pointerId !== id) return; id = -1; clearTimeout(timer); el.classList.remove('on'); if (fmode) { fmode = false; fh!.up(); return; } if (!held && e.type === 'pointerup') tap(); };
       el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
     };

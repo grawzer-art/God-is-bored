@@ -9,7 +9,7 @@ npx vite --port 5173                       # jeu : http://localhost:5173/?fresh&
 npx vitest run                              # 171 tests unitaires
 NODE_PATH=$(npm root -g) npm run e2e:combat # idem : e2e:debt, e2e:god, e2e:romance, e2e:nav, e2e:mobile, e2e:start …
 ```
-Clavier de développement : flèches/ZQSD = déplacement, **E** = interagir, **J** = attaquer (maintenu = coup puissant ; hors combat, J cherche la bagarre avec la personne devant soi), **K** = garde (maintenu), **L** = esquive (+ direction), **Échap/B** = retour, **G** = Dieu ⇄ Descendre.
+Clavier de développement : flèches/ZQSD = déplacement, **E** = interagir, **X** = attaquer (maintenu = coup puissant ; hors combat, X cherche la bagarre avec la personne devant soi), **K** = garde (maintenu), **L** = esquive (+ direction), **Échap/B** = retour, **G** = Dieu ⇄ Descendre.
 
 ## Ce qui est TERMINÉ ET TESTÉ
 **Phase B — dialogues RPG** (`e2e:human`, `e2e:mobile`, `e2e:romance`)

@@ -73,7 +73,7 @@ export class GameScene extends Phaser.Scene {
     const sim = fresh ? 48 : Number(this.params.get('simulate') ?? 0); for (let i = 0; i < Math.floor(sim / 0.1); i++) this.world.tick(0.1);
     if (this.params.has('feast')) { this.world.godEnergy = 100; import('../sim/god').then((G) => { G.feast(this.world); for (let i = 0; i < Number(this.params.get('feast')) * 10; i++) this.world.tick(0.1); }); }
     this.buildView();
-    this.hud = new Hud(this);
+    this.hud = new Hud(this); this.bindInputSafety();
     this.world.onAvatarArrive = (npc) => this.hud.openDialogue(npc); this.hookCrime();
     this.fitCamera();
     this.setupInput();
@@ -110,7 +110,7 @@ export class GameScene extends Phaser.Scene {
   destroyView() {
     this.children.removeAll(true); this.carNodes = []; this.walls = []; this.floorChunks.clear(); this.roofs = []; this.furnNodes.clear(); this.propNodes.clear(); this.feastNodes = []; this.chars = []; this.staticNodes = [];
   }
-  replaceWorld(w: World) { Nav.closeAll(); this.destroyView(); this.world = w; this.buildView(); this.selectedId = -1; this.world.onAvatarArrive = (npc) => this.hud.openDialogue(npc); this.hookCrime(); this.hud.rebind(); this.mode = 'god'; if (w.avatarControlled) this.descend(false); else this.hud.onMode('god'); }
+  replaceWorld(w: World) { this.resetInput('monde'); Nav.closeAll(); this.destroyView(); this.world = w; this.buildView(); this.selectedId = -1; this.world.onAvatarArrive = (npc) => this.hud.openDialogue(npc); this.hookCrime(); this.hud.rebind(); this.mode = 'god'; if (w.avatarControlled) this.descend(false); else this.hud.onMode('god'); }
 
   // ------------------------------------------------------------------ sol : blocs de 16 x 16 cases dessinés à la demande
   // (la ville est trop grande pour un seul canevas : iOS limite à ~16 millions de pixels ; on ne garde en mémoire que les blocs proches de la caméra)
@@ -415,7 +415,7 @@ export class GameScene extends Phaser.Scene {
   private onKey(e: KeyboardEvent, down: boolean) {
     const k = e.key.toLowerCase(); if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'tab'].includes(k)) e.preventDefault();
-    if (['j', 'k', 'l'].includes(k) && (down ? !e.repeat : true)) this.fightKey(k, down);
+    if (['x', 'k', 'l'].includes(k) && (down ? !e.repeat : true)) this.fightKey(k, down);
     if (!down) { this.keys.delete(k); this.syncInput(); return; }
     this.keys.add(k); this.syncInput(); if (e.repeat) return;
     if (this.hud.dialogueOpen() && /^[1-9]$/.test(k)) { this.hud.pickDialogue(Number(k) - 1); return; }
@@ -437,6 +437,19 @@ export class GameScene extends Phaser.Scene {
   }
   /** Touches virtuelles (croix directionnelle tactile) : mêmes effets que le clavier, appuis simultanés cumulés. */
   /** Joystick virtuel : vecteur écran (x droite, y bas) de longueur 0..1. Appliqué immédiatement (sans attendre l'image suivante). */
+  /** Remise à zéro de TOUTES les entrées de déplacement et de combat : clavier, joystick, boutons A/B, garde. À appeler à toute interruption (menu, changement de mode, perte de focus, retour d'arrière-plan, toucher annulé). */
+  resetInput(_why = '') {
+    this.keys.clear(); this.analog = { x: 0, y: 0, mag: 0 }; window.clearTimeout(this.aTimer); this.aDown = 0; this.aHeld = false;
+    if (this.world) { this.world.input = { dx: 0, dy: 0, run: false }; if (Fight.playerFighting(this.world)) Fight.input(this.world, 'guard_off'); }
+    try { this.hud?.mobile?.releasePad(); this.hud?.mobile?.releaseButtons(); } catch { /* interface pas encore prête */ }
+  }
+  /** Surveille les interruptions qui font perdre des événements de fin de toucher ou de touche. */
+  private bindInputSafety() {
+    const reset = (why: string) => () => this.resetInput(why);
+    window.addEventListener('blur', reset('blur')); window.addEventListener('pagehide', reset('pagehide')); window.addEventListener('orientationchange', reset('orientation'));
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.resetInput('hidden'); });
+    Nav.setOpenHook(() => this.resetInput('menu'));
+  }
   setAnalog(x: number, y: number, mag: number) { this.analog = { x, y, mag: Math.min(1, mag * Settings.get().joy) }; this.syncInput(); }
   setVirtualKey(k: string, down: boolean) { if (down) this.keys.add(k); else this.keys.delete(k); this.syncInput(); }
   // ---- bagarre en temps réel : A rapide / maintenu, B garde, B + direction esquive
@@ -446,10 +459,10 @@ export class GameScene extends Phaser.Scene {
   fightAUp() { if (!this.aDown) return; window.clearTimeout(this.aTimer); if (!this.aHeld) Fight.input(this.world, 'quick'); this.aDown = 0; }
   fightBDown() { const a = this.analog; const k = this.world.input; if (a.mag > 0.35 || k.dx !== 0 || k.dy !== 0) { const g = screenDirToGrid(a.mag > 0.35 ? a.x : k.dx, a.mag > 0.35 ? a.y : k.dy); if (Fight.input(this.world, 'dodge', g)) return; } Fight.input(this.world, 'guard_on'); }
   fightBUp() { Fight.input(this.world, 'guard_off'); }
-  /** Clavier (développement) : J attaque (maintenu = puissante), K garde, L esquive. Hors combat, J engage la bagarre avec la personne devant soi. */
+  /** Clavier (développement) : X attaque (maintenu = puissante), K garde, L esquive. Hors combat, X engage la bagarre avec la personne devant soi. */
   private fightKey(k: string, down: boolean) {
     if (this.mode !== 'human' || this.hud.dialogueOpen() || Nav.blocksWorld()) return;
-    if (k === 'j') { if (down) { if (!this.fighting() && !Fight.initiate(this.world, this.world.avatar)) { this.hud.toast('Personne à portée'); return; } this.fightADown(); } else this.fightAUp(); }
+    if (k === 'x') { if (down) { if (!this.fighting() && !Fight.initiate(this.world, this.world.avatar)) { this.hud.toast('Personne à portée'); return; } this.fightADown(); } else this.fightAUp(); }
     else if (k === 'k') { if (down) this.fightBDown(); else this.fightBUp(); }
     else if (k === 'l' && down) { const i = this.world.input; Fight.input(this.world, 'dodge', i.dx || i.dy ? screenDirToGrid(i.dx, i.dy) : undefined); }
   }
@@ -489,7 +502,7 @@ export class GameScene extends Phaser.Scene {
   }
   /** Entrées du mode humain lues à chaque événement clavier (réactif même si l'affichage ralentit). */
   syncInput() {
-    if (this.mode !== 'human') return; const K = this.keys;
+    if (this.mode !== 'human') { this.world.input = { dx: 0, dy: 0, run: false }; return; } const K = this.keys;
     const ix = (K.has('d') || K.has('arrowright') ? 1 : 0) - (K.has('a') || K.has('q') || K.has('arrowleft') ? 1 : 0); const iy = (K.has('s') || K.has('arrowdown') ? 1 : 0) - (K.has('w') || K.has('z') || K.has('arrowup') ? 1 : 0);
     const an = this.analog; const useAn = !ix && !iy && an.mag > 0;
     this.world.input = this.hud.dialogueOpen() ? { dx: 0, dy: 0, run: false } : useAn ? { dx: an.x, dy: an.y, run: this.runLatch, mag: an.mag } : { dx: ix, dy: iy, run: K.has('shift') || this.runLatch, mag: 1 };
@@ -508,17 +521,20 @@ export class GameScene extends Phaser.Scene {
   }
   toggleMode() { Fight.end(this.world, this.world.avatar); if (this.mode === 'god') this.descend(true); else this.ascend(true); }
   descend(flash = true) {
+    this.resetInput('mode');
     const w = this.world; this.mode = 'human'; w.avatarControlled = true; this.selectChar(-1); Quests.emit(w, 'descend'); this.follow = false; this.hud.cancelPower();
     const av = w.avatar; if (av.away) av.away = false; this.hud.onMode('human'); if (flash) this.hud.flash('descend'); this.tz = Math.max(2.0, Math.min(this.tz, 2.4)); const cv = this.chars[av.id]; if (cv) { this.tx = cv.x; this.ty = cv.y - 20; }
     this.hud.toast(this.hud.mobile?.active ? 'Croix : marcher · A : agir · B : inventaire' : 'Vous êtes descendu parmi eux — ZQSD pour marcher, E pour interagir');
   }
   /** INCARNER : prend possession de l'habitant `id` (même monde, même simulation) et passe en vue humaine sur son corps. */
   incarnate(id: number) {
+    this.resetInput('incarnation');
     const w = this.world; const r = Possess.start(w, id); if (!r.ok) { this.hud.toast(r.msg); return false; }
     this.mode = 'human'; w.avatarControlled = true; this.selectChar(-1); this.follow = false; this.hud.cancelPower(); this.hud.onMode('human'); this.hud.flash('descend');
     const cv = this.chars[id]; this.tz = Math.max(2.0, Math.min(this.tz, 2.4)); if (cv) { this.tx = cv.x; this.ty = cv.y - 20; } this.hud.toast(`${r.msg} Quittez son corps avec « Redevenir dieu » : il reprendra sa vie.`); return true;
   }
   ascend(flash = true) {
+    this.resetInput('mode');
     if (this.world.possess) { const r = Possess.end(this.world); if (r.msg) this.hud.toast(r.msg); }
     const w = this.world; this.mode = 'god'; w.avatarControlled = false; Quests.emit(w, 'god'); w.input = { dx: 0, dy: 0, run: false }; this.hud.closeDialogue(); this.hud.onMode('god'); if (flash) this.hud.flash('ascend');
     const r = this.houseRect(); this.tz = Math.max(this.minZoom, Math.min(this.maxZoom, Math.min(this.scale.width / r.w, (this.scale.height - 120) / r.h) * 1.1)); const cv = this.chars[w.avatar.id]; this.tx = cv ? cv.x : this.tx; this.ty = cv ? cv.y - 60 : this.ty;
