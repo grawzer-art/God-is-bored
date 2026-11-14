@@ -15,12 +15,14 @@ import * as Combat from './combat';
 import * as Romance from './romance';
 import * as Fight from './fight';
 import * as Debt from './debt';
+import * as Garage from './garage';
 
 export const ITEMS: Record<string, { label: string; hunger?: number; fun?: number; gift: number; desc: string }> = {
   parcel: { label: 'Colis scellé', gift: 0, desc: 'Un colis à remettre en main propre. Ne l\'ouvrez pas.' },
   sandwich: { label: 'Sandwich', hunger: 35, gift: 2, desc: 'Un sandwich un peu écrasé.' },
   bonbons: { label: 'Bonbons', hunger: 5, fun: 8, gift: 3, desc: 'Un sachet de bonbons acidulés.' },
   briquet: { label: 'Briquet', gift: 0.5, desc: 'Un briquet. Il fonctionne encore.' },
+  cle: { label: 'Clé à molette', gift: 0.5, desc: 'Un bon outil : +40 % de paye au garage.' },
   chips: { label: 'Chips', hunger: 14, fun: 4, gift: 1.5, desc: 'Un paquet de chips.' },
 };
 export const DRINKS: Record<string, { label: string; price: number; drunk: number; fun: number; energy?: number; hunger?: number; social: number }> = {
@@ -80,7 +82,7 @@ export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: C
     { id: 'secret', label: 'Poser une question personnelle', enabled: true, hint: r.aff >= 45 && r.fam >= 40 ? '' : 'trop tôt ?' });
   if (inBar(w, npc) && w.barman && !w.barman.away) ch.push({ id: 'drink', label: 'Offrir un verre (4 €)', enabled: av.money >= 4 });
   if (w.job && w.job.to === npc.id && av.inventory.parcel > 0) ch.unshift({ id: 'deliver', label: 'Remettre le colis', enabled: true, hint: `+${w.job.pay} €` });
-  ch.push({ id: 'steal', label: 'Faire les poches', enabled: npc.money >= 5, hint: 'très risqué' }, ...romanceChoices(w, av, npc), ...debtChoices(w, av, npc), { id: 'punch', label: 'Frapper', enabled: true, hint: 'violence : témoins, police, riposte' }, { id: 'bye', label: 'Partir', enabled: true });
+  ch.push({ id: 'steal', label: 'Faire les poches', enabled: npc.money >= 5, hint: 'très risqué' }, ...romanceChoices(w, av, npc), ...debtChoices(w, av, npc), ...garageChoices(w, av, npc), { id: 'punch', label: 'Frapper', enabled: true, hint: 'violence : témoins, police, riposte' }, { id: 'bye', label: 'Partir', enabled: true });
   return { line, choices: ch };
 }
 
@@ -104,6 +106,11 @@ const pickLine = (w: World, pool: string[][], who: 0 | 1) => w.rng.pick(pool)[wh
 export function pickDeliveryTarget(w: World): SimChar | null { const cs = w.citizens.filter((c) => !c.away); return cs.find((c) => c.job.toLowerCase().includes('café')) ?? cs[0] ?? null; }
 /** Une conversation s'ouvre avec `npc` : événements de quête (parler à un habitant). */
 export function noteTalk(w: World, npc: SimChar) { if (npc.kind === 'resident' || npc.kind === 'citizen') { Quests.emit(w, 'talk', 'person'); w.progress.flags.lastTalk = npc.id; } Quests.emit(w, 'talk', npc.id); Quests.emit(w, 'talk', npc.first); }
+/** Léo, le garagiste : travail, outil, nouvelles de Tommy. */
+function garageChoices(w: World, av: SimChar, npc: SimChar): Choice[] {
+  if (!Garage.isLeo(npc)) return []; const r = rel(w, npc.id, av.id);
+  return [{ id: 'g_job', label: 'Tu as du boulot ?', enabled: true }, { id: 'g_tool', label: `Acheter une clé à molette (${Garage.TOOL_PRICE} €)`, enabled: (av.inventory.cle ?? 0) === 0 && av.money >= Garage.TOOL_PRICE, hint: '+40 % de paye' }, { id: 'g_tommy', label: 'Et Tommy ?', enabled: r.fam >= 5 }];
+}
 /** Choix de la dette de Tommy (scénario émergent) : proposés selon l'état réel du monde et la personne que l'on incarne. */
 function debtChoices(w: World, av: SimChar, npc: SimChar): Choice[] {
   if (!Debt.active(w)) return []; const d = w.debt; const out: Choice[] = [];
@@ -152,6 +159,9 @@ export function choose(w: World, npc: SimChar, id: string, arg = ''): Reply {
     case 'couple': { const r = Romance.ask(w, av, npc); return { line: r.line }; }
     case 'evening': { const r = Romance.evening(w, av, npc); return { line: r.line, close: r.ok }; }
     case 'breakup': { const r = Romance.breakUp(w, av, npc); return { line: r.line, close: r.ok }; }
+    case 'g_job': { const c = Garage.closedReason(w); return { line: c ? `${npc.first} : « On est ${c}. Reviens quand on est ouverts. »` : `${npc.first} : « L'établi du fond est libre, et la voiture sur le cric attend. Chaque réparation : une trentaine d'euros. Plus vite tu es bon, plus je te confie. »` }; }
+    case 'g_tool': { const r = Garage.buyTool(w, av); if (r.ok) bump(w, npc, 2, 2); return { line: r.line }; }
+    case 'g_tommy': { bump(w, npc, 1, 3); return { line: `${npc.first} sourit : « Tommy ? Un bon gars, mais il court après les problèmes. Il rêve d'ouvrir son propre garage. Je lui garde un établi… tant qu'il ne m'attire pas d'ennuis. »` }; }
     case 'd_ignore': { Debt.learnVictor(w, av); w.debt.told = true; Quests.emit(w, 'debt_told'); bump(w, npc, -6, 1); Debt.rep(w, 'social', -1); return { line: `${npc.first} serre la mâchoire : « Génial. Merci pour le soutien. »` }; }
     case 'd_help': { w.debt.told = true; w.debt.helped = true; Quests.emit(w, 'debt_told'); bump(w, npc, 5, 3); return { line: `${npc.first} : « Sérieux ? C'est ${w.debt.amount} € pour un certain Victor Kane. Il me tombera dessus ce soir ou demain. Il traîne sur la plage le soir, ou au Zinc. »` }; }
     case 'd_who': { Debt.learnVictor(w, av); w.debt.told = true; npc.addMemory(w.clock, 'confidence', "J'ai parlé de Victor Kane à quelqu'un.", -0.1, 0.5, av.id); return { line: `${npc.first} baisse la voix : « Victor Kane. Détective. Il se balade avec son badge et fait le sale boulot d'un réseau. Si tu le croises, fais gaffe. »` }; }
@@ -266,8 +276,8 @@ export function useItem(w: World, id: string): string {
 
 const shelfLabel = (w: World, fi: number, si: number) => { const it = Shop.shelfItem(w, fi, si); return it ? `Prendre : ${Shop.itemLabel(it)} (${Shop.PRICE[it]} €)` : 'Prendre un article'; };
 export interface Interactable { kind: 'npc' | 'furn' | 'home' | 'sheet'; label: string; d: number; npc?: SimChar; furn?: number; slot?: number; act?: string; stand?: V2 }
-const FURN_ACTS: Record<string, string> = { shop: 'shop', snack: 'snack', cook: 'cook', toilet: 'toilet', shower: 'shower', wash: 'wash', tv: 'tv', read: 'read', nap: 'nap', bath: 'bath', browse: 'browse', water: 'water', dishes: 'dishes', pray: 'pray', music: 'music', drink: 'drink' };
-const FURN_LABELS: Record<string, string> = { snack: 'Fouiller dans le frigo', cook: 'Cuisiner', toilet: 'Aller aux toilettes', shower: 'Prendre une douche', wash: 'Se laver les mains', tv: 'S\'asseoir et regarder la télé', read: 'Lire', nap: 'Faire une sieste', bath: 'Prendre un bain', browse: 'Feuilleter un livre', water: 'Arroser la plante', dishes: 'Faire la vaisselle', pray: 'Se recueillir devant l\'autel', music: 'Mettre un morceau sur le jukebox', drink: 'S\'asseoir au bar' };
+const FURN_ACTS: Record<string, string> = { shop: 'shop', snack: 'snack', cook: 'cook', toilet: 'toilet', shower: 'shower', wash: 'wash', tv: 'tv', read: 'read', nap: 'nap', bath: 'bath', browse: 'browse', water: 'water', dishes: 'dishes', pray: 'pray', music: 'music', drink: 'drink', repair: 'repair' };
+const FURN_LABELS: Record<string, string> = { repair: 'Travailler au garage (+30 €)', snack: 'Fouiller dans le frigo', cook: 'Cuisiner', toilet: 'Aller aux toilettes', shower: 'Prendre une douche', wash: 'Se laver les mains', tv: 'S\'asseoir et regarder la télé', read: 'Lire', nap: 'Faire une sieste', bath: 'Prendre un bain', browse: 'Feuilleter un livre', water: 'Arroser la plante', dishes: 'Faire la vaisselle', pray: 'Se recueillir devant l\'autel', music: 'Mettre un morceau sur le jukebox', drink: 'S\'asseoir au bar' };
 /** Tout ce que l'avatar peut faire autour de lui, avec distance. */
 export function nearby(w: World, av: SimChar, reach = 1.9): Interactable[] {
   const out: Interactable[] = [];
@@ -275,7 +285,7 @@ export function nearby(w: World, av: SimChar, reach = 1.9): Interactable[] {
   for (const f of w.furn) f.slots.forEach((slot, si) => {
     if (f.users[si] !== -1) return;
     for (const tag of slot.tags) {
-      const act = FURN_ACTS[tag]; if (!act || !ACT[act]) continue;
+      const act = FURN_ACTS[tag]; if (!act || !ACT[act]) continue; if (act === 'repair' && Garage.closedReason(w)) { out.push({ kind: 'furn', label: `Garage : ${Garage.closedReason(w)}`, d: 9, furn: f.i, slot: si, act: 'idle', stand: slot.stands.map((s) => ({ x: f.x + s[0], y: f.y + s[1] })).find((c) => w.isWalkable(c)) ?? { x: f.x, y: f.y + 1 } } as any); continue; }
       const st = slot.stands.map((s) => ({ x: f.x + s[0], y: f.y + s[1] })).find((c) => w.isWalkable(c)); if (!st) continue;
       const d = dist({ x: st.x + 0.5, y: st.y + 0.5 }, av.pos); if (d > reach || !lineClear(av.pos, { x: st.x + 0.5, y: st.y + 0.5 })) continue;
       if (act === 'drink' && f.def !== 'stool') continue;
@@ -316,7 +326,7 @@ export function furnitureOptions(w: World, furnIdx: number): Interactable[] {
   f.slots.forEach((slot, si) => {
     if (f.users[si] !== -1) return;
     for (const tag of slot.tags) {
-      const act = FURN_ACTS[tag]; if (!act || !ACT[act]) continue;
+      const act = FURN_ACTS[tag]; if (!act || !ACT[act]) continue; if (act === 'repair' && Garage.closedReason(w)) { out.push({ kind: 'furn', label: `Garage : ${Garage.closedReason(w)}`, d: 9, furn: f.i, slot: si, act: 'idle', stand: slot.stands.map((s) => ({ x: f.x + s[0], y: f.y + s[1] })).find((c) => w.isWalkable(c)) ?? { x: f.x, y: f.y + 1 } } as any); continue; }
       if (act === 'drink' && f.def !== 'stool') continue;
       const st = slot.stands.map((s) => ({ x: f.x + s[0], y: f.y + s[1] })).find((c) => w.isWalkable(c)); if (!st) continue;
       out.push({ kind: 'furn', label: tag === 'shop' ? shelfLabel(w, f.i, si) : FURN_LABELS[tag] ?? ACT[act].label, d: 0, furn: f.i, slot: si, act, stand: st });

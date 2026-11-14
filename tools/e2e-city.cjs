@@ -17,7 +17,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('\n== 1. Une ville : grande carte, chargement par blocs, population');
   await pg.goto(URL + '?fresh&nohelp&simulate=100&speed=0'); await ready(); await pg.waitForTimeout(2500);
   const info = await E(() => { const g = window.__gib, w = g.world; return { n: w.chars.length, res: w.residents.length, cit: w.citizens.length, pol: w.police.length, clerk: !!w.clerk, chunks: g.floorChunks.size, hour: w.hour() }; });
-  ok(info.n === 21 && info.res === 8 && info.cit === 8 && info.pol === 2 && info.clerk, `21 personnages : ${info.res} habitants, ${info.cit} citoyens, ${info.pol} policiers, un commerçant, l'avatar, le barman`);
+  ok(info.n === 26 && info.res === 8 && info.cit === 13 && info.pol === 2 && info.clerk, `26 personnages : ${info.res} habitants, ${info.cit} citoyens, ${info.pol} policiers, un commerçant, l'avatar, le barman`);
   for (const [x, y] of [[10, 10], [75, 20], [90, 35], [20, 30], [60, 5]]) { await E(([x, y]) => { const g = window.__gib; const p = { x: (x - y) * 32, y: (x + y) * 16 }; g.tx = g.cx = p.x; g.ty = g.cy = p.y; g.tz = g.cz = 0.8; }, [x, y]); await pg.waitForTimeout(500); await E(() => window.__gib.updateFloorChunks(99)); }
   const ch = await E(() => window.__gib.floorChunks.size); ok(ch >= 1 && ch < 28, `sol chargé par blocs de 16×16 : ${ch} blocs en mémoire après un parcours de toute la carte (28 existent)`);
 
@@ -70,7 +70,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await E(() => window.__gib.saveGame()); const snap = await E(() => { const w = window.__gib.world; return { rec: w.record_, money: w.avatar.money, ev: w.events.length, cit: w.citizens.map((c) => [Math.round(c.money)]).join() }; });
   await pg.goto(URL + '?load&nohelp&speed=0'); await ready(); await pg.waitForTimeout(1200);
   const snap2 = await E(() => { const w = window.__gib.world; return { rec: w.record_, money: w.avatar.money, ev: w.events.length, cit: w.citizens.map((c) => [Math.round(c.money)]).join(), n: w.chars.length, mode: window.__gib.mode }; });
-  ok(JSON.stringify(snap.rec) === JSON.stringify(snap2.rec) && snap.money === snap2.money && snap.ev === snap2.ev && snap.cit === snap2.cit && snap2.n === 21, 'casier, argent, événements et citoyens identiques après rechargement');
+  ok(JSON.stringify(snap.rec) === JSON.stringify(snap2.rec) && snap.money === snap2.money && snap.ev === snap2.ev && snap.cit === snap2.cit && snap2.n === 26, 'casier, argent, événements et citoyens identiques après rechargement');
 
   console.log('\n== 8. Des citoyens qui vivent dans les rues (rendu réel)');
   await pg.goto(URL + '?fresh&nohelp&simulate=130&zoom=0.7&at=70,24&speed=2'); await ready(); await pg.waitForTimeout(2500);

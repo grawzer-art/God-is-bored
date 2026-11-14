@@ -39,7 +39,7 @@ const BRICK = c(0.55, 0.27, 0.25);
 const BAR_WINDOWS = [33, 35, 40, 43, 46, 48];
 const WINDOWS_N = [2, 5, 9, 12, 16, 19, 23, 26], WINDOWS_W = [4, 12, 16], DOOR_W = 8;
 const PICTURES_SW = ['5,6', '13,6', '20,6', '7,9', '18,9', '26,9', '3,9'];
-const ROOM_COL: Record<string, C> = { j: c(0.93, 0.86, 0.7), m: c(0.82, 0.76, 0.9), v: c(0.62, 0.84, 0.88), a: c(0.58, 0.72, 0.86), b: c(0.66, 0.8, 0.68), c: c(0.88, 0.7, 0.74), d: c(0.9, 0.79, 0.56), h: c(0.86, 0.82, 0.74), k: c(0.92, 0.89, 0.7), l: c(0.8, 0.55, 0.44), w: c(0.6, 0.83, 0.88), u: c(0.72, 0.74, 0.78), B: c(0.36, 0.2, 0.25), R: c(0.5, 0.55, 0.58), M: c(0.93, 0.9, 0.78), Q: c(0.74, 0.78, 0.86), C: c(0.62, 0.64, 0.68), T: c(0.9, 0.78, 0.6), N: c(0.86, 0.82, 0.74), O: c(0.8, 0.84, 0.88), P: c(0.9, 0.84, 0.72) };
+const ROOM_COL: Record<string, C> = { W: c(0.72, 0.7, 0.66), j: c(0.93, 0.86, 0.7), m: c(0.82, 0.76, 0.9), v: c(0.62, 0.84, 0.88), a: c(0.58, 0.72, 0.86), b: c(0.66, 0.8, 0.68), c: c(0.88, 0.7, 0.74), d: c(0.9, 0.79, 0.56), h: c(0.86, 0.82, 0.74), k: c(0.92, 0.89, 0.7), l: c(0.8, 0.55, 0.44), w: c(0.6, 0.83, 0.88), u: c(0.72, 0.74, 0.78), B: c(0.36, 0.2, 0.25), R: c(0.5, 0.55, 0.58), M: c(0.93, 0.9, 0.78), Q: c(0.74, 0.78, 0.86), C: c(0.62, 0.64, 0.68), T: c(0.9, 0.78, 0.6), N: c(0.86, 0.82, 0.74), O: c(0.8, 0.84, 0.88), P: c(0.9, 0.84, 0.72) };
 const WALLCOL: Record<string, C> = { brick: c(0.68, 0.32, 0.25), concrete: c(0.66, 0.68, 0.72), beige: c(0.9, 0.78, 0.55), blue: c(0.38, 0.52, 0.76), cream: c(0.95, 0.88, 0.7) };
 const OUTSIDE = c(0.7, 0.66, 0.62);
 const hashStr = (t: string) => { let h = 7; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return Math.abs(h); };
@@ -210,7 +210,7 @@ export class GameScene extends Phaser.Scene {
     const front = !se; const rel = se ? cy - b.y0 : cx - b.x0; const len = se ? b.y1 - b.y0 : b.x1 - b.x0; const dh = hashStr(b.name);
     const dx = b.door ? Math.abs((front ? cx : cy) - (front ? b.door[0] : b.door[1])) : 99; const nearDoor = front && dx <= 1;
     const v = Math.floor(hash2(cx * 3 + 1, cy * 5 + 2, dh) * 16); let pane: ExtSpec['pane'] = 'none'; let poster = 0;
-    const shopKind = k === 'store' || k === 'cafe' || k === 'bar';
+    const shopKind = k === 'store' || k === 'cafe' || k === 'bar' || k === 'garage';
     if (rel > 0 && rel < len) {
       if (shopKind) { if (front && !nearDoor && rel % 2 === 1) pane = 'shop'; else if (!front && rel % 3 === 1) pane = 'win'; }
       else if (k === 'hotel') { if (rel % 2 === 1 && !(front && nearDoor)) pane = 'win'; } else if (rel % 3 === 1 && !nearDoor) pane = 'win';

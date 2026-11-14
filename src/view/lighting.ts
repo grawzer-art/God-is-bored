@@ -33,7 +33,7 @@ export class Lighting {
       const rad = r === 'h' ? 330 : (Math.max(sw, sh) * 0.5 + 2.6) * 46;
       for (const p of pts) { const s = toScreen(p.x, p.y); this.lights.push({ x: s.x, y: s.y - 34, r: rad, color: r === 'B' ? 0xff9a55 : 0xffd694, energy: 0, room: r, kind: 'room' }); }
     }
-    const NEON: Record<string, number> = { hotel: 0xffc86b, club: 0xff3fd0, bar: 0xff4fb0, cafe: 0xffb347, store: 0x59f0a0, police: 0x5b8cff, apartment: 0xffd694 };
+    const NEON: Record<string, number> = { hotel: 0xffc86b, club: 0xff3fd0, bar: 0xff4fb0, cafe: 0xffb347, store: 0x59f0a0, police: 0x5b8cff, garage: 0xffa23a, apartment: 0xffd694 };
     for (const b of L.BUILDINGS) { if (!b.door || !b.title || !(b.solid || b.style === 'club')) continue; const s = toScreen(b.door[0] + 0.5, b.door[1] + 1.2); const col = NEON[b.style ?? b.kind ?? 'apartment'] ?? 0xffd694; this.lights.push({ x: s.x, y: s.y - 46, r: b.style === 'hotel' ? 200 : b.style === 'club' ? 230 : b.kind === 'apartment' ? 90 : 150, color: col, energy: 0, kind: 'shopneon', room: b.kind ?? '' }); }
     for (const f of world.furn) {
       const d = FURN[f.def];

@@ -6,7 +6,7 @@ const c = (r: number, g: number, b: number): C => [r, g, b];
 export type Material = 'brick' | 'concrete' | 'plaster' | 'cream' | 'blue' | 'deco' | 'seaside';
 export type Pane = 'none' | 'shop' | 'win';
 export interface ExtSpec {
-  m: Material; k: 'store' | 'cafe' | 'bar' | 'police' | 'apartment' | 'home' | 'hotel';
+  m: Material; k: 'store' | 'cafe' | 'bar' | 'police' | 'apartment' | 'home' | 'hotel' | 'garage';
   pane: Pane; v: number; /** variante (déterministe par cellule) */
   floors: number; /** nombre d'étages visibles */
   poster: number; /** 0 = rien ; sinon motif d'affiche / tag */

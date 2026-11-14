@@ -25,7 +25,7 @@ describe('1. un quartier extérieur cohérent et des bâtiments à entrées fonc
     }
   });
   it('chaque entrée est une porte réelle sur la façade, et mène à la bonne pièce', () => {
-    for (const b of L.BUILDINGS.filter((x) => x.solid && !x.decor)) { const [dx, dy] = b.door!; expect(L.isDoor(dx, dy)).toBe(true); expect(L.isOutdoor(dx, dy + 1)).toBe(true); expect('MQTNOP'.includes(L.roomAt(dx, dy))).toBe(true); expect(L.buildingAt(dx, dy)?.name).toBe(b.name); }
+    for (const b of L.BUILDINGS.filter((x) => x.solid && !x.decor)) { const [dx, dy] = b.door!; expect(L.isDoor(dx, dy)).toBe(true); expect(L.isOutdoor(dx, dy + 1)).toBe(true); expect('MQTNOPW'.includes(L.roomAt(dx, dy))).toBe(true); expect(L.buildingAt(dx, dy)?.name).toBe(b.name); }
     expect(L.roomAt(61, 12)).toBe('M'); expect(L.roomAt(75, 12)).toBe('Q'); expect(L.roomAt(88, 13)).toBe('T'); expect(L.roomAt(79, 11)).toBe('C');
   });
   it('aucun meuble dans un mur ni sur une porte ; tous les emplacements d\'usage sont atteignables', () => {
@@ -42,7 +42,7 @@ describe('1. un quartier extérieur cohérent et des bâtiments à entrées fonc
 
 describe('2. une population qui circule', () => {
   it('19 personnages : 8 habitants, avatar, barman, commerçant, 2 policiers, 6 citoyens ; identifiants d\'origine inchangés', () => {
-    const w = mk(); expect(w.chars.length).toBe(21); expect(w.residents.length).toBe(8); expect(w.police.length).toBe(2); expect(w.citizens.length).toBe(8); expect(w.clerk).toBeDefined();
+    const w = mk(); expect(w.chars.length).toBe(26); expect(w.residents.length).toBe(8); expect(w.police.length).toBe(2); expect(w.citizens.length).toBe(13); expect(w.clerk).toBeDefined();
     w.chars.forEach((c, i) => expect(c.id).toBe(i)); expect(w.avatar.id).toBe(8); expect(w.barman!.id).toBe(9); for (const c of w.citizens) expect(c.home).toBeTruthy();
   });
   it('les citoyens sortent de chez eux, circulent entre café, épicerie, parc et rues, travaillent, rentrent', () => {
@@ -118,20 +118,20 @@ describe('7. sauvegardes', () => {
     const w = mk(); day(w, 11); const av = w.avatar; put(w, av, 61.5, 19.5); av.unpaid = { sandwich: 2 }; put(w, w.clerk!, 63.5, 15.5); run(w, 12);
     w.record_.arrests = 2; w.record_.fines = 80; w.wanted.level = 2; w.wanted.heat = w.clock + 50; av.unpaid = { chips: 1 };
     const d = JSON.parse(JSON.stringify(toJSON(w))); const w2 = fromJSON(d)!; expect(w2).not.toBeNull();
-    expect(w2.wanted).toEqual(w.wanted); expect(w2.record_).toEqual(w.record_); expect(w2.dispatches).toEqual(w.dispatches); expect(w2.avatar.unpaid).toEqual({ chips: 1 }); expect(w2.chars.length).toBe(21);
+    expect(w2.wanted).toEqual(w.wanted); expect(w2.record_).toEqual(w.record_); expect(w2.dispatches).toEqual(w.dispatches); expect(w2.avatar.unpaid).toEqual({ chips: 1 }); expect(w2.chars.length).toBe(26);
     for (const c of w.citizens) { expect(w2.chars[c.id].home).toEqual(c.home); expect(w2.chars[c.id].money).toBe(c.money); }
     run(w2, 600); expect(w2.chars.every((c) => Number.isFinite(c.pos.x))).toBe(true);
     w.jail = { until: w.clock + 30 }; const w3 = fromJSON(JSON.parse(JSON.stringify(toJSON(w))))!; expect(w3.jail).toEqual(w.jail);
   });
   it('les anciennes parties (10 personnages, carte d\'origine) se chargent dans la nouvelle ville', () => {
     const w = mk(); run(w, 300); const d: any = JSON.parse(JSON.stringify(toJSON(w))); delete d.crime; d.chars = d.chars.slice(0, 10); for (const c of d.chars) { delete c.hp; delete c.unpaid; delete c.task; delete c.place; delete c.home; delete c.dutyPost; }
-    const w2 = fromJSON(d)!; expect(w2).not.toBeNull(); expect(w2.chars.length).toBe(21); expect(w2.citizens.length).toBe(8); run(w2, 600); expect(w2.residents.every((c) => Number.isFinite(c.money))).toBe(true);
+    const w2 = fromJSON(d)!; expect(w2).not.toBeNull(); expect(w2.chars.length).toBe(26); expect(w2.citizens.length).toBe(13); run(w2, 600); expect(w2.residents.every((c) => Number.isFinite(c.money))).toBe(true);
   });
 });
 
 describe('8. performance', () => {
   it('3 jours de ville complète en moins de 12 s ; population constante ; mémoires bornées', () => {
-    const w = mk(); const t = performance.now(); run(w, 3 * 1440); expect(performance.now() - t).toBeLessThan(12000); expect(w.chars.length).toBe(21);
+    const w = mk(); const t = performance.now(); run(w, 3 * 1440); expect(performance.now() - t).toBeLessThan(12000); expect(w.chars.length).toBe(26);
     for (const c of w.chars) { expect(c.memories.length).toBeLessThanOrEqual(60); for (const v of Object.values(c.needs)) expect(Number.isFinite(v)).toBe(true); }
   });
 });

@@ -24,7 +24,7 @@ const HOUSE: string[] = [
 export const W = 96;
 export const H = 40;
 /** Bâtiments : murs hauts sur les bords nord et ouest (vus de dos), bas ailleurs ; front = hauteur de façade. */
-export interface Building { name: string; x0: number; y0: number; x1: number; y1: number; front: number; kind?: 'home' | 'bar' | 'store' | 'police' | 'cafe' | 'apartment'; solid?: boolean; /** coque : bâtiment ancien dont la carte intérieure est fixe mais qui reçoit façade et toit */ shell?: boolean; /** identité : hôtel (étages, balcons, rooftop) ou club (néons) */ style?: 'hotel' | 'club'; /** îlot décoratif : façade et toit, pas d'entrée (la ville continue) */ decor?: boolean; h?: number; wall?: 'brick' | 'concrete' | 'beige' | 'blue' | 'cream'; roof?: string; title?: string; door?: [number, number] }
+export interface Building { name: string; x0: number; y0: number; x1: number; y1: number; front: number; kind?: 'home' | 'bar' | 'store' | 'police' | 'cafe' | 'apartment' | 'garage'; solid?: boolean; /** coque : bâtiment ancien dont la carte intérieure est fixe mais qui reçoit façade et toit */ shell?: boolean; /** identité : hôtel (étages, balcons, rooftop) ou club (néons) */ style?: 'hotel' | 'club'; /** îlot décoratif : façade et toit, pas d'entrée (la ville continue) */ decor?: boolean; h?: number; wall?: 'brick' | 'concrete' | 'beige' | 'blue' | 'cream'; roof?: string; title?: string; door?: [number, number] }
 export const BUILDINGS: Building[] = [
   { name: 'house', x0: 0, y0: 0, x1: 28, y1: 18, front: 24, kind: 'home', shell: true, h: 96, wall: 'cream', roof: '#b4573f', title: 'FOYER BONHEUR™', door: [16, 18] },
   { name: 'bar', x0: 31, y0: 8, x1: 49, y1: 18, front: 44, kind: 'bar', shell: true, h: 84, wall: 'brick', roof: '#4a2c3a', title: 'ZINC CLUB', door: [38, 18], style: 'club' },
@@ -40,11 +40,11 @@ export const BUILDINGS: Building[] = [
   { name: 'blockN2', x0: 41, y0: 0, x1: 49, y1: 6, front: 120, kind: 'apartment', solid: true, decor: true, h: 132, wall: 'beige', roof: '#4a5568' },
   { name: 'blockE1', x0: 57, y0: 1, x1: 66, y1: 6, front: 110, kind: 'apartment', solid: true, decor: true, h: 120, wall: 'concrete', roof: '#5a606c' },
   { name: 'blockE2', x0: 68, y0: 0, x1: 82, y1: 6, front: 150, kind: 'apartment', solid: true, decor: true, h: 160, wall: 'cream', roof: '#38445a' },
-  { name: 'blockE3', x0: 84, y0: 1, x1: 94, y1: 6, front: 96, kind: 'apartment', solid: true, decor: true, h: 108, wall: 'brick', roof: '#6a4a40' },
+  { name: 'garage', x0: 84, y0: 1, x1: 94, y1: 6, front: 100, kind: 'garage', solid: true, h: 100, wall: 'concrete', roof: '#6a5a4a', title: 'GARAGE LÉO', door: [89, 6] },
 ];
 export const OUTDOOR = 'srgynzq';
 /** Pièces des nouveaux bâtiments : M épicerie, Q commissariat, C cellule, T café, N/O/P halls d'immeubles (une lettre par pièce : l'éclairage se calcule par lettre). */
-export const CITY_ROOMS = 'MQCTNOPjmv';
+export const CITY_ROOMS = 'MQCTNOPjmvW';
 function buildMap(): string[] {
   const g: string[][] = Array.from({ length: H }, () => Array(W).fill('g'));
   for (let x = 0; x < W; x++) { g[19][x] = 's'; g[20][x] = 'r'; g[21][x] = 'r'; g[22][x] = 's'; }
@@ -82,7 +82,7 @@ function applyCity(g: string[][]) {
   rect(52, 20, 55, 21, 'r'); rect(52, 34, 55, 35, 'r');
   // bâtiments : murs sur le pourtour, sol d'une lettre unique, porte « X » sur la façade sud
   for (const b of BUILDINGS) {
-    if (!b.solid) continue; const room = ({ store: 'M', police: 'Q', cafe: 'T' } as Record<string, string>)[b.kind!] ?? ({ flats1: 'N', flats2: 'O', flats3: 'P' } as Record<string, string>)[b.name];
+    if (!b.solid) continue; const room = ({ store: 'M', police: 'Q', cafe: 'T', garage: 'W' } as Record<string, string>)[b.kind!] ?? ({ flats1: 'N', flats2: 'O', flats3: 'P' } as Record<string, string>)[b.name];
     rect(b.x0, b.y0, b.x1, b.y1, '#'); if (!b.decor) rect(b.x0 + 1, b.y0 + 1, b.x1 - 1, b.y1 - 1, room); if (b.door) set(b.door[0], b.door[1], 'X');
   }
   // « Les Mouettes » : le rez-de-chaussée est un appartement habitable (séjour-cuisine j, chambre m, salle de bains v) derrière un couloir d'entrée N
@@ -173,6 +173,8 @@ export function furniture(): FurnPlacement[] {
   f.push(P('hydrant', 59, 19), P('mailbox', 65, 19), P('vending', 78, 19), P('phone_booth', 71, 19), P('kiosk', 84, 19), P('planter', 91, 19, { style: 1 }), P('bike_rack', 67, 19), P('planter', 57, 19, { style: 3 }));
   f.push(P('billboard', 71, 23, { style: 0 }), P('billboard', 85, 23, { style: 4 }), P('billboard', 60, 23, { style: 2 }), P('dumpster', 68, 23), P('billboard', 13, 23, { style: 1 }), P('billboard', 46, 23, { style: 5 }));
   [[62, 35, 0], [70, 35, 1], [86, 35, 2], [66, 34, 3], [90, 34, 5], [74, 34, 6], [58, 34, 4]].forEach(([x, y, st]) => f.push(P('car_p', x, y, { style: st })));
+  // Garage de Léo (x85..93, y2..5) : établis, voiture sur cric, outils, comptoir
+  f.push(P('tool_cab', 85, 2), P('tire_stack', 87, 2), P('tire_stack', 88, 2), P('tool_cab', 93, 2), P('repair_car', 85, 4, { style: 3, id: 'garage_car' }), P('workbench', 90, 3, { id: 'garage_bench' }), P('workbench', 92, 3), P('shop_counter', 90, 5, { id: 'garage_counter' }), P('plant', 86, 2, { style: 0 }));
   // hall de l'hôtel (ajouté en fin de liste : ne décale aucun meuble des anciennes parties)
   f.push(P('shop_counter', 76, 26, { id: 'hotel_desk' }), P('floor_lamp', 74, 26), P('floor_lamp', 80, 27), P('plant', 73, 30, { style: 1 }), P('plant', 80, 30, { style: 0 }));
   f.push(P('hydrant', 64, 33), P('mailbox', 79, 33), P('planter', 85, 33, { style: 0 }), P('vending', 60, 33), P('hydrant', 92, 36));

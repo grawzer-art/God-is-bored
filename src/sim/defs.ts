@@ -37,6 +37,7 @@ export const ACT: Record<string, ActDef> = {
   bartend: A('Sert au bar', 'use', {}, [9999, 9999], false),
   rest: A('Se repose', 'sit', { energy: 6, fun: 6 }, [20, 60], true),
   shop: A('Regarde les rayons', 'stand', { fun: 3 }, [3, 6], true),
+  repair: A('Répare un moteur', 'use', { energy: -4, fun: 2 }, [18, 26], true),
   pay: A('Paie à la caisse', 'stand', {}, [2, 3], false),
   clerk: A('Tient la caisse', 'stand', {}, [9999, 9999], false),
   patrol: A('Surveille les alentours', 'stand', {}, [6, 12], true),
@@ -97,6 +98,7 @@ export const FURN: Record<string, FurnDef> = {
   streetlamp: F(1, 1, true, [], { light: { h: 84, r: 1.15 } }),
   street_bench: F(2, 1, true), bar_sign: F(1, 1, false, [], { light: { h: 70, r: 1.7 } }),
   tree: F(1, 1, true), bush: F(1, 1, true), palm: F(1, 1, true), parasol: F(1, 1, true),
+  workbench: F(2, 1, true, [S(['repair'], [[0, 1], [1, 1]], 'stand', 3, [0.5, 0.45])]), repair_car: F(3, 1, true, [S(['repair'], [[1, 1], [2, 1]], 'stand', 3, [1.5, 0.45])]), tire_stack: F(1, 1, true), tool_cab: F(1, 1, true),
   tiki_bar: F(3, 1, true, [], { light: { h: 74, r: 1.5 } }), lifeguard: F(1, 1, true), volley_net: F(3, 1, false), surf_rack: F(2, 1, true), towel: F(1, 1, false), icecream: F(1, 1, true, [], { light: { h: 60, r: 1.0 } }),
   lounger: F(2, 1, true, [S(['sit'], [[0, 1]], 'sit', 3, [0.5, 0.45]), S(['sit'], [[1, 1]], 'sit', 3, [1.5, 0.45])]),
   // --- mobilier de rue varié

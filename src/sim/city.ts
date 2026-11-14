@@ -9,7 +9,7 @@ import type { Look } from './roster';
 import { SimChar } from './simchar';
 import { dist, type Furn, type World } from './world';
 
-type Where = 'home' | 'office' | 'cafeWork' | 'cafe' | 'store' | 'park' | 'route' | 'bar';
+type Where = 'home' | 'office' | 'cafeWork' | 'cafe' | 'store' | 'park' | 'route' | 'bar' | 'garage' | 'door';
 interface Spec { secret?: string; name: string; age: number; gender: 'F' | 'M'; job: string; bio: string; look: Look; traits: SimChar['traits']; money: number; home: 'flats1' | 'flats2' | 'flats3'; wage: number; sched: [number, number, Where][]; chrono: number }
 const LK = (o: Partial<Look>): Look => ({ skin: 1, hair: 'short', hair_color: 'darkbrown', top: 'tee', top_color: 'gray', bottom: 'jeans', bottom_color: 'dark', shoes: 'brown', build: 0, height: 0, acc: 'none', ...o });
 const T = (extraversion: number, agreeableness: number, neuroticism: number, orderliness: number, openness: number) => ({ extraversion, agreeableness, neuroticism, orderliness, openness });
@@ -29,12 +29,22 @@ export const CITIZENS: Spec[] = [
   { name: 'Yasmine Haddad', age: 22, gender: 'F', job: 'Étudiante', bio: 'Révise au café, rêve de partir, parle trop vite.', home: 'flats2', wage: 0, money: 30, chrono: 0.6, traits: T(0.55, 0.7, 0.65, 0.45, 0.85),
     look: LK({ skin: 3, hair: 'afro', hair_color: 'black', top: 'jacket', top_color: 'purple', bottom: 'jeans', bottom_color: 'light', shoes: 'white' }), sched: [[8.5, 11, 'cafe'], [11, 11.8, 'store'], [12, 13.5, 'park'], [13.6, 17.5, 'cafe'], [17.5, 20.5, 'park']] },
   { name: 'Tommy Blake', age: 26, gender: 'M', job: 'Livreur', bio: "Drôle, impulsif, toujours un mot pour rire. Livre des colis sur la plage et rêve d'ouvrir un garage.", secret: "Il livre des colis dont il ne connaît pas le contenu, et doit de l'argent à Victor Kane.", home: 'flats1', wage: 0, money: 3, chrono: 0.1, traits: T(0.85, 0.6, 0.55, 0.2, 0.7),
-    look: LK({ skin: 3, hair: 'short', hair_color: 'black', top: 'tee', top_color: 'orange', bottom: 'shorts', bottom_color: 'navy', shoes: 'white', acc: 'cap', build: 0 }), sched: [[8.8, 19, 'route'], [19, 22.5, 'park']] },
+    look: LK({ skin: 3, hair: 'short', hair_color: 'black', top: 'tee', top_color: 'orange', bottom: 'shorts', bottom_color: 'navy', shoes: 'white', acc: 'cap', build: 0 }), sched: [[8.8, 12, 'route'], [12, 15, 'garage'], [15, 19, 'route'], [19, 22.5, 'park']] },
   // --- personnages ajoutés en fin de liste (les anciennes sauvegardes restent chargeables : leurs identifiants ne bougent pas)
   { name: 'Victor Kane', age: 45, gender: 'M', job: 'Détective', bio: 'Poli, patient, toujours bien habillé. On dit qu\'il règle les problèmes des autres… contre un service.', secret: "Détective corrompu : il récupère les dettes d'un réseau criminel et ferme les yeux sur ses affaires.", home: 'flats2', wage: 0, money: 900, chrono: 0.3, traits: T(0.45, 0.15, 0.2, 0.9, 0.5),
     look: LK({ skin: 0, hair: 'short', hair_color: 'darkbrown', top: 'blazer', top_color: 'navy', bottom: 'jeans', bottom_color: 'dark', shoes: 'black', acc: 'shades', build: 1, beard: 'stubble' }), sched: [[10, 12, 'route'], [12, 13.2, 'cafe'], [19, 22, 'park'], [22, 26, 'bar']] },
   { name: 'Maya Torres', age: 28, gender: 'F', job: 'Chanteuse', bio: 'Voix rauque, regard franc : elle chante au Zinc Club et rêve de plus grand.', secret: 'Elle a quitté sa famille sans prévenir et ne répond plus à sa mère.', home: 'flats3', wage: 0, money: 80, chrono: 0.6, traits: T(0.85, 0.65, 0.4, 0.35, 0.8),
     look: LK({ skin: 3, hair: 'long', hair_color: 'black', top: 'tank', top_color: 'burgundy', bottom: 'skirt', bottom_color: 'dark', shoes: 'black', acc: 'earrings', accs: ['earrings'] }), sched: [[13, 17, 'cafe'], [17, 19, 'park'], [19, 26, 'bar']] },
+  { name: 'Léo Ferreira', age: 52, gender: 'M', job: 'Garagiste', bio: 'Mains noires, mémoire de comptable. Il répare tout ce qui roule et se méfie de tout ce qui brille.', secret: 'Il a déjà maquillé la carrosserie de voitures volantes pour un réseau, il y a dix ans. Il le regrette.', home: 'flats3', wage: 0, money: 400, chrono: -0.5, traits: T(0.4, 0.55, 0.3, 0.85, 0.35),
+    look: LK({ skin: 2, hair: 'short', hair_color: 'gray', top: 'tee', top_color: 'olive', bottom: 'jeans', bottom_color: 'dark', shoes: 'brown', build: 1, beard: 'stubble' }), sched: [[8, 19, 'garage'], [19, 21, 'park']] },
+  { name: 'Roxanne Bell', age: 36, gender: 'F', job: 'Patronne du Mirage Club', bio: 'Magnétique, calculatrice, drôle. Elle connaît le prix de tout le monde.', secret: 'Elle protège un informateur de la police et ment à tout le monde sur qui.', home: 'flats2', wage: 0, money: 1500, chrono: 0.8, traits: T(0.85, 0.35, 0.3, 0.7, 0.6),
+    look: LK({ skin: 3, hair: 'long', hair_color: 'burgundy', top: 'blazer', top_color: 'burgundy', bottom: 'skirt', bottom_color: 'dark', shoes: 'black', acc: 'earrings', accs: ['earrings'] }), sched: [[18, 27, 'bar']] },
+  { name: 'Marcus Rivera', age: 39, gender: 'M', job: 'Entrepreneur', bio: "Le visage souriant de la réussite à Noria. On dit qu'il possède la moitié du front de mer.", secret: 'Son empire repose sur un réseau de recouvrement et de contrebande dont Victor Kane est le bras armé.', home: 'flats2', wage: 0, money: 90000, chrono: 0.2, traits: T(0.75, 0.3, 0.2, 0.8, 0.5),
+    look: LK({ skin: 2, hair: 'short', hair_color: 'black', top: 'blazer', top_color: 'white', bottom: 'jeans', bottom_color: 'navy', shoes: 'white', acc: 'shades', build: 1 }), sched: [[11, 12.8, 'cafe'], [12.8, 15, 'park'], [21, 25, 'bar']] },
+  { name: 'Lena Carter', age: 34, gender: 'F', job: 'Scientifique', bio: 'Brillante, curieuse, obsédée par des mesures qui ne tombent pas juste. Elle note tout.', secret: "Ses instruments détectent des anomalies à Noria : des répétitions, des silences, un bruit de fond impossible.", home: 'flats1', wage: 0, money: 260, chrono: -0.6, traits: T(0.35, 0.65, 0.45, 0.8, 0.95),
+    look: LK({ skin: 1, hair: 'ponytail', hair_color: 'blond', top: 'jacket', top_color: 'white', bottom: 'jeans', bottom_color: 'light', shoes: 'white', acc: 'glasses' }), sched: [[6.5, 9.5, 'park'], [9.5, 10.6, 'cafe'], [15, 17.5, 'park']] },
+  { name: 'Moe Dalton', age: 41, gender: 'M', job: 'Videur', bio: 'Deux mètres de silence. Il ne parle que pour dire non.', secret: 'Il boxait en pro avant une blessure ; il a toujours peur de perdre le contrôle.', home: 'flats3', wage: 0, money: 120, chrono: 0.7, traits: T(0.3, 0.35, 0.2, 0.9, 0.2),
+    look: LK({ skin: 4, hair: 'bald', hair_color: 'black', top: 'jacket', top_color: 'black', bottom: 'jeans', bottom_color: 'dark', shoes: 'black', acc: 'shades', build: 1, height: 1 }), sched: [[20, 27, 'door']] },
 ];
 const POLICE: { name: string; gender: 'F' | 'M'; age: number; look: Look; patrol: boolean }[] = [
   { name: 'Léa Lemaire', gender: 'F', age: 34, patrol: true, look: LK({ skin: 1, hair: 'ponytail', hair_color: 'auburn', top: 'uniform', top_color: 'navy', bottom: 'jeans', bottom_color: 'dark', shoes: 'black', acc: 'cap' }) },
@@ -106,6 +116,15 @@ function planRoute(w: World, c: SimChar): boolean {
   const here = c.cell(); const opts = spots.filter((p) => Math.hypot(p.x - here.x, p.y - here.y) > 10); const p = opts[w.rng.int(0, opts.length - 1)]; const cell = { x: Math.floor(p.x), y: Math.floor(p.y) };
   if (!w.isWalkable(cell)) return false; c.plan = [{ type: 'goto', cell }, { type: 'wait', act: 'look', dur: w.rng.range(3, 8) }]; w.startNextStep(c); return true;
 }
+/** Travail au garage : établi ou voiture sur cric (Léo, Tommy). */
+function planGarage(w: World, c: SimChar): boolean {
+  const s = nearestSlot(w, c, 'repair', (f) => L.buildingAt(f.x, f.y)?.name === 'garage'); if (!s) return false;
+  c.plan = [{ type: 'goto', cell: s.stand }, { type: 'use', furn: s.f, slot: s.s, act: 'repair', stand: s.stand, dur: w.rng.range(40, 90) }]; w.startNextStep(c); return true;
+}
+/** Le videur reste devant la porte du club. */
+function planDoor(w: World, c: SimChar): boolean {
+  if (!w.barOpen()) return false; const cell = { x: 39, y: 19 }; if (!w.isWalkable(cell)) return false; c.plan = [{ type: 'goto', cell }, { type: 'wait', act: 'look', dur: w.rng.range(20, 50) }]; w.startNextStep(c); return true;
+}
 /** Soirée au Zinc Club : tabouret au comptoir ou banquette, un verre, des rencontres. */
 function planBar(w: World, c: SimChar): boolean {
   if (!w.barOpen() || (w.barman && w.barman.away)) return false;
@@ -137,6 +156,8 @@ export function decide(w: World, c: SimChar) {
     case 'cafeWork': if (planCafeWork(w, c)) return; break;
     case 'cafe': if (planCafe(w, c)) return; break;
     case 'bar': if (planBar(w, c)) return; break;
+    case 'garage': if (planGarage(w, c)) return; break;
+    case 'door': if (planDoor(w, c)) return; break;
     case 'store': if (planStore(w, c)) return; if (planPark(w, c)) return; break;
     case 'park': if (planPark(w, c)) return; break;
     case 'route': if (w.rng.randf() < 0.18 && planStore(w, c)) return; if (w.rng.randf() < 0.2 && planCafe(w, c)) return; if (planRoute(w, c)) return; break;
