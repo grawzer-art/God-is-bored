@@ -32,7 +32,8 @@
     "e2e:romance": "node tools/e2e-romance.cjs",
     "e2e:debt": "node tools/e2e-debt.cjs",
     "e2e:god": "node tools/e2e-god.cjs",
-    "e2e:joystick": "node tools/e2e-joystick.cjs"
+    "e2e:joystick": "node tools/e2e-joystick.cjs",
+    "e2e:campaign": "node tools/e2e-campaign.cjs"
   },
   "dependencies": {
     "phaser": "3.90.0"

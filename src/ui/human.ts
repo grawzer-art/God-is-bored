@@ -41,7 +41,7 @@ export class HumanUi {
   openDialogue(npc: SimChar) {
     if (this.open) return; I.noteTalk(this.w, npc); this.open = npc; this.w.hud_busy = true; this.barMode = ''; this.sel = 0; this.typed = ''; this.prevSpeed = this.g.speedIndex; this.g.setSpeed(0); this.hideContext(); this.hideInv();
     const av = this.w.avatar; npc.facing = this.w.dirFrom({ x: av.pos.x - npc.pos.x, y: av.pos.y - npc.pos.y }, npc.facing);
-    const d = I.dialogueOpen(this.w, npc); this.last = `${npc.first} : « ${d.line} »`; this.render(); this.el.dlg.style.display = 'block';
+    const d = I.dialogueOpen(this.w, npc); this.last = `${npc.first} : ${d.line.trim().startsWith('«') ? d.line : '« ' + d.line + ' »'}`; this.render(); this.el.dlg.style.display = 'block';
     Nav.open({ id: 'dlg', close: () => this.close(), back: () => { if (this.barMode) { this.barMode = ''; this.render(); return true; } return false; } });
   }
   close() { Nav.closed('dlg'); if (!this.open) return; this.open = null; this.w.hud_busy = false; this.el.dlg.style.display = 'none'; this.g.setSpeed(this.prevSpeed || 1); }

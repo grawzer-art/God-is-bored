@@ -50,6 +50,7 @@ export const relationLabelToPlayer = (w: World, npc: SimChar) => {
 
 /** Salutation et options selon l'état réel du personnage et sa relation avec vous. */
 export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: Choice[] } {
+  if (Camp.ambushOpen(w, npc)) return { line: '« Tu portes quoi, là ? Un colis ? Pour Tommy, peut-être ? »', choices: campChoices(w, w.avatar, npc) };   // embuscade : seules les quatre réponses comptent
   const av = w.avatar; const r = rel(w, npc.id, av.id); const ch: Choice[] = [];
   if (npc.kind === 'staff') {
     const h = npc.away;
@@ -70,7 +71,7 @@ export function dialogueOpen(w: World, npc: SimChar): { line: string; choices: C
   if (npc.kind === 'police' && Director.checkOpen(w, npc)) return { line: `${npc.first} vous interpelle : « Contrôle de police. Vos papiers, et videz vos poches. »`, choices: [{ id: 'c_obey', label: 'Obtempérer', enabled: true }, { id: 'c_flee', label: 'Fuir', enabled: true, hint: 'poursuite' }] };
   if (npc.kind === 'police') {
     const wanted = w.wanted.level > 0;
-    return { line: wanted ? `${npc.first} vous fixe : « Vous êtes recherché(e). Ne bougez plus. »` : `${npc.first} vous salue d'un signe de tête : « Tout va bien ? »`, choices: [
+    const caseOpen = npc.name === 'Elena Reyes' && !!w.camp.case?.open; return { line: caseOpen ? '« Asseyez-vous. Une bagarre au Zinc Club… vous y étiez ? »' : wanted ? `${npc.first} vous fixe : « Vous êtes recherché(e). Ne bougez plus. »` : `${npc.first} vous salue d'un signe de tête : « Tout va bien ? »`, choices: [...campChoices(w, av, npc), 
       { id: 'surrender', label: 'Se rendre', enabled: wanted, hint: wanted ? 'amende réduite' : 'vous n\'êtes pas recherché(e)' }, { id: 'chat', label: 'Bavarder', enabled: true }, { id: 'bye', label: 'Partir', enabled: true }] };
   }
   if (npc.isAsleep()) return { line: `${npc.first} dort profondément.`, choices: [{ id: 'wake', label: 'Réveiller', enabled: true, hint: 'mauvaise idée' }, { id: 'steal', label: 'Fouiller ses poches', enabled: npc.money >= 5, hint: 'risqué si on vous voit' }, { id: 'bye', label: 'Laisser dormir', enabled: true }] };
